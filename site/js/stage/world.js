@@ -1,9 +1,9 @@
-// The street COOP watches, as data. Pure JS (no three.js), so the WebGL renderer, the 2D
+// The street COOPER watches, as data. Pure JS (no three.js), so the WebGL renderer, the 2D
 // fallback and the overlay all agree on where everything is.
 // Units are metres. +x is right, +y is up, -z is away from the viewer (toward the street).
 
 export const RANGE_X = 17;          // objects wrap around at ±RANGE_X
-export const EYE = [0, 1.55, 8.6];  // "COOP's eye" camera position for chapters 01-03
+export const EYE = [0, 1.55, 8.6];  // "COOPER's eye" camera position for chapters 01-03
 export const RIG = [-2.4, 0, 3.4];  // where the physical rig stands in chapter 04
 
 // id = the tracker ID shown on labels; conf = base detection confidence (illustrative).

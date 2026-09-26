@@ -1,4 +1,4 @@
-// The layer COOP "understands" the scene with: detection brackets, leader-line labels, the
+// The layer COOPER "understands" the scene with: detection brackets, leader-line labels, the
 // velocity vector, the ghost's aim point and trail, and the leader lines of the exploded
 // hardware. Lines go on a 2D canvas; labels are DOM nodes so they stay crisp and can
 // scramble in with anime.js when a target is acquired.
@@ -137,7 +137,7 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const small = W < 700;
 
-    // viewfinder: COOP's own 4:3 frame (640 × 480), strongest in 01 --------------
+    // viewfinder: COOPER's own 4:3 frame (640 × 480), strongest in 01 --------------
     if (s.eye > 0.01) {
       const va = s.eye * (0.45 + 0.55 * s.scan);
       const fh = small ? Math.min(H * 0.22, (W - 48) * 0.75) : Math.min(H * 0.6, (W * 0.62) * 0.75);

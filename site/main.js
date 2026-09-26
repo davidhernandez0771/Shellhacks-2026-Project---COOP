@@ -1,4 +1,4 @@
-// COOP showcase entry. Loads in stages behind the gate so the first paint is tiny:
+// COOPER showcase entry. Loads in stages behind the gate so the first paint is tiny:
 // fonts → anime.js → three.js + the scene → enter → intro.
 
 import { createGate } from "./js/gate.js";
