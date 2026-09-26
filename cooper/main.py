@@ -85,7 +85,6 @@ def main():
     serve_in_background(state, control, cfg.stream, diag=monitor.snapshot, settings=live_settings)
     log.info("Dashboard at http://localhost:%d", cfg.stream.port)
 
-    cam = cfg.camera
     rate = RateMeter()
     infer_ms = latency_ms = None  # smoothed, for diag
     level = "clear"
@@ -122,7 +121,7 @@ def main():
                 lane = cfg.risk.lane
                 state.publish(jpeg.tobytes(), {
                     "fps": round(fps, 1),
-                    "frame": {"w": w, "h": h, "hfov_deg": cam.hfov_deg, "vfov_deg": cam.vfov_deg},
+                    "frame": {"w": w, "h": h},
                     "objects": [_object_json(o) for o in assessment.objects],
                     "risk": {"level": assessment.level, "reason": assessment.reason},
                     "leds": {**leds.state, "mode": leds.mode},

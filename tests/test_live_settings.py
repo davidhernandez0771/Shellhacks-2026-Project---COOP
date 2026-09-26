@@ -157,3 +157,59 @@ def test_works_without_control(tmp_path):
 def test_settings_routes_404_when_not_configured():
     client = create_app(SharedState(), Control()).test_client()
     assert client.get("/api/settings").status_code == 404
+
+
+# ---- the lane (POST /api/lane) ----
+
+NEW_LANE = [[0.40, 0.55], [0.60, 0.55], [0.90, 1.0], [0.10, 1.0]]
+
+
+def test_lane_applies_live_and_logs_it(rig):
+    cfg, control, _, client, path = rig
+    resp = client.post("/api/lane", json={"lane": NEW_LANE})
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["ok"] is True and body["saved"] is False and body["lane"] == NEW_LANE
+    assert cfg.risk.lane == (0.40, 0.55, 0.60, 0.55, 0.90, 1.0, 0.10, 1.0)
+    assert not path.exists()
+    event = control.events_since(0)[-1]
+    assert event["type"] == "lane_changed" and event["lane"] == NEW_LANE and event["saved"] is False
+
+
+def test_lane_save_writes_it_to_the_settings_file(rig):
+    from cooper.settings import load_config
+
+    _, _, _, client, path = rig
+    assert client.post("/api/lane", json={"lane": NEW_LANE, "save": True}).get_json()["saved"] is True
+    assert load_config(path).risk.lane == (0.40, 0.55, 0.60, 0.55, 0.90, 1.0, 0.10, 1.0)
+
+
+def test_settings_report_the_lane_and_its_default(rig):
+    _, _, _, client, _ = rig
+    client.post("/api/lane", json={"lane": NEW_LANE})
+    body = client.get("/api/settings").get_json()
+    assert body["lane"] == NEW_LANE
+    assert body["lane_default"] == [[0.44, 0.6], [0.56, 0.6], [0.79, 1.0], [0.21, 1.0]]
+
+
+@pytest.mark.parametrize("body", [
+    {},                                                               # no lane
+    {"lane": NEW_LANE[:3]},                                           # three corners
+    {"lane": [[0.4, 0.55], [0.6, 0.55], [0.9, 1.0], [0.1]]},          # a corner with one number
+    {"lane": [[0.4, 0.55], [0.6, 0.55], [0.9, 1.0], ["a", 1.0]]},     # not a number
+    {"lane": [[0.4, 0.55], [0.6, 0.55], [1.2, 1.0], [0.1, 1.0]]},     # off the frame
+    {"lane": [[0.4, 1.0], [0.6, 1.0], [0.9, 0.5], [0.1, 0.5]]},       # upside down
+    {"lane": [[0.4, 0.55], [0.6, 0.55], [0.9, 1.0], [True, 1.0]]},    # a boolean
+    {"lane": NEW_LANE, "save": "yes"},
+])
+def test_invalid_lanes_are_rejected_and_nothing_changes(rig, body):
+    cfg, control, _, client, path = rig
+    resp = client.post("/api/lane", json=body)
+    assert resp.status_code == 400 and resp.get_json()["ok"] is False
+    assert cfg.risk.lane == Config().risk.lane
+    assert control.events_since(0) == [] and not path.exists()
+
+
+def test_lane_route_404_without_live_settings():
+    client = create_app(SharedState(), Control()).test_client()
+    assert client.post("/api/lane", json={"lane": NEW_LANE}).status_code == 404

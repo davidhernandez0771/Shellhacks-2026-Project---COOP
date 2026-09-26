@@ -77,7 +77,7 @@ def test_main_runs_one_iteration_and_publishes_status(run_main):
 
     status = client.get("/api/status").get_json()
     assert status["frame_seq"] == 1
-    assert status["frame"]["w"] == 640 and status["frame"]["h"] == 480
+    assert status["frame"] == {"w": 640, "h": 480}
     [obj] = status["objects"]
     assert (obj["id"], obj["label"], obj["conf"], obj["box"]) == (3, "person", 0.87, [100, 60, 180, 260])
     assert obj["level"] == "clear"               # its feet (y = 260) are beyond the lane's far end
@@ -176,18 +176,18 @@ def test_video_stream_waits_for_the_first_frame():
 
 def test_settings_file_is_loaded(run_main, tmp_path, monkeypatch):
     path = tmp_path / "cooper.toml"
-    path.write_text("[camera]\nhfov_deg = 50.0\n", encoding="utf-8")
+    path.write_text("[risk]\nhorizon_s = 1.2\n", encoding="utf-8")
     monkeypatch.setattr("cooper.settings.DEFAULT_PATH", path)
-    status = run_main().test_client().get("/api/status").get_json()
-    assert status["frame"]["hfov_deg"] == 50.0
+    settings = run_main().test_client().get("/api/settings").get_json()
+    assert settings["settings"]["horizon_s"] == 1.2
 
 
 def test_config_flag(run_main, tmp_path, monkeypatch):
     path = tmp_path / "bench.toml"
-    path.write_text("[camera]\nhfov_deg = 55.0\n", encoding="utf-8")
+    path.write_text("[risk]\nhorizon_s = 2.0\n", encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["cooper.main", "--config", str(path)])
-    status = run_main(argv=None).test_client().get("/api/status").get_json()
-    assert status["frame"]["hfov_deg"] == 55.0
+    settings = run_main(argv=None).test_client().get("/api/settings").get_json()
+    assert settings["settings"]["horizon_s"] == 2.0 and settings["file"] == str(path)
 
 
 def test_invalid_settings_file_exits_with_the_error(run_main, tmp_path, monkeypatch, capsys):

@@ -256,7 +256,11 @@ def _parse_text(text, path, saving=False):
         raise SettingsError(f"{what} {path}: {e}; fix or delete the file") from None
 
 
-# ---- live tuning (GET/POST /api/settings) ----
+# ---- live tuning (GET/POST /api/settings, POST /api/lane) ----
+
+def _corners(lane):
+    """Flat (x, y) * 4 -> [[x, y], ...], as the API sends it."""
+    return [[lane[i], lane[i + 1]] for i in range(0, 8, 2)]
 
 # Setting name -> Config section. Names are unique across sections, so the API is flat.
 # Every live setting is a number with an entry in RANGES.
@@ -289,8 +293,38 @@ class LiveSettings:
         return {
             "settings": self.current(),
             "ranges": {key: list(RANGES[(section, key)]) for key, section in LIVE_KEYS.items()},
+            "lane": _corners(self.cfg.risk.lane),
+            "lane_default": _corners(Config().risk.lane),
             "file": str(self.path),
         }
+
+    def update_lane(self, body):
+        """Apply a POST /api/lane body: {"lane": [[x, y] * 4], "save": bool}. Corners are
+        normalized, in order top-left, top-right, bottom-right, bottom-left. Returns
+        {"lane", "saved"}; raises SettingsError (and changes nothing) if it's invalid."""
+        if not isinstance(body, dict):
+            raise SettingsError("body must be a JSON object")
+        save = body.get("save", False)
+        if not isinstance(save, bool):
+            raise SettingsError("save must be true or false")
+        corners = body.get("lane")
+        if (not isinstance(corners, list) or len(corners) != 4
+                or not all(isinstance(c, list) and len(c) == 2 for c in corners)):
+            raise SettingsError("lane must be 4 corners [x, y]: top-left, top-right, bottom-right, bottom-left")
+        flat = [v for c in corners for v in c]
+        if not all(not isinstance(v, bool) and isinstance(v, (int, float)) and math.isfinite(v) for v in flat):
+            raise SettingsError("lane corners must be numbers")
+        lane = tuple(float(v) for v in flat)
+        with self._lock:
+            candidate = copy.deepcopy(self.cfg)
+            candidate.risk.lane = lane
+            validate_config(candidate)
+            if save:
+                save_settings(self.path, {"risk": {"lane": list(lane)}})
+            self.cfg.risk.lane = lane  # the risk judge reads it on the next frame
+        if self._control is not None:
+            self._control.log_event("lane_changed", lane=_corners(lane), saved=save)
+        return {"lane": _corners(lane), "saved": save}
 
     def _validate(self, body):
         if not isinstance(body, dict):

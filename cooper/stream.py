@@ -1,8 +1,8 @@
 """Live MJPEG stream + status API, served to any browser on the network.
 
-The vision loop publishes each frame and its status through SharedState; /api/settings goes
-through cooper.settings.LiveSettings and /api/events through cooper.control.Control. See
-docs/API.md for the wire contract.
+The vision loop publishes each frame and its status through SharedState. /api/settings and
+/api/lane go through cooper.settings.LiveSettings, and /api/events through
+cooper.control.Control. See docs/API.md for the wire contract.
 """
 import threading
 import time
@@ -93,6 +93,16 @@ def create_app(state, control, diag=None, settings=None):
         body = request.get_json(silent=True)
         try:
             result = settings.update(body)
+        except SettingsError as e:
+            return _error(str(e))
+        return _ok(**result)
+
+    @app.route("/api/lane", methods=["POST"])
+    def post_lane():
+        if settings is None:
+            return _error("live settings not available", 404)
+        try:
+            result = settings.update_lane(request.get_json(silent=True))
         except SettingsError as e:
             return _error(str(e))
         return _ok(**result)
