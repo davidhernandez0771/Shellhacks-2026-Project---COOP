@@ -393,8 +393,8 @@ body.no-scroll { overflow: hidden; }
 }
 .btn:hover:not(:disabled) { border-color: var(--paper); }
 .btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.btn.is-primary { background: var(--lock); border-color: var(--lock); color: var(--ink); font-weight: 600; }
-.btn.is-primary:hover:not(:disabled) { background: var(--paper); border-color: var(--paper); }
+.btn.is-primary { border-color: var(--lock-line); color: var(--lock); font-weight: 600; }
+.btn.is-primary:hover:not(:disabled) { border-color: var(--lock); background: var(--lock-dim); }
 
 /* detections list */
 .det-list { display: grid; gap: 2px; }
