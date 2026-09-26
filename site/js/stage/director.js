@@ -5,7 +5,7 @@ import { EYE, RIG, OBJECTS, FOCUS_INDEX, objectState } from "./world.js";
 
 export const CHAPTERS = ["Intro", "See", "Detect", "Predict", "Move", "Build", "Gallery", "Team"];
 export const LEAD_S = 0.15;          // the real lead time (coop/config.py lead_time_s)
-export const GHOST_S = 1.0;          // the ghost is drawn further ahead so it's visible
+export const GHOST_S = 1.6;          // the ghost is drawn further ahead than t_lead so it's visible
 
 const DEG = 180 / Math.PI;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -72,11 +72,11 @@ const KEYS = [
   }),
   // 5 build: exploded hardware
   (t) => ({
-    pos: [RIG[0] + 3.0, 2.4, RIG[2] + 5.6], look: [RIG[0] + 1.05, 1.62, RIG[2]], fov: 38,
-    rig: 1, housing: 0.12, explode: 1, street: 0.12, pan: 0, scrim: 0.85,
+    pos: [RIG[0] + 2.2, 2.0, RIG[2] + 5.4], look: [RIG[0] + 0.55, 1.2, RIG[2]], fov: 36,
+    rig: 1, housing: 0.1, explode: 1, street: 0.04, pan: 0, scrim: 0.85,
   }),
   // 6 gallery: carousel
-  (t) => ({ pos: [0, 2.2, 10.2], look: [0, 1.35, 0], fov: 40, carousel: 1, street: 0.05, form: 0.85, scrim: 0.55 }),
+  (t) => ({ pos: [0, 2.2, 9.4], look: [0, 1.3, 0], fov: 40, carousel: 1, street: 0, form: 0.85, scrim: 0.7 }),
   // 7 team: back to a quiet field
   (t) => ({ pos: [0, 1.7, 12], look: [0, 1.4, 0], form: 0.18, street: 0.7, pan: 0 }),
 ];

@@ -7,6 +7,9 @@ import { OBJECTS, BOUNDS, FOCUS_INDEX, EYE, objectState, edgeFade } from "./worl
 import { GHOST_S, bearing } from "./director.js";
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
+export const LOCK_AT = 0.3;           // chapter 02 progress at which the target locks
+// Martian Mono at 10 px, 87.5% width: about 6.4 px per character (no layout reads per frame)
+const labelWidth = (text) => text.length * 6.4 + 4;
 const ease = (x) => { x = clamp01(x); return 1 - Math.pow(1 - x, 3); };
 
 function tokens() {
@@ -145,12 +148,15 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
         const key = `det-${o.id}`;
         if (!b || fade <= 0.01) return;
         // stagger: each box snaps in at its own point of the chapter
-        const order = [0.1, 0.18, 0.24, 0.3, 0.36][i] ?? 0.3;
-        const appear = s.detect >= 0.99 ? ease((pDetect - order) / 0.12) : s.detect;
+        const order = [0.06, 0.1, 0.13, 0.16, 0.19][i] ?? 0.16;
+        const appear = s.detect >= 0.99 ? ease((pDetect - order) / 0.08) : s.detect;
         const isFocus = i === FOCUS_INDEX;
-        const lockAmt = isFocus ? clamp01((pDetect - 0.52) / 0.06) * s.lock + (s.predict > 0 ? s.lock : 0) : 0;
+        const lockAmt = isFocus ? clamp01((pDetect - LOCK_AT) / 0.04) * s.lock + (s.predict > 0 ? s.lock : 0) : 0;
         const locked = isFocus && Math.min(1, lockAmt) > 0.5;
-        const a = appear * fade * (isFocus ? 1 : Math.max(0.35, s.detect));
+        // keep the copy column clean: boxes that drift behind it on wide screens fade out
+        const cx = (b.x0 + b.x1) / 2;
+        const copyFade = small ? 1 : clamp01((cx - W * 0.36) / (W * 0.08));
+        const a = appear * fade * copyFade * (isFocus ? 1 : Math.max(0.35, s.detect));
         if (a <= 0.01) return;
         const grow = (1 - appear) * 26;
         const color = locked ? col.lock : isFocus ? col.paper : col.paper2;
@@ -162,21 +168,27 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
           ctx.lineWidth = 1;
           ctx.strokeRect(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
         }
-        // leader: from the top-right corner, up and out to the label
-        const lx = b.x1 + (small ? 10 : 18), ly = b.y0 - (small ? 12 : 22);
+        // leader: from a top corner, up and out to the label; flips left near the right edge
+        const conf = (o.conf + Math.sin(t * 1.7 + i * 2) * 0.015).toFixed(2);
+        // phones: only the focus target gets the full label, the rest just their ID
+        const label = small && !isFocus ? `#${o.id}` : `${o.kind.toUpperCase()} #${o.id} · CONF ${conf}`;
+        const labelW = labelWidth(label);
+        const run = small ? 14 : 26, rise = small ? 12 : 22, off = small ? 10 : 18;
+        const flip = b.x1 + off + run + labelW + 8 > W - 12;
+        const sx = flip ? b.x0 : b.x1;
+        const lx = flip ? sx - off : sx + off, ly = b.y0 - rise;
+        const ex = flip ? lx - run : lx + run;
         ctx.globalAlpha = a * 0.8;
         ctx.strokeStyle = locked ? col.lock : col.line;
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(b.x1, b.y0);
+        ctx.moveTo(sx, b.y0);
         ctx.lineTo(lx, ly);
-        ctx.lineTo(lx + (small ? 14 : 26), ly);
+        ctx.lineTo(ex, ly);
         ctx.stroke();
         ctx.globalAlpha = 1;
-        const conf = (o.conf + Math.sin(t * 1.7 + i * 2) * 0.015).toFixed(2);
-        const label = `${o.kind.toUpperCase()} #${o.id} · CONF ${conf}`;
         const tg = tag(key);
-        setTag(tg, lx + (small ? 17 : 30), ly - 7, a, label, { lock: locked, dim: !isFocus, sub: locked ? "LOCKED" : null });
+        setTag(tg, flip ? ex - 4 - labelW : ex + 4, ly - 7, a, label, { lock: locked, dim: !isFocus, sub: locked ? "LOCKED" : null });
       });
     }
 
@@ -265,12 +277,14 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
     const partA = clamp01((s.explode - 0.55) / 0.35);
     if (partA > 0.01 && partAnchors) {
       const a = partA;
-      const colX = small ? W - 14 : Math.min(W - 40, W * 0.5 + 360);
+      let maxX = 0;
+      for (const p of partAnchors) if (p.screen.front) maxX = Math.max(maxX, p.screen.x);
+      const colX = Math.min(maxX + (small ? 18 : 48), W - (small ? 120 : 230));
       for (const p of partAnchors) {
         const q = p.screen;
         const key = `part-${p.key}`;
         if (!q.front) continue;
-        const endX = small ? Math.min(colX, q.x + 26) : Math.max(q.x + 40, colX - 250);
+        const endX = Math.max(q.x + 12, colX);
         ctx.globalAlpha = a * 0.85;
         ctx.strokeStyle = p.key === "camera" ? col.lock : col.line;
         ctx.lineWidth = 1;

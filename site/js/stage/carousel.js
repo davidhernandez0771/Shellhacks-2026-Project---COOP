@@ -3,8 +3,8 @@
 
 import * as THREE from "three";
 
-const RADIUS = 3.5;
-const CARD_W = 1.62, CARD_H = 1.08;     // 3:2
+const RADIUS = 3.3;
+const CARD_W = 1.95, CARD_H = 1.3;      // 3:2
 
 function readItems() {
   return Array.from(document.querySelectorAll("#gallery-list > li")).map((li, i) => ({
@@ -171,17 +171,23 @@ export function createCarousel(scene, pal) {
       group.visible = vis > 0.01;
       if (vis > 0.2) load();
       if (!dragging) { dragOffset += vel; vel *= Math.pow(0.9, Math.max(dt, 1 / 60) * 60); if (Math.abs(vel) < 1e-4) vel = 0; }
-      const angle = -local * Math.PI * 1.25 - dragOffset;
+      // scroll turns the ring card by card: each card dwells at the front, then the ring
+      // moves on to the next one (drag adds a free offset on top)
+      const n = cards.length, step = (Math.PI * 2) / n;
+      const pos = Math.min(1, Math.max(0, local) / 0.6) * (n - 1);
+      const k = Math.floor(pos), frac = pos - k;
+      const e = frac < 0.4 ? 0 : frac > 0.8 ? 1 : ((x) => x * x * (3 - 2 * x))((frac - 0.4) / 0.4);
+      const angle = -(k + e) * step - dragOffset;
       group.rotation.y = angle;
-      group.scale.setScalar(0.85 + 0.15 * vis);
+      group.scale.setScalar((0.85 + 0.15 * vis) * (window.innerWidth < 820 ? 1.3 : 1));
       let best = -Infinity;
       cards.forEach((c, i) => {
         c.holder.getWorldDirection(tmp);
         const facing = tmp.z;                     // 1 = facing the viewer
         if (facing > best) { best = facing; frontIndex = i; }
         const f = Math.max(0, facing);
-        c.mat.opacity = vis * (0.18 + 0.82 * f * f);
-        c.edge.material.opacity = vis * (0.2 + 0.5 * f);
+        c.mat.opacity = vis * (0.12 + 0.88 * Math.pow(f, 3));
+        c.edge.material.opacity = vis * (0.18 + 0.6 * f * f);
         if (c.video) {
           if (vis > 0.5 && facing > 0.3) { if (c.video.paused) c.video.play().catch(() => {}); }
           else if (!c.video.paused) c.video.pause();

@@ -38,7 +38,7 @@ export function createFallback(canvas, data, pal) {
       const x = N[k * 3] + (tmp[0] - N[k * 3]) * f;
       const y = N[k * 3 + 1] + (tmp[1] - N[k * 3 + 1]) * f;
       const z = N[k * 3 + 2] + (tmp[2] - N[k * 3 + 2]) * f;
-      if (obj >= 0) alpha *= fades[obj] * (1 - 0.85 * (1 - state.street));
+      if (obj >= 0) alpha *= fades[obj] * 0.62 * Math.min(1, Math.max(0, state.street / 0.6));
       else if (obj > -1.5) alpha *= state.street;
       alpha *= 0.55 + 0.45 * f;
       if (alpha < 0.02) continue;

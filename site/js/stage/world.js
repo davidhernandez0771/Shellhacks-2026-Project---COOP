@@ -8,7 +8,9 @@ export const RIG = [-2.4, 0, 3.4];  // where the physical rig stands in chapter 
 
 // id = the tracker ID shown on labels; conf = base detection confidence (illustrative).
 export const OBJECTS = [
-  { id: 3, kind: "person", z: 0.6, speed: 1.15, dir: 1, x0: -3.2, conf: 0.87, focus: true },
+  // the focus target paces back and forth, so the story always has it in view and the
+  // prediction visibly flips when it turns around
+  { id: 3, kind: "person", z: 0.6, pace: { amp: 5.2, omega: 0.21, phi: -1.2 }, conf: 0.87, focus: true },
   { id: 1, kind: "person", z: -1.9, speed: 0.95, dir: -1, x0: 3.8, conf: 0.74 },
   { id: 5, kind: "person", z: -2.6, speed: 1.05, dir: 1, x0: -8.5, conf: 0.69 },
   { id: 7, kind: "car", z: -4.9, speed: 5.2, dir: 1, x0: -12, conf: 0.91 },
@@ -29,9 +31,23 @@ const wrap = (x) => {
   return ((((x + RANGE_X) % span) + span) % span) - RANGE_X;
 };
 
+// distance walked along x = A·sin(u) from u = 0: A·∫|cos|
+function pacedDistance(u) {
+  const k = Math.floor(u / Math.PI);
+  const r = u - k * Math.PI;
+  return 2 * k + (r < Math.PI / 2 ? Math.sin(r) : 2 - Math.sin(r));
+}
+
 /** Position/heading/walk phase of object i at time t (seconds). */
 export function objectState(i, t) {
   const o = OBJECTS[i];
+  if (o.pace) {
+    const { amp, omega, phi } = o.pace;
+    const u = omega * t + phi;
+    const vx = amp * omega * Math.cos(u);
+    const dist = amp * (pacedDistance(u + 8 * Math.PI) - pacedDistance(8 * Math.PI + phi));
+    return { x: amp * Math.sin(u), z: o.z, heading: vx >= 0 ? 0 : Math.PI, phase: (dist / STRIDE) * Math.PI * 2, vx };
+  }
   const dist = o.speed * t;
   return {
     x: wrap(o.x0 + o.dir * dist),

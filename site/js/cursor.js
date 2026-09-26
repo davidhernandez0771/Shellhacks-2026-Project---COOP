@@ -19,6 +19,7 @@ export function initCursor({ still }) {
   window.addEventListener("pointermove", (e) => {
     if (e.pointerType !== "mouse") return;
     x = e.clientX; y = e.clientY;
+    if (!el.classList.contains("is-live")) { rx = x; ry = y; el.classList.add("is-live"); }
     const target = e.target;
     const actionable = target.closest && target.closest("a, button");
     const drag = !actionable && root.classList.contains("gallery-active") && target.closest && target.closest("#gallery");
@@ -27,6 +28,10 @@ export function initCursor({ still }) {
     label.textContent = drag ? "Drag" : "";
     if (!raf) raf = requestAnimationFrame(loop);
   }, { passive: true });
-  document.addEventListener("pointerleave", () => { el.style.opacity = "0"; });
-  document.addEventListener("pointerenter", () => { el.style.opacity = "1"; });
+  document.documentElement.addEventListener("pointerleave", () => el.classList.remove("is-live"));
+  // after a click that removes or covers the hovered element (the gate's Enter), drop the lock look
+  window.addEventListener("click", () => requestAnimationFrame(() => {
+    const under = document.elementFromPoint(x, y);
+    el.classList.toggle("is-lock", !!(under && under.closest && under.closest("a, button")));
+  }));
 }

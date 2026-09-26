@@ -125,7 +125,11 @@ export function initChapters(anime, stage, { still }) {
       target: section,
       enter: "top top",
       leave: "top bottom",
-      onUpdate: (obs) => { progress[i] = obs.progress; recompute(); },
+      onUpdate: (obs) => {
+        progress[i] = obs.progress;
+        section.style.setProperty("--p", obs.progress.toFixed(4));
+        recompute();
+      },
       onEnter: () => { progress[i] = Math.max(progress[i], 0.0001); recompute(); },
       onLeaveBackward: () => { progress[i] = 0; recompute(); },
     });

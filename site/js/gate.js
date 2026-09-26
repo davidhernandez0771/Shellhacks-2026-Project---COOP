@@ -11,6 +11,16 @@ export function createGate() {
   const enterBtn = document.getElementById("gate-enter");
   const NS = "http://www.w3.org/2000/svg";
 
+  // four reticle ticks outside the ring
+  for (const a of [0, 90, 180, 270]) {
+    const r = (a * Math.PI) / 180;
+    const l = document.createElementNS(NS, "line");
+    l.setAttribute("x1", (100 + Math.sin(r) * 94).toFixed(2));
+    l.setAttribute("y1", (100 - Math.cos(r) * 94).toFixed(2));
+    l.setAttribute("x2", (100 + Math.sin(r) * 104).toFixed(2));
+    l.setAttribute("y2", (100 - Math.cos(r) * 104).toFixed(2));
+    svg.appendChild(l);
+  }
   const dots = [];
   for (let i = 0; i < DOTS; i++) {
     const a = (i / DOTS) * Math.PI * 2 - Math.PI / 2;
@@ -47,6 +57,7 @@ export function createGate() {
           dots.forEach((d) => d.classList.add("on"));
           pctEl.textContent = "100";
           statusEl.textContent = "Locked";
+          svg.classList.add("is-lock");
           dots.forEach((d, i) => setTimeout(() => d.classList.add("lock"), reduce ? 0 : i * 8));
           enterBtn.hidden = false;
           enterBtn.focus({ preventScroll: true });

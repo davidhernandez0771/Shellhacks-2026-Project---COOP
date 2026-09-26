@@ -60,7 +60,7 @@ function buildHead(mats) {
   return head;
 }
 
-function buildRig(mats) {
+function buildRig(mats, pal) {
   const rig = new THREE.Group();
   rig.position.set(...RIG);
   const base = new THREE.Group();
@@ -76,7 +76,8 @@ function buildRig(mats) {
   rig.add(pan);
 
   // view frustum (63° × 49°) and the aim ray, in the pan group's space
-  const frustumMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22 });
+  // per-vertex alpha: bright at the lens, fading to nothing at the far plane
+  const frustumMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false });
   const L = 6.5, hx = Math.tan((63 / 2) * Math.PI / 180) * L, hy = Math.tan((49 / 2) * Math.PI / 180) * L;
   const o = [0, 0.14, -0.2];
   const c = [[-hx, hy], [hx, hy], [hx, -hy], [-hx, -hy]].map(([x, y]) => [x, 0.14 + y, -L]);
@@ -85,6 +86,12 @@ function buildRig(mats) {
   for (let i = 0; i < 4; i++) fr.push(...c[i], ...c[(i + 1) % 4]);
   const frGeo = new THREE.BufferGeometry();
   frGeo.setAttribute("position", new THREE.Float32BufferAttribute(fr, 3));
+  const cols = [];
+  for (let i = 0; i < fr.length / 3; i++) {
+    const far = i >= 8 || i % 2 === 1;             // lens→corner lines: odd vertices are far
+    cols.push(pal.paper.r, pal.paper.g, pal.paper.b, far ? 0.0 : 0.7);
+  }
+  frGeo.setAttribute("color", new THREE.Float32BufferAttribute(cols, 4));
   const frustum = new THREE.LineSegments(frGeo, frustumMat);
   pan.add(frustum);
 
@@ -170,7 +177,7 @@ export function createSolids(scene) {
   const pal = palette();
   const mats = makeMats(pal);
   const partMats = makeMats(pal);
-  const rig = buildRig(mats);
+  const rig = buildRig(mats, pal);
   const hw = buildParts(partMats);
   scene.add(rig.rig, hw.stack);
 
@@ -196,7 +203,7 @@ export function createSolids(scene) {
       mats.fill.opacity = housing;
       mats.edge.opacity = 0.85 * housing;
       mats.lockEdge.opacity = housing;
-      rig.frustumMat.opacity = 0.22 * rigVis * (1 - state.explode);
+      rig.frustumMat.opacity = 0.5 * rigVis * (1 - state.explode);
       rig.frustum.visible = rig.frustumMat.opacity > 0.01;
       rig.pan.rotation.y = -state.pan * Math.PI / 180;
 
@@ -212,7 +219,7 @@ export function createSolids(scene) {
         p.group.position.y = 0.75 + (p.y - 0.75) * e;
         p.group.rotation.y = (1 - e) * 0.6 + Math.sin(t * 0.25 + p.y) * 0.04 * e;
       }
-      hw.stack.scale.setScalar(0.55 + 0.45 * e);
+      hw.stack.scale.setScalar(0.62 * (0.55 + 0.45 * e));
     },
     /** World position of a part's label anchor. */
     partAnchor(key, out = tmp) {

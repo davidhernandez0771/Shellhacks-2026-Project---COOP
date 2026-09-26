@@ -7,7 +7,7 @@ import { stateAt, GHOST_S } from "./director.js";
 import { createPoints } from "./points.js";
 import { createSolids } from "./solids.js";
 import { createCarousel } from "./carousel.js";
-import { createOverlay } from "./overlay.js";
+import { createOverlay, LOCK_AT } from "./overlay.js";
 import { createFallback } from "./fallback2d.js";
 
 const STILL_T = 7.4;        // the frozen moment used for reduced motion and the fallback
@@ -52,6 +52,16 @@ export function createStage({ still, webgl, scramble }) {
     H = window.innerHeight;
     ratio = Math.min(window.devicePixelRatio || 1, ratioCap);
     camera.aspect = W / H;
+    // Frame the subject away from the copy: right of centre on wide screens (copy is on the
+    // left), higher up on phones (copy sits at the bottom). The overlay projects through the
+    // same camera, so it follows automatically.
+    const wide = W > 820;
+    if (wide) camera.setViewOffset(W, H, -0.17 * W, 0, W, H);
+    else camera.setViewOffset(W, H, 0, 0.17 * H, W, H);
+    if (points && points.uniforms) {
+      // copy column: the left ~40% on wide screens, the bottom ~45% on phones (NDC)
+      points.uniforms.uCopyZone.value.set(wide ? 0 : 1, wide ? -0.5 : -0.35, wide ? -0.12 : 0.05, 1);
+    }
     camera.updateProjectionMatrix();
     if (renderer) {
       renderer.setPixelRatio(ratio);
@@ -124,7 +134,10 @@ export function createStage({ still, webgl, scramble }) {
     }
     camera.position.copy(cur.pos);
     camera.lookAt(cur.look);
-    if (Math.abs(camera.fov - cur.fov) > 0.01) { camera.fov = cur.fov; camera.updateProjectionMatrix(); }
+    // portrait screens: widen the vertical FOV so at least ~46° stays visible horizontally
+    const minFov = (2 * Math.atan(Math.tan((23 * Math.PI) / 180) / camera.aspect) * 180) / Math.PI;
+    const fov = Math.max(cur.fov, Math.min(minFov, 88));
+    if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
 
     const eased = { ...s, pan: cur.pan };
     solids.update(eased, t);
@@ -135,8 +148,10 @@ export function createStage({ still, webgl, scramble }) {
       u.uTime.value = t;
       u.uForm.value = s.form;
       u.uStreet.value = s.street;
-      u.uLock.value = s.lock * Math.max(s.detect > 0.5 ? Math.min(1, Math.max(0, (local[2] - 0.52) / 0.06)) : 0, s.predict);
+      u.uLock.value = s.lock * Math.max(s.detect > 0.5 ? Math.min(1, Math.max(0, (local[2] - LOCK_AT) / 0.04)) : 0, s.predict);
       u.uSize.value = 58 * ratio * Math.min(1.25, H / 900 + 0.35);
+      u.uMaxSize.value = 8 * ratio;
+      u.uCopyZone.value.w = s.form * (1 - s.carousel);
       OBJECTS.forEach((o, i) => {
         const st = objectState(i, t);
         u.uObj.value[i].set(st.x, st.z, st.heading, st.phase);
@@ -148,7 +163,7 @@ export function createStage({ still, webgl, scramble }) {
       const wrapped = Math.abs(fut.x - now0.x) > 5;
       points.ghosts.forEach((g, i) => {
         const f = (i + 1) / points.ghosts.length;
-        const a = s.predict * (wrapped ? 0 : 1) * edgeFade(now0.x) * (i === points.ghosts.length - 1 ? 0.55 : 0.12 * f);
+        const a = s.predict * (wrapped ? 0 : 1) * edgeFade(now0.x) * (i === points.ghosts.length - 1 ? 0.5 : 0.07 * f);
         g.visible = a > 0.005;
         g.material.uniforms.uGhost.value.set((fut.x - now0.x) * f, 0, a);
       });
