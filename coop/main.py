@@ -119,7 +119,6 @@ def main():
         cfg.stream.annotate = True
 
     camera = Camera(cfg.camera)
-    grabber = FrameGrabber(camera)
     detector = Detector(cfg.detector)
     control = Control(cfg.motors)
     gimbal = Gimbal(cfg.motors, on_event=control.log_event)
@@ -140,6 +139,7 @@ def main():
     infer_ms = latency_ms = None  # smoothed, for diag
     prev_epoch = gimbal.frame_epoch
 
+    grabber = FrameGrabber(camera)  # started last: nothing between here and `try` can fail
     try:
         while True:
             frame, now = grabber.read()  # newest frame and its capture time; stale ones dropped

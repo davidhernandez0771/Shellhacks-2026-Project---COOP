@@ -4,6 +4,8 @@
 so tests only assert on the response's status/mimetype and never read the streamed body
 (resp.data / resp.get_data() would block forever waiting for a frame that never comes).
 """
+import pytest
+
 from coop.config import MotorConfig
 from coop.control import Control
 from coop.stream import SharedState, create_app
@@ -233,3 +235,13 @@ def test_status_before_the_first_frame_has_mode_and_estop():
     _, _, client = make_client()
     body = client.get("/api/status").get_json()
     assert set(body) >= {"server_time", "mode", "estop"}
+
+
+@pytest.mark.parametrize("route", ["/api/mode", "/api/target", "/api/aim", "/api/nudge"])
+@pytest.mark.parametrize("raw", ["[1, 2]", '"text"', "3", "null", "not json"])
+def test_non_object_bodies_are_400_not_500(route, raw):
+    _, control, client = make_client()
+    control.set_mode("manual")
+    resp = client.post(route, data=raw, content_type="application/json")
+    assert resp.status_code == 400
+    assert resp.get_json()["ok"] is False

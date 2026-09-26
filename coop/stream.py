@@ -1,8 +1,10 @@
 """Live MJPEG stream + status/control API, served to any browser on the network.
 
-Route handlers only touch the Control object (never the Gimbal directly) — see
-docs/API.md for the wire contract and docs/TERMINALS.md's Requests section for how
-coop/main.py's loop turns Control's state into motor motion each frame.
+Route handlers never touch the Gimbal directly: motion and safety requests go through the
+Control object (which forwards e-stop/arm/zero to the motors at once), and /api/settings
+through coop.settings.LiveSettings. See docs/API.md for the wire contract and
+docs/TERMINALS.md's Requests section for how coop/main.py's loop turns Control's state into
+motor motion each frame.
 """
 import math
 import threading
@@ -51,6 +53,13 @@ def _ok(**fields):
 
 def _error(message, status=400):
     return jsonify({"ok": False, "error": message}), status
+
+
+def _json_object():
+    """The request's JSON body if it's an object, else {} (so a list or a string gets the
+    route's normal 400, never a 500 from calling .get on it)."""
+    body = request.get_json(silent=True)
+    return body if isinstance(body, dict) else {}
 
 
 def _number(value):
@@ -103,7 +112,7 @@ def create_app(state, control, diag=None, settings=None):
 
     @app.route("/api/mode", methods=["POST"])
     def set_mode():
-        body = request.get_json(silent=True) or {}
+        body = _json_object()
         try:
             control.set_mode(body.get("mode"))
         except ControlError as e:
@@ -112,7 +121,7 @@ def create_app(state, control, diag=None, settings=None):
 
     @app.route("/api/target", methods=["POST"])
     def set_target():
-        body = request.get_json(silent=True) or {}
+        body = _json_object()
         if "id" not in body:
             return _error("missing 'id'")
         try:
@@ -123,7 +132,7 @@ def create_app(state, control, diag=None, settings=None):
 
     @app.route("/api/aim", methods=["POST"])
     def aim():
-        body = request.get_json(silent=True) or {}
+        body = _json_object()
         pan = _pan_arg(body, "pan", "tilt")
         if pan is None:
             return _error("pan must be a number (tilt, if sent, too; it is ignored)")
@@ -135,7 +144,7 @@ def create_app(state, control, diag=None, settings=None):
 
     @app.route("/api/nudge", methods=["POST"])
     def nudge():
-        body = request.get_json(silent=True) or {}
+        body = _json_object()
         dpan = _pan_arg(body, "dpan", "dtilt")
         if dpan is None:
             return _error("dpan must be a number (dtilt, if sent, too; it is ignored)")

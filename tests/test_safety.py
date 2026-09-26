@@ -343,3 +343,18 @@ def test_link_state(fake_serial_factory, gimbals, monkeypatch):
     g3 = Gimbal(MotorConfig(port="auto"))
     gimbals.append(g3)
     assert g3.link_state == "reconnecting"
+
+
+def test_a_report_sent_before_the_Z_arrived_is_ignored(fake_serial_factory, gimbals):
+    """The Uno may have a pre-zero "P 400 0" in flight; it must not undo the zero."""
+    g, ser = make(fake_serial_factory)
+    gimbals.append(g)
+    ser.push(b"P 400 0\n")
+    assert wait_until(lambda: g._pos == 400)
+    g.zero()
+    ser.push(b"P 400 0\n")  # stale: sent before the Uno processed Z
+    time.sleep(0.05)
+    assert g.pan == 0.0 and g._hw_pos == 0
+    time.sleep(motors_mod.ZERO_SETTLE_S)
+    ser.push(b"P 3 0\n")  # a genuine post-zero report
+    assert wait_until(lambda: g._pos == 3)

@@ -48,6 +48,9 @@ READY_TIMEOUT_S = 4.0  # opening the port resets the Uno; its bootloader takes ~
 STILL_S = 0.25
 ESTOP_MARGIN_S = 0.3  # added to the worst-case braking time for the e-stop deadline
 ESTOP_POLL_S = 0.02
+# After zero(), drop P reports for this long: one the Uno sent just before it processed Z
+# may still be in flight, and would put the old position back.
+ZERO_SETTLE_S = 0.15
 
 
 def find_arduino_port():
@@ -86,6 +89,7 @@ class Gimbal:
         self._drivers_enabled = True  # what we last told the Uno (it boots enabled)
         self._hold_since = None  # when stop() started holding; None while aiming
         self._epoch = 0
+        self._ignore_reports_until = 0.0
         # Lock order: _write_lock, then _state_lock. _write_lock makes "decide what to send"
         # and "send it" one step, so two threads can't reorder commands on the wire.
         self._state_lock = threading.Lock()  # guards everything above plus _serial
@@ -225,6 +229,8 @@ class Gimbal:
                 if len(parts) == 3 and parts[0] == "P":
                     pos = int(parts[1])  # parts[2] is the unused tilt axis
                     with self._state_lock:
+                        if time.monotonic() < self._ignore_reports_until:
+                            continue  # possibly from before a zero()
                         if pos != self._pos:
                             self._last_move = time.monotonic()
                         self._pos = pos
@@ -378,6 +384,7 @@ class Gimbal:
                     self._hw_pos = 0
                 self._last_sim = time.monotonic()
                 self._epoch += 1
+                self._ignore_reports_until = time.monotonic() + ZERO_SETTLE_S
             self._send_if_connected("Z")
 
     # ---- live settings ----
