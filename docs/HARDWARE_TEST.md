@@ -5,7 +5,7 @@ Work through this top to bottom on the real Pi 5, camera, Uno, TMC2209s and moto
 **Status as of 2026-09-26: nothing below has run on real hardware yet.** Every step is tagged **`[never run]`**. When a step passes on the real thing, change its tag to **`[ok YYYY-MM-DD]`** in the same commit as any fix it needed.
 
 What *has* been verified, off hardware only:
-- The pytest suite (62 tests: pixel→angle math, Kalman, target choice, `Control`, the serial protocol against a fake port, the Flask API), on Windows with only the minimal CI dependencies installed. The GitHub Actions workflow itself hasn't run yet, because it hasn't been pushed.
+- The pytest suite (pixel→angle math, Kalman, target choice, `Control`, the serial protocol and reconnects against a fake port, the Flask API, and a startup smoke test that runs one real `main()` iteration with a fake camera and detector), on Windows with only the minimal CI dependencies installed. The GitHub Actions workflow itself hasn't run yet, because it hasn't been pushed.
 - The `Gimbal` class in mock mode and with a nonexistent port (it falls back to mock and keeps retrying).
 - Nothing has touched the Pi camera, a real serial port, the firmware (never even compiled: there's no `arduino-cli` on the dev machine), systemd, or Cloudflare.
 
@@ -18,9 +18,9 @@ What *has* been verified, off hardware only:
 
 ## 0. Prerequisites
 
-- [ ] **Lane 1's `Control` wiring is committed and pulled on the Pi.** `[never run]`
-  As of commit `1f870c9`, the committed `coop/main.py` still calls `serve_in_background(state, cfg.stream)`, which no longer matches `coop/stream.py`'s `(state, control, cfg)`, so COOP crashes at startup. The unit tests don't catch this because none of them run `main()`.
-  **Expect:** `git log` includes lane 1's commit that constructs `Control(cfg.motors)` and passes it to `serve_in_background` and `Gimbal(..., on_event=...)`.
+- [ ] **The Pi has a commit that includes the startup fix and the reconnect fix.** `[never run]`
+  Before `90f7811`, `coop/main.py` called `serve_in_background` with the wrong arguments and crashed at startup. `tests/test_smoke.py` now runs one real `main()` loop iteration, so CI catches that kind of break. The reconnect fix needs the firmware re-flashed too (section 4); it adds `Z <pan> <tilt>`.
+  **Expect:** `git log` on the Pi includes `90f7811` and the "Fix serial reconnect" commit.
 - [ ] **CI is green on the commit you're testing.** `[never run]` **Expect:** the `tests` workflow passes on GitHub for that commit.
 - [ ] **Bring:** a multimeter, a small screwdriver for the Vref pots, a phone on mobile data (for the tunnel test), and tape to mark 0° / ±90° on the base. `[never run]`
 
@@ -61,7 +61,7 @@ What *has* been verified, off hardware only:
 - [ ] **Compile and upload** `firmware/coop_motors/coop_motors.ino` from the Arduino IDE (board: Arduino Uno; library: AccelStepper). Drivers powered off for now. `[never run]`
   **Expect:** it compiles with no errors (this sketch has never been compiled) and uploads.
 - [ ] **Firmware talks.** Open the Serial Monitor at 115200 baud with the line ending set to "Newline". `[never run]`
-  **Expect:** `READY`, then `P 0 0` every 50 ms.
+  **Expect:** `READY`, then `P 0 0` every 50 ms. Send `Z 400 0` → the reports change to `P 400 0` and nothing moves. Send `Z` → back to `P 0 0`.
 - [ ] **The Pi sees the Uno:** plug it into the Pi, then run `ls /dev/ttyACM* /dev/ttyUSB* 2>/dev/null` and `python -c "from coop.motors import find_arduino_port as f; print(f())"`. `[never run]`
   **Expect:** `/dev/ttyACM0`, or `/dev/ttyUSB0` on a CH340 clone. If the helper prints `None`, check the board's USB vendor ID with `lsusb` and add it to `ARDUINO_USB_VIDS` in `coop/motors.py`.
 - [ ] **Python handshake:** `python -m coop.main --source picamera` with the motor drivers still unpowered. `[never run]`
@@ -131,14 +131,18 @@ For this test only, edit `coop/config.py` on the Pi (don't commit): `pan_limits_
 ## 9. Resilience
 
 - [ ] **Watchdog on crash:** in Manual, start a long move, then `pkill -f coop.main`. `[never run]` **Expect:** the motors stop within about 2 s.
-- [ ] **USB unplug and replug of the Uno while COOP runs.** Do this in Manual after **Home**, with the gimbal at 0°; see the known issue below. `[never run]`
+- [ ] **USB unplug and replug of the Uno while COOP runs.** Do this in Manual after **Home**, with the gimbal at 0°. `[never run]`
   **Expect:**
   - On unplug: `Motor link lost` in the log, `motor_disconnected` in the event log, and the dashboard shows mock motors.
   - On replug: `motor_connected` within about 3–8 s, and the motors respond again.
-- [ ] **Known issue to confirm: position after a reconnect.** `[never run]`
-  Opening the serial port resets the Uno, so its step counter restarts at 0 wherever the axis happens to be. `coop/motors.py` then re-sends the last target, which is still in the old frame of reference.
-  **Expect, with the current code:** if the link drops at pan = 90°, then after reconnecting the dashboard reads 0° and the axis moves a further 90°. That can exceed the physical limits.
-  Test this only with a small angle (e.g. 20°) and a hand on the power switch. The fix belongs to lane 3: restore the last known position on reconnect, which needs a firmware command for it.
+- [ ] **Position survives a reconnect** (the reconnect fix). Do this only after the previous step passes. `[never run]`
+  In Manual, aim to 45° and wait until it arrives. Unplug the Uno's USB, wait 5 s, and plug it back in.
+  **Expect:**
+  - While unplugged, the dashboard's pan stays at 45°; it doesn't drift.
+  - After reconnecting, it still reads 45°, and the axis doesn't move.
+  - Aim to 0°: the camera returns to the forward tape mark, which proves the Uno's counter was restored.
+  **Before the fix**, the dashboard read 0° after reconnecting and the next move overshot by 45°. If you see that, the Uno is running old firmware: bare `Z` ignores the position arguments. Keep a hand on the power switch for this test.
+  - Covered in software by `tests/test_reconnect.py`.
 
 ## 10. systemd service
 
@@ -152,13 +156,13 @@ For this test only, edit `coop/config.py` on the Pi (don't commit): `pan_limits_
 
 Follow `scripts/setup_tunnel.md`. DNS must already be on Cloudflare and the Access app created (steps 1–2) before the installer runs.
 
-- [ ] **Install the tunnel:** `bash scripts/install_tunnel.sh coop.example.com` (your domain). `[never run]`
+- [ ] **Install the tunnel:** `bash scripts/install_tunnel.sh coop-live.example.com` (your domain). `[never run]`
   **Expect:**
   - cloudflared installs as arm64.
   - `ingress validate` passes.
   - The final check prints `OK: unauthenticated requests get HTTP 302`.
   - `journalctl -u coop-tunnel` shows 4× `Registered tunnel connection`.
-- [ ] **Blocked without a login:** from the laptop, `curl -s -o /dev/null -w "%{http_code}" https://coop.example.com/video`. `[never run]` **Expect:** `302`, never `200`.
+- [ ] **Blocked without a login:** from the laptop, `curl -s -o /dev/null -w "%{http_code}" https://coop-live.example.com/video`. `[never run]` **Expect:** `302`, never `200`.
 - [ ] **Unapproved email is refused:** on the login page, try an address that isn't in the policy. `[never run]` **Expect:** no one-time PIN arrives, or access is denied.
 - [ ] **Approved email gets in, from a phone on mobile data** (not the venue Wi-Fi). `[never run]`
   **Expect:**
