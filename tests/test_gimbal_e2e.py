@@ -96,7 +96,8 @@ def test_unplug_and_replug_keeps_the_frame_of_reference(uno, make_gimbal):
     g.aim(90.0)
     target = round(90 * STEPS_PER_DEG)
     assert wait_until(lambda: settled_at(uno, target))
-    assert wait_until(lambda: g.pan == pytest.approx(90.0, abs=0.3))
+    # Wait for a report taken after settling: the Pi can only restore what it was told.
+    assert wait_until(lambda: g.pan == pytest.approx(target / STEPS_PER_DEG, abs=1e-9))
 
     uno.unplug()
     assert wait_until(lambda: g.mock)
@@ -128,3 +129,61 @@ def test_unplug_mid_move_error_is_bounded_by_one_report_period(uno, make_gimbal)
     counter, rotor, _ = pan_axis(uno)
     # Bound: one report period at full speed, plus the reader's own latency.
     assert abs(counter - rotor) <= 1000 * 0.05 + 30
+
+
+# ---- safety, checked against the shaft ----
+
+def test_estop_mid_move_does_not_lose_position(uno, make_gimbal):
+    """S then E 0 straight away would let the Uno count ~400 braking steps with no torque."""
+    g = make_gimbal()
+    g.aim(170.0)
+    assert wait_until(lambda: abs(pan_axis(uno)[2]) >= 3000)  # near full speed
+    g.estop()
+    assert wait_until(lambda: not g.drivers_enabled)
+    with uno.lock:
+        assert uno.model.enabled is False
+    counter, rotor, speed = pan_axis(uno)
+    assert speed == 0
+    assert counter == rotor, "the Uno's counter drifted from the shaft"
+    assert wait_until(lambda: g.pan == pytest.approx(counter / STEPS_PER_DEG, abs=1e-9))
+
+    g.aim(0.0)  # refused while e-stopped
+    time.sleep(0.2)
+    assert pan_axis(uno)[0] == counter
+
+    g.arm()
+    assert wait_until(lambda: uno.model.enabled)
+    g.aim(0.0)
+    assert wait_until(lambda: settled_at(uno, 0))
+
+
+def test_idle_power_down_then_resume(uno, make_gimbal):
+    g = make_gimbal(idle_disable_s=0.3)
+    g.aim(45.0)
+    assert wait_until(lambda: settled_at(uno, 200))
+    deadline = time.monotonic() + 3
+    while g.drivers_enabled and time.monotonic() < deadline:
+        g.stop()  # the vision loop calls this every frame in stop mode
+        time.sleep(0.05)
+    with uno.lock:
+        assert uno.model.enabled is False
+    g.aim(-45.0)
+    assert wait_until(lambda: settled_at(uno, -200))
+    assert uno.model.enabled is True
+
+
+def test_zero_moves_the_frame_not_the_shaft(uno, make_gimbal):
+    g = make_gimbal()
+    g.aim(45.0)
+    assert wait_until(lambda: settled_at(uno, 200))
+    g.zero()
+    assert wait_until(lambda: pan_axis(uno)[0] == 0)
+    assert pan_axis(uno)[1] == 200  # the shaft didn't move
+    g.aim(45.0, epoch=g.frame_epoch)
+    assert wait_until(lambda: pan_axis(uno)[:2] == (200, 400))
+
+
+def test_live_speed_change_reaches_the_uno(uno, make_gimbal):
+    g = make_gimbal()
+    g.set_motion_limits(1234.0, 5678.0)
+    assert wait_until(lambda: (uno.model.max_speed, uno.model.accel) == (1234.0, 5678.0))

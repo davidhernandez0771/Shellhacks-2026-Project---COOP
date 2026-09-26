@@ -249,3 +249,20 @@ def test_replug_is_a_power_on_reset_not_a_resume():
             assert axis.rotor == frozen
             assert axis.counter == 0
             assert server.model.booted
+
+
+@pytest.mark.parametrize("target,speed,accel", [(400, 4000, 20000), (37, 2000, 6000), (-1234, 3000, 9000),
+                                                 (1, 2000, 6000), (5000, 500, 100)])
+def test_moves_never_overshoot_the_target(target, speed, accel):
+    m = booted()
+    m.feed(f"C {speed} {accel}\nT {target} 0\n".encode())
+    sign = 1 if target > 0 else -1
+    furthest = 0
+    for _ in range(int(60 / 0.01)):
+        m.feed(b"H\n")
+        m.advance(0.01)
+        furthest = max(furthest, sign * m.axes[0].counter)
+        if m.axes[0].counter == target and m.axes[0].speed == 0:
+            break
+    assert m.axes[0].counter == target and m.axes[0].speed == 0
+    assert furthest == abs(target)

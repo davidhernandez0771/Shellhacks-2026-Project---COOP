@@ -103,7 +103,8 @@ class Axis:
             return
         direction = (1 if dist > 0 else -1) if dist != 0 else (-1 if self.speed > 0 else 1)
         moving_away = self.speed * direction < 0
-        if moving_away or (self.speed * direction > 0 and stop_steps >= abs(dist)):
+        remaining = abs(dist - self._frac)  # from the true (fractional) position
+        if moving_away or (self.speed * direction > 0 and stop_steps >= remaining):
             dv = min(abs(self.speed), accel * dt)
             self.speed -= math.copysign(dv, self.speed)
         else:
@@ -111,10 +112,13 @@ class Axis:
         self.speed = max(-max_speed, min(max_speed, self.speed))
 
         self._frac += self.speed * dt
-        while self._frac >= 1.0:
-            self._step(1, enabled)
-        while self._frac <= -1.0:
-            self._step(-1, enabled)
+        while abs(self._frac) >= 1.0:
+            self._step(1 if self._frac > 0 else -1, enabled)
+            # Arriving with (almost) no braking left: stop here, like computeNewSpeed() does,
+            # instead of letting the integration's leftover speed carry one step past.
+            if self.counter == self.target and self.speed * self.speed / (2.0 * accel) <= 2:
+                self.speed = self._frac = 0.0
+                break
 
     def _step(self, d, enabled):
         self._frac -= d
