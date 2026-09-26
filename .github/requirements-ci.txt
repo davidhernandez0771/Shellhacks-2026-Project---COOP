@@ -3,6 +3,5 @@
 # skips the multi-GB install. Headless OpenCV avoids needing libGL on the runner.
 flask>=3.0
 numpy
-pyserial>=3.5
 opencv-python-headless
 pytest>=8.0

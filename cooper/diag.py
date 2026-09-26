@@ -1,4 +1,4 @@
-"""Health readouts for /api/status.diag: SoC temperature, throttling, serial link, uptime.
+"""Health readouts for /api/status.diag: SoC temperature, throttling, uptime.
 
 Everything degrades to None off the Pi (a laptop has no vcgencmd; Windows has no /sys), so
 the dashboard can show "n/a" instead of the backend failing.
@@ -12,8 +12,7 @@ from pathlib import Path
 
 # Every key /api/status.diag always carries (docs/API.md). The vision loop publishes the
 # pipeline timings; SystemMonitor.snapshot() supplies the rest at request time.
-DIAG_KEYS = ("cpu_temp_c", "throttled", "fps", "capture_fps", "infer_ms", "latency_ms",
-             "serial", "uptime_s")
+DIAG_KEYS = ("cpu_temp_c", "throttled", "fps", "capture_fps", "infer_ms", "latency_ms", "uptime_s")
 
 TEMP_PATH = Path("/sys/class/thermal/thermal_zone0/temp")
 # Exposed by the Raspberry Pi firmware driver on Pi OS kernels (hex, no 0x prefix).
@@ -45,14 +44,13 @@ def read_throttled(run=subprocess.run, which=shutil.which, sysfs=THROTTLED_SYSFS
 
 
 class SystemMonitor:
-    """snapshot() -> {cpu_temp_c, throttled, serial, uptime_s}.
+    """snapshot() -> {cpu_temp_c, throttled, uptime_s}.
 
     Temperature and throttling are cached for `ttl_s` (vcgencmd is a subprocess; the
-    dashboard polls every ~300 ms). The serial state and uptime are always live.
+    dashboard polls every ~300 ms). Uptime is always live.
     """
 
-    def __init__(self, link_state=None, ttl_s=2.0, temp_fn=read_cpu_temp_c, throttled_fn=read_throttled):
-        self._link_state = link_state or (lambda: None)
+    def __init__(self, ttl_s=2.0, temp_fn=read_cpu_temp_c, throttled_fn=read_throttled):
         self._ttl_s = ttl_s
         self._temp_fn = temp_fn
         self._throttled_fn = throttled_fn
@@ -68,4 +66,4 @@ class SystemMonitor:
                 self._cached = {"cpu_temp_c": self._temp_fn(), "throttled": self._throttled_fn()}
                 self._cached_at = now
             slow = dict(self._cached)
-        return {**slow, "serial": self._link_state(), "uptime_s": round(now - self._started, 1)}
+        return {**slow, "uptime_s": round(now - self._started, 1)}

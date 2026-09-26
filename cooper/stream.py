@@ -1,19 +1,15 @@
-"""Live MJPEG stream + status/control API, served to any browser on the network.
+"""Live MJPEG stream + status API, served to any browser on the network.
 
-Route handlers never touch the Gimbal directly: motion and safety requests go through the
-Control object (which forwards e-stop/arm/zero to the motors at once), and /api/settings
-through cooper.settings.LiveSettings. See docs/API.md for the wire contract and
-docs/TERMINALS.md's Requests section for how cooper/main.py's loop turns Control's state into
-motor motion each frame.
+The vision loop publishes each frame and its status through SharedState; /api/settings goes
+through cooper.settings.LiveSettings and /api/events through cooper.control.Control. See
+docs/API.md for the wire contract.
 """
-import math
 import threading
 import time
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, request
 
-from .control import ControlError
 from .diag import DIAG_KEYS
 from .settings import SettingsError
 
@@ -55,30 +51,6 @@ def _error(message, status=400):
     return jsonify({"ok": False, "error": message}), status
 
 
-def _json_object():
-    """The request's JSON body if it's an object, else {} (so a list or a string gets the
-    route's normal 400, never a 500 from calling .get on it)."""
-    body = request.get_json(silent=True)
-    return body if isinstance(body, dict) else {}
-
-
-def _number(value):
-    """A finite JSON number as float, else None (bools, strings, NaN and inf are rejected)."""
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        return None
-    value = float(value)
-    return value if math.isfinite(value) else None
-
-
-def _pan_arg(body, pan_key, tilt_key):
-    """The pan value from an aim/nudge body. The build is pan-only: the tilt key is optional
-    and ignored, but a malformed one is still rejected as a client bug."""
-    pan = _number(body.get(pan_key))
-    if pan is None or (tilt_key in body and _number(body[tilt_key]) is None):
-        return None
-    return pan
-
-
 def create_app(state, control, diag=None, settings=None):
     """`diag`: optional callable returning live health readings (cooper.diag.SystemMonitor.snapshot).
     `settings`: optional cooper.settings.LiveSettings behind /api/settings (404 without one)."""
@@ -96,8 +68,6 @@ def create_app(state, control, diag=None, settings=None):
     def status():
         payload = dict(state.status)
         payload["server_time"] = time.time()
-        payload["mode"] = control.mode  # authoritative even if the main loop hasn't published yet
-        payload["estop"] = control.estopped
         merged = dict.fromkeys(DIAG_KEYS)
         merged.update(payload.get("diag") or {})  # the vision loop's per-frame timings
         if diag is not None:
@@ -109,58 +79,6 @@ def create_app(state, control, diag=None, settings=None):
     def events():
         since = request.args.get("since", default=0, type=int)
         return jsonify({"events": control.events_since(since)})
-
-    @app.route("/api/mode", methods=["POST"])
-    def set_mode():
-        body = _json_object()
-        try:
-            control.set_mode(body.get("mode"))
-        except ControlError as e:
-            return _error(str(e))
-        return _ok()
-
-    @app.route("/api/target", methods=["POST"])
-    def set_target():
-        body = _json_object()
-        if "id" not in body:
-            return _error("missing 'id'")
-        try:
-            control.set_target(body["id"])
-        except ControlError as e:
-            return _error(str(e))
-        return _ok()
-
-    @app.route("/api/aim", methods=["POST"])
-    def aim():
-        body = _json_object()
-        pan = _pan_arg(body, "pan", "tilt")
-        if pan is None:
-            return _error("pan must be a number (tilt, if sent, too; it is ignored)")
-        try:
-            control.set_aim(pan)
-        except ControlError as e:
-            return _error(str(e))
-        return _ok()
-
-    @app.route("/api/nudge", methods=["POST"])
-    def nudge():
-        body = _json_object()
-        dpan = _pan_arg(body, "dpan", "dtilt")
-        if dpan is None:
-            return _error("dpan must be a number (dtilt, if sent, too; it is ignored)")
-        try:
-            control.nudge(dpan)
-        except ControlError as e:
-            return _error(str(e))
-        return _ok()
-
-    @app.route("/api/home", methods=["POST"])
-    def home():
-        try:
-            control.home()
-        except ControlError as e:
-            return _error(str(e))
-        return _ok()
 
     @app.route("/api/settings", methods=["GET"])
     def get_settings():
@@ -178,21 +96,6 @@ def create_app(state, control, diag=None, settings=None):
         except SettingsError as e:
             return _error(str(e))
         return _ok(**result)
-
-    @app.route("/api/estop", methods=["POST"])
-    def estop():
-        control.estop()
-        return _ok()
-
-    @app.route("/api/arm", methods=["POST"])
-    def arm():
-        control.arm()
-        return _ok()
-
-    @app.route("/api/zero", methods=["POST"])
-    def zero():
-        control.zero()
-        return _ok()
 
     return app
 

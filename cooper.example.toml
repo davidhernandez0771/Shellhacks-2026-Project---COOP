@@ -7,31 +7,7 @@
 # Unknown keys or wrong types stop COOPER at startup with an error naming the key.
 #
 # Live-tunable from the dashboard / POST /api/settings (and saved back here with
-# "save": true): lead_time_s, deadband_deg, conf, max_steps_per_sec,
-# accel_steps_per_sec2, pan_invert. Everything else needs a restart.
-
-[motors]
-# Flip this first if the camera turns LEFT when you aim right (+pan must turn it right,
-# clockwise seen from above). Only changeable live in stop mode.
-pan_invert = false
-# Must match the TMC2209's MS1/MS2 pins: both to GND = 8. MS2/MS1: 00 = 8, 01 = 32, 10 = 64, 11 = 16.
-microsteps = 8
-steps_per_rev = 200            # 1.8 deg NEMA 17
-pan_gear_ratio = 1.0           # motor turns per camera turn; a 20T pulley driving 60T is 3.0
-pan_limits_deg = [-170.0, 170.0]  # soft limits so cables don't wrap; must include 0
-max_steps_per_sec = 2000.0     # microsteps/s (50..4000). 2000 at 8 microsteps, 1:1 = 450 deg/s
-accel_steps_per_sec2 = 6000.0  # microsteps/s^2 (100..50000)
-idle_disable_s = 20.0          # stop mode: power the drivers down after this long (0 = never)
-enabled = true                 # false = mock motors (same as --no-motors)
-port = "auto"                  # "auto" finds the Uno on USB; or "/dev/ttyACM0", "COM5", "socket://localhost:5555" (tools/fake_uno.py)
-baud = 115200
-
-[tracking]
-lead_time_s = 0.15      # aim this far ahead (s); roughly diag.latency_ms plus motor lag
-deadband_deg = 1.0      # ignore aim changes smaller than this (stops jitter)
-lost_timeout_s = 1.0    # drop a target after this long unseen
-reassociate_deg = 5.0   # re-identify a vanished track within this many degrees of the prediction
-priority = ["person", "car", "truck", "bus", "motorcycle"]
+# "save": true): conf. Everything else needs a restart.
 
 [detector]
 conf = 0.4              # YOLO confidence threshold (0.05..0.95)
@@ -47,10 +23,6 @@ height = 480
 fps = 30
 hfov_deg = 63.0         # OV5647 3.6 mm lens: 75 deg diagonal = about 63 x 49 at 4:3
 vfov_deg = 49.0
-
-[sim]
-enabled = true          # virtual gimbal crop, only with mock motors (--no-motors)
-world_hfov_deg = 100.0  # assumed webcam FOV; must exceed camera.hfov_deg
 
 [stream]
 host = "0.0.0.0"

@@ -6,7 +6,7 @@
 Run it on the Pi before the full app: it proves Picamera2 works, shows the real delivered
 frame rate, and the saved still lets you check colours (skin blue = red/blue swapped) and
 orientation (text must read normally; something on the camera's right must appear on
-the right of the image) before any motor moves.
+the right of the image) before you calibrate the lane.
 """
 import argparse
 import sys
