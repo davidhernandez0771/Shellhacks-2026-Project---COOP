@@ -21,3 +21,6 @@ runs/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local settings (copy coop.example.toml)
+coop.toml

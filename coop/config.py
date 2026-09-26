@@ -37,6 +37,9 @@ class MotorConfig:
     pan_limits_deg: tuple = (-170.0, 170.0)  # keep cables from wrapping
     max_steps_per_sec: float = 2000.0  # microsteps/s; AccelStepper on a Uno tops out near 4000
     accel_steps_per_sec2: float = 6000.0
+    # In "stop" mode, power the drivers down after this long so the motor doesn't sit at full
+    # holding current and heat up. 0 = never. Re-enabled automatically when motion resumes.
+    idle_disable_s: float = 20.0
 
 
 @dataclass

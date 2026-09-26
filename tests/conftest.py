@@ -48,3 +48,9 @@ def fake_serial_factory(monkeypatch):
 
     monkeypatch.setattr("serial.Serial", factory)
     return created
+
+
+@pytest.fixture(autouse=True)
+def no_local_settings_file(monkeypatch, tmp_path):
+    """Tests never read the developer's own coop.toml (it could point at a real Uno)."""
+    monkeypatch.setattr("coop.settings.DEFAULT_PATH", tmp_path / "coop.toml")

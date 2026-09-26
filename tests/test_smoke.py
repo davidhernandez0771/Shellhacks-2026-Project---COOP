@@ -62,9 +62,9 @@ def run_main(monkeypatch):
     monkeypatch.setattr(coop.main, "Detector", FakeDetector)
     monkeypatch.setattr(coop.stream, "create_app", capture_create_app)
     monkeypatch.setattr(flask.Flask, "run", lambda self, *a, **k: None)
-    monkeypatch.setattr(sys, "argv", ["coop.main", "--no-motors"])
-
-    def run():
+    def run(argv=("--no-motors",)):
+        if argv is not None:
+            monkeypatch.setattr(sys, "argv", ["coop.main", *argv])
         coop.main.main()
         assert len(apps) == 1, "serve_in_background should build exactly one app"
         return apps[0]
@@ -115,3 +115,45 @@ def test_video_stream_waits_for_the_first_frame():
     reader.join(timeout=2.0)
     assert got and b"JPEGDATA" in got[0]
     assert state.status["frame_seq"] == 1
+
+
+def test_settings_file_is_loaded(run_main, tmp_path, monkeypatch):
+    path = tmp_path / "coop.toml"
+    path.write_text("[camera]\nhfov_deg = 50.0\n", encoding="utf-8")
+    monkeypatch.setattr("coop.settings.DEFAULT_PATH", path)
+    status = run_main().test_client().get("/api/status").get_json()
+    assert status["frame"]["hfov_deg"] == 50.0
+
+
+def test_config_flag_and_motor_port_flag(run_main, tmp_path, monkeypatch):
+    path = tmp_path / "bench.toml"
+    path.write_text("[camera]\nhfov_deg = 55.0\n", encoding="utf-8")
+    seen = {}
+    real_gimbal = coop.main.Gimbal
+
+    def spy_gimbal(cfg, **kwargs):
+        seen["port"] = cfg.port
+        return real_gimbal(cfg, **kwargs)
+
+    monkeypatch.setattr(coop.main, "Gimbal", spy_gimbal)
+    monkeypatch.setattr(sys, "argv", ["coop.main", "--no-motors", "--config", str(path),
+                                      "--motor-port", "socket://localhost:5555"])
+    status = run_main(argv=None).test_client().get("/api/status").get_json()
+    assert status["frame"]["hfov_deg"] == 55.0
+    assert seen["port"] == "socket://localhost:5555"
+
+
+def test_invalid_settings_file_exits_with_the_error(run_main, tmp_path, monkeypatch, capsys):
+    path = tmp_path / "coop.toml"
+    path.write_text("[motors]\npan_inverted = true\n", encoding="utf-8")
+    monkeypatch.setattr("coop.settings.DEFAULT_PATH", path)
+    with pytest.raises(SystemExit) as e:
+        run_main()
+    assert e.value.code == 2
+    assert "pan_inverted" in capsys.readouterr().err
+
+
+def test_missing_explicit_config_exits(run_main, tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["coop.main", "--config", str(tmp_path / "nope.toml")])
+    with pytest.raises(SystemExit):
+        run_main(argv=None)

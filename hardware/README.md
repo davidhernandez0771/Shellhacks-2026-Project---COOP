@@ -50,7 +50,7 @@ The Pi runs vision and sends target positions. The Uno generates the step pulses
 - **Set the current limit (Vref) before you connect the motors.** Use the potentiometer and your module's Vref formula, which differs between brands. Aim for about 0.8–1.0 A RMS for a typical 1.5 A NEMA 17. The motor will run cooler and still have plenty of torque for a camera.
 - **Never plug or unplug a motor while the driver is powered.** It can destroy the TMC2209.
 - To find a motor's coil pairs: two wires that show low resistance between them belong to the same coil.
-- For a different microstep setting, change `MotorConfig.microsteps` to match. The MS2/MS1 combinations are: 00 = 8, 01 = 32, 10 = 64, 11 = 16.
+- For a different microstep setting, set `microsteps` in `coop.toml` to match. The MS2/MS1 combinations are: 00 = 8, 01 = 32, 10 = 64, 11 = 16.
 
 ## Flashing the Uno
 1. Install the Arduino IDE, then use Library Manager to install **AccelStepper** (by Mike McCauley).
@@ -59,7 +59,7 @@ The Pi runs vision and sends target positions. The Uno generates the step pulses
 
 ## Mechanics
 - The software treats the power-on position as 0°. Point the camera forward before starting, or add a limit switch for homing later.
-- The build is pan-only (the tilt driver column above is unused). Set `pan_gear_ratio` if you use belts or gears. For example, a 20T pulley driving a 60T pulley is `3.0`.
+- The build is pan-only (the tilt driver column above is unused). Set `pan_gear_ratio` in `coop.toml` (see `coop.example.toml`) if you use belts or gears. For example, a 20T pulley driving a 60T pulley is `3.0`.
 - Pan is limited to ±170° by default so the cables don't wrap. Change `pan_limits_deg` if you add a slip ring.
 
 ## Files

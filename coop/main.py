@@ -10,11 +10,12 @@ import time
 import cv2
 
 from .camera import Camera
-from .config import Config
+from . import settings
 from .control import Control
 from .detector import Detector
 from .motors import Gimbal
 from .predictor import KalmanPredictor
+from .settings import SettingsError, load_config
 from .sim import VirtualGimbal
 from .stream import SharedState, serve_in_background
 
@@ -87,11 +88,21 @@ def main():
     parser.add_argument("--no-motors", action="store_true", help="run steppers in mock mode")
     parser.add_argument("--port", type=int)
     parser.add_argument("--annotate", action="store_true", help="draw boxes into the /video stream")
+    parser.add_argument("--config", help="settings file (default: coop.toml in the repo root, if present)")
+    parser.add_argument("--motor-port", help='Uno serial port or URL, e.g. /dev/ttyACM0, COM5, '
+                                             'socket://localhost:5555 (tools/fake_uno.py)')
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
-    cfg = Config()
+    try:
+        cfg = load_config(args.config, required=args.config is not None)
+    except SettingsError as e:
+        parser.error(str(e))
+    log.info("Settings: %s", args.config or (settings.DEFAULT_PATH if settings.DEFAULT_PATH.exists()
+                                            else "built-in defaults (no coop.toml)"))
+    if args.motor_port:
+        cfg.motors.port = args.motor_port
     if args.source:
         cfg.camera.source = args.source
     if args.no_motors:
