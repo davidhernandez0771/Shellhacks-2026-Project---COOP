@@ -9,7 +9,7 @@ import time
 
 import cv2
 
-from .camera import Camera
+from .camera import Camera, FrameGrabber
 from . import settings
 from .control import Control
 from .detector import Detector
@@ -63,6 +63,11 @@ def _find(detections, track_id):
     return next((d for d in detections if d.track_id == track_id), None) if track_id is not None else None
 
 
+def _smooth(avg, sample, alpha=0.2):
+    """Exponential moving average; the first sample starts it."""
+    return sample if avg is None else (1 - alpha) * avg + alpha * sample
+
+
 def _clamp(value, limits):
     lo, hi = limits
     return min(max(value, lo), hi)
@@ -113,6 +118,7 @@ def main():
         cfg.stream.annotate = True
 
     camera = Camera(cfg.camera)
+    grabber = FrameGrabber(camera)
     detector = Detector(cfg.detector)
     control = Control(cfg.motors)
     gimbal = Gimbal(cfg.motors, on_event=control.log_event)
@@ -128,15 +134,14 @@ def main():
     prev_locked = None
     aim_pan = 0.0  # last commanded pan, reported as gimbal.target_pan
     fps, last_frame_t = 0.0, time.monotonic()
+    infer_ms = latency_ms = None  # smoothed, for diag
     prev_epoch = gimbal.frame_epoch
 
     try:
         while True:
-            frame = camera.read()
+            frame, now = grabber.read()  # newest frame and its capture time; stale ones dropped
             if frame is None:
-                time.sleep(0.01)
                 continue
-            now = time.monotonic()
             epoch = gimbal.frame_epoch  # read before the angle: aims computed from it carry it
             pan = gimbal.pan
             tilt = 0.0  # pan-only: the camera's tilt is fixed, so world tilt = in-frame offset
@@ -156,7 +161,9 @@ def main():
                 last_seen = now  # a fresh lock gets the full lost_timeout_s grace period
                 prev_locked = locked
 
+            t_infer = time.monotonic()
             detections = detector.detect(frame)
+            infer_ms = _smooth(infer_ms, (time.monotonic() - t_infer) * 1000.0)
             # An operator lock beats auto-selection: follow only that ID, coasting while it's occluded.
             target = _find(detections, locked if locked is not None else target_id)
             reassociated = False
@@ -203,7 +210,7 @@ def main():
                 gimbal.aim(aim_pan, trk.deadband_deg, epoch=epoch)
             aim_pan = _clamp(aim_pan, mot.pan_limits_deg)
 
-            dt = now - last_frame_t
+            dt = now - last_frame_t  # between capture times, so it's the processed-frame rate
             last_frame_t = now
             fps = 0.9 * fps + 0.1 * (1.0 / dt if dt > 0 else 0.0)
 
@@ -218,6 +225,8 @@ def main():
 
             ok, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, cfg.stream.jpeg_quality])
             if ok:
+                # Capture -> detect -> predict -> motor command -> encode, for this frame.
+                latency_ms = _smooth(latency_ms, (time.monotonic() - now) * 1000.0)
                 state.publish(jpeg.tobytes(), {
                     "fps": round(fps, 1),
                     "mode": mode,
@@ -240,11 +249,18 @@ def main():
                         "drivers_enabled": gimbal.drivers_enabled,
                     },
                     "velocity_deg_s": [round(v, 1) for v in predictor.velocity],
+                    "diag": {
+                        "fps": round(fps, 1),
+                        "capture_fps": round(grabber.capture_fps, 1),
+                        "infer_ms": round(infer_ms, 1),
+                        "latency_ms": round(latency_ms, 1),
+                    },
                 })
     except KeyboardInterrupt:
         log.info("Shutting down")
     finally:
         gimbal.close()
+        grabber.close()
         camera.close()
 
 

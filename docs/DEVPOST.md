@@ -36,7 +36,7 @@ Everything streams live to a web dashboard: the annotated video feed with clicka
 The dashboard is reachable from anywhere over HTTPS at the team's own subdomain, behind an email login, so only approved people can watch the feed or take control.
 
 ## How we built it
-**Vision (Raspberry Pi 5).** Frames come from a 5 MP OV5647 camera through Picamera2. A YOLO11n model (Ultralytics) detects people, cars, motorcycles, buses and trucks, and ByteTrack gives each object a persistent ID so COOP doesn't jump between targets.
+**Vision (Raspberry Pi 5).** Frames come from a 5 MP OV5647 camera through Picamera2. A YOLO11n model (Ultralytics) detects people, cars, motorcycles, buses and trucks, and ByteTrack gives each object a persistent ID so COOP doesn't jump between targets. Capture runs on its own thread and the vision loop always takes the newest frame, dropping the ones that arrived during inference instead of queueing them, so the tracker never aims from a backlog. Each frame carries its capture timestamp: the Kalman filter is updated at the moment the photo was taken, and the dashboard shows the measured capture-to-motor-command latency.
 
 **Target selection.** COOP sticks with its current track ID for as long as it's visible. When it loses the target, it picks a new one by class priority (people first), then by size.
 

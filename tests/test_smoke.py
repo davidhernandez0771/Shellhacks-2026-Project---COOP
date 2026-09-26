@@ -89,6 +89,9 @@ def test_main_runs_one_iteration_and_publishes_status(run_main):
     assert status["gimbal"]["tilt_enabled"] is False
     assert status["gimbal"]["tilt_limits"] == [0, 0]
     assert status["gimbal"]["drivers_enabled"] is True
+    diag = status["diag"]
+    assert diag["infer_ms"] >= 0 and diag["latency_ms"] >= diag["infer_ms"]
+    assert "fps" in diag and "capture_fps" in diag
     assert status["estop"] is False
 
     events = client.get("/api/events").get_json()["events"]
