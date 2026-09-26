@@ -14,7 +14,7 @@ Every terminal works in the same folder (`C:\dev\COOP`) on its **own files**. Sh
 |---|---|---|---|
 | 1 | **Vision & tracking** | `coop/main.py`, `coop/camera.py`, `coop/detector.py`, `coop/predictor.py`, `coop/sim.py`, `coop/config.py` | Make it run on the laptop and fix bugs. Build the virtual gimbal (a crop window that pans with the simulated motors) so tracking is visible without hardware. Measure and tune FPS. |
 | 2 | **Web dashboard** | `web/**` | Rebuild the dashboard to `docs/DESIGN_BRIEF.md` against `docs/API.md`. Use fake data until the endpoints exist. |
-| 3 | **Control API & hardware link** | `coop/stream.py`, `coop/control.py`, `coop/motors.py`, `firmware/**`, `scripts/**` | Implement every endpoint in `docs/API.md`: the mode, lock and aim state in `control.py`, plus the event log. Harden the serial link (reconnect). Pi deploy: a systemd service and a Cloudflare Tunnel guide. |
+| 3 | **Control API & hardware link** | `coop/stream.py`, `coop/control.py`, `coop/motors.py`, `firmware/**`, `scripts/**`, `.github/**`, `docs/HARDWARE_TEST.md` | Implement every endpoint in `docs/API.md`: the mode, lock and aim state in `control.py`, plus the event log. Harden the serial link (reconnect). Pi deploy: a systemd service and a Cloudflare Tunnel guide. CI (pytest on GitHub Actions) and the first-hardware checklist. |
 | 4 | **Quality & ship** | `tests/**`, `docs/DEVPOST.md`, `README.md`, `site/**` | pytest suite (pixel math, Kalman, target choice, serial protocol with a fake port, API with the Flask test client). Keep the docs current. Later: a landing page for the domain. |
 
 **Lane 1 ↔ 3 handoff:** lane 3 builds `coop/control.py` (a thread-safe object holding mode, locked ID, manual aim and events). Lane 1 wires it into `main.py`'s loop. Agree on its interface here before coding it.
@@ -73,6 +73,14 @@ status). Today that looks like a silently stale dashboard. Suggest: after a few 
 `TypeError`s from the real source, show a "Session expired — reload to sign in" state
 (`--danger`) with a reload button, rather than falling back to mock. Relative URLs are
 already right; keep them (no `http://localhost` anywhere).
+
+**Lane 3 → lane 4: add a startup smoke test.** CI (`.github/workflows/tests.yml`) runs
+the suite with only flask/numpy/pyserial/opencv-headless/pytest installed, so keep tests free
+of `ultralytics` and `picamera2` imports. Gap it can't see: nothing calls `coop.main.main()`,
+so the committed `main.py` calling `serve_in_background(state, cfg.stream)` against the
+new 3-argument signature passes CI but crashes at startup. Suggest a test that runs one loop
+iteration with `Camera`/`Detector` monkeypatched to fakes, `--no-motors`, and the web
+thread stubbed.
 
 **Lane 4 → lane 3 (and David): hostname clash on `coop.<domain>`.** `scripts/setup_tunnel.md`
 routes the dashboard to `coop.example.com`, and the new public showcase (`site/`) was asked
