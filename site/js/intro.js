@@ -1,9 +1,11 @@
-// The intro: "COOP" decodes out of noise like a camera acquiring a lock, then the line under
-// it re-scrambles into the full name, then into the tagline.
+// The intro: "COOPER" decodes out of noise like a camera acquiring a lock, then the line under
+// it re-scrambles into the name line, then into the tagline.
 
-const NAME = "Computer-vision Object Observation & Prediction";
-const TAGLINE = "COOP keeps an eye on the coop.";
-const NAME_HTML = "<b>C</b>omputer-vision <b>O</b>bject <b>O</b>bservation &amp; <b>P</b>rediction";
+// ✏️ PLACEHOLDER: the story behind the name COOPER. Put the same line in NAME (plain text, it
+// gets scrambled) and NAME_HTML (shown once it settles).
+const NAME = "The story behind the name goes here";
+const TAGLINE = "COOPER sees it coming.";
+const NAME_HTML = "✏️ The story behind the name goes here";
 const CURSOR = "░▒▓█";
 const NOISE = "░▒▓█▚▞▙▛▜▟ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%";
 
@@ -29,7 +31,7 @@ export function makeScrambler(anime) {
 }
 
 function setFinal(letters, expansion, readout, brackets) {
-  letters.forEach((s, i) => { s.textContent = "COOP"[i]; s.classList.add("is-set"); });
+  letters.forEach((s, i) => { s.textContent = "COOPER"[i]; s.classList.add("is-set"); });
   expansion.innerHTML = NAME_HTML;
   readout.textContent = TAGLINE;
   brackets.classList.add("is-lock");
@@ -76,7 +78,7 @@ export function playIntro(anime, { still, skip }) {
   letters.forEach((s, i) => {
     tl.add(s, {
       innerHTML: scrambleText({
-        text: "COOP"[i],
+        text: "COOPER"[i],
         chars: NOISE,
         cursor: CURSOR,
         settleDuration: 520 + i * 90,

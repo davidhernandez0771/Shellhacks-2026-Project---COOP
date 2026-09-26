@@ -415,7 +415,7 @@ main { position: relative; z-index: 1; }
   font-family: var(--font-display);
   font-stretch: var(--stretch-display);
   font-weight: 800;
-  font-size: clamp(5.5rem, 24vw, 22rem);
+  font-size: clamp(3.7rem, 16vw, 14.7rem); /* sized for six letters (COOPER) */
   line-height: 0.8;
   letter-spacing: -0.04em;
 }
@@ -712,7 +712,7 @@ html:not(.js) .hud, html:not(.js) .stage-hud { display: none; }
   .ch-body { font-size: 15px; margin-bottom: 16px; }
   .ch-num { margin-bottom: 10px; }
   .spec { grid-template-columns: repeat(2, auto); gap: 8px 22px; }
-  .intro-word { font-size: calc((100vw - 2 * var(--gutter)) / 3.9); }
+  .intro-word { font-size: calc((100vw - 2 * var(--gutter)) / 5.85); }
   .intro-lockup { max-width: 100%; }
   .intro-readout { font-size: clamp(1.1rem, 5.4vw, 1.5rem); margin-top: 20px; }
   .intro-lede { font-size: 15px; }

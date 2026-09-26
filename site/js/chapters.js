@@ -1,5 +1,6 @@
 // Scroll: chapter progress (anime.js onScroll), word-by-word reveals, the nav, the chapter
-// scrubber, the bearing tape and the chapter 04 gauge.
+// scrubber, the bearing tape and the chapter 04 (Warn) gauge: where an object is now and
+// where its predicted path points, as a bearing from the fixed camera.
 
 import { CHAPTERS } from "./stage/director.js";
 
@@ -46,7 +47,7 @@ function buildTape(strip) {
   }
 }
 
-// ── gauge (chapter 04): ±170° mapped onto a 240° arc ──
+// ── gauge (chapter 04, Warn): ±170° of bearing mapped onto a 240° arc ──
 const G = { cx: 120, cy: 122, r: 96, span: 120, limit: 170 };
 const toArc = (deg) => (Math.max(-G.limit, Math.min(G.limit, deg)) / G.limit) * G.span;
 function polar(a, r = G.r) {
