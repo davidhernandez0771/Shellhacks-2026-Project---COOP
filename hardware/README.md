@@ -4,23 +4,31 @@ Owner: design & hardware teammate. Keep this file up to date when the wiring cha
 
 ## Architecture
 ```
-Pi 5 ──USB──► Arduino Uno ──STEP/DIR/EN──► TMC2209 (pan)  ──► NEMA 17
-  │                         └────────────► TMC2209 (tilt) ──► NEMA 17
-  └─ camera ribbon (22-pin)                    ▲
-                                  12 V supply ─┘ (VM)
+                 ┌──► buck 12V→5.1V ──USB-C──► Pi 5 ──USB──► Arduino Uno ──STEP/DIR/EN──► TMC2209 ×2 ──► NEMA 17 ×2
+12 V supply ─────┤                                │                                            ▲
+                 └────────────────────────────────┼────────────────── VM (motor power) ────────┘
+                                                  └─ camera ribbon (22-pin)
 ```
-The Pi runs vision and sends target positions. The Uno generates the step pulses.
+The Pi runs vision and sends target positions. The Uno generates the step pulses. The single 12 V supply powers everything: the Pi through a buck converter, the Uno from the Pi's USB, and the motors directly.
+
+## Power
+- **Buck converter:** set the output to **5.1 V** with a multimeter *before* connecting the Pi, and use one rated for **5 A or more**. A Pi 5 running YOLO draws a lot of current, and a weak buck causes undervoltage throttling or random reboots. Check for throttling with `vcgencmd get_throttled`; `0x0` means OK.
+- **Feed the Pi through USB-C** (a USB-C pigtail or a buck with a USB-C output), not the GPIO 5 V pins. USB-C keeps the Pi's input protection.
+- Without a USB-PD power supply, the Pi 5 limits its USB ports to 600 mA total. That's plenty for the Uno. The "power supply" warning at boot is expected and can be ignored.
+- **12 V supply size:** Pi (≈25 W worst case ≈ 2.3 A at 12 V after buck losses) + two NEMA 17 (≈1–1.5 A each) → use **12 V 5 A (60 W) or more**.
+- Motors inject electrical noise into the shared supply. Put the 100 µF capacitors at the drivers and a ≥470 µF capacitor at the buck input. Keep the motor and Pi power wires as separate runs back to the supply.
 
 ## Bill of materials
 | Part | Qty | Notes |
 |---|---|---|
-| Raspberry Pi 5, 8 GB | 1 | Official 27 W USB-C PSU + active cooler |
+| Raspberry Pi 5, 8 GB | 1 | + active cooler |
+| Buck converter 12 V → 5.1 V, ≥5 A | 1 | Powers the Pi from the main supply (USB-C output preferred) |
 | OV5647 5 MP camera, 3.6 mm, 75° | 1 | Non-IR |
 | Pi 5 camera cable, 15→22 pin | 1 | ✅ have it |
 | Arduino Uno + USB cable | 1 | Powered from the Pi's USB port |
 | TMC2209 driver module | 1 per motor | Standalone STEP/DIR mode |
 | NEMA 17 stepper | 1–2 | Pan (and optional tilt) |
-| 12 V power supply (≥2 A) | 1 | Motors only; **never** from the Pi or Uno 5 V |
+| 12 V power supply, ≥5 A | 1 | Feeds the motors directly and the Pi through the buck |
 | 100 µF electrolytic capacitor | 1 per driver | Across VM/GND, close to the driver |
 | Arduino CNC Shield V3 (optional) | 1 | Uses the same pinout and removes most of the wiring |
 
