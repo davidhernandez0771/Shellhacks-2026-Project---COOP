@@ -81,4 +81,67 @@ def test_the_whole_app_runs_on_the_scene(monkeypatch):
 
     status = apps[0].test_client().get("/api/status").get_json()
     assert status["frame_seq"] >= 1
-    assert "person" in {d["label"] for d in status["detections"]}
+    assert "person" in {o["label"] for o in status["objects"]}
+
+
+# ---- the risk timeline over one loop (tools/rehearsal.py simulate) ----
+
+@pytest.fixture(scope="module")
+def loop():
+    """One full 20 s loop at 30 fps through the real Tracks + RiskJudge, in simulated time."""
+    return rehearsal.simulate(duration_s=20.0, fps=30.0)
+
+
+def levels_between(loop, t0, t1):
+    return [f.level for f in loop if t0 <= f.t < t1]
+
+
+def slot_levels(loop, slot, t0=0.0, t1=20.0):
+    return [o.level for f in loop if t0 <= f.t < t1 for o in f.objects if o.id // 100 == slot]
+
+
+def first(loop, level, t0, t1, slot):
+    """Time the output first reaches `level` in [t0, t1) because of an actor in `slot`."""
+    return next(f.t for f in loop if t0 <= f.t < t1 and f.level == level and f"#{slot}" in f.reason)
+
+
+def test_the_loop_starts_clear(loop):
+    assert set(levels_between(loop, 0.0, 3.0)) == {"clear"}
+
+
+def test_the_car_in_the_next_lane_never_lights_an_led(loop):
+    assert set(slot_levels(loop, RoadScene.NEIGHBOUR)) == {"clear"}
+    assert not any(f"#{RoadScene.NEIGHBOUR}" in f.reason for f in loop)
+
+
+def test_the_cut_in_warns_before_it_is_in_our_lane(loop):
+    warn = first(loop, "warning", 3.0, 9.0, RoadScene.CUT_IN)
+    danger = first(loop, "danger", 3.0, 9.0, RoadScene.CUT_IN)
+    assert warn < danger
+
+
+def test_the_pedestrian_warns_then_is_danger(loop):
+    warn = first(loop, "warning", 10.0, 15.0, RoadScene.PEDESTRIAN)
+    danger = first(loop, "danger", 10.0, 15.0, RoadScene.PEDESTRIAN)
+    assert warn < danger
+
+
+def test_the_braking_lead_car_warns_then_is_danger(loop):
+    warn = first(loop, "warning", 15.0, 20.0, RoadScene.LEAD)
+    danger = first(loop, "danger", 15.0, 20.0, RoadScene.LEAD)
+    assert warn < danger
+
+
+def test_the_lead_car_cruising_far_ahead_is_clear(loop):
+    assert set(slot_levels(loop, RoadScene.LEAD, 0.0, 15.0)) == {"clear"}
+
+
+@pytest.mark.parametrize("led", ["yellow", "red"])
+def test_no_led_flickers(loop, led):
+    """Every stretch an LED spends on or off (other than the first and last) lasts at least
+    a quarter second."""
+    states = [(f.t, f.leds[led]) for f in loop]
+    changes = [t for (t, s), (_, prev) in zip(states[1:], states) if s != prev]
+    segments = [b - a for a, b in zip(changes, changes[1:])]
+    assert changes, f"the {led} LED never turned on"
+    assert min(segments, default=1.0) >= 0.25, segments

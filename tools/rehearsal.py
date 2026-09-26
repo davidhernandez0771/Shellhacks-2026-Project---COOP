@@ -19,9 +19,10 @@ on the real camera. One 20 s loop:
     15-19.5  the lead car brakes hard and we close on it
 
 Options: --port (dashboard), --start-s (where in the loop to start), --speed (scene time per
-real second).
+real second), --timeline (no dashboard: run one loop offline and print every risk change).
 """
 import argparse
+import dataclasses
 import math
 import sys
 import threading
@@ -34,7 +35,11 @@ if __package__ in (None, ""):  # allow `python tools/rehearsal.py`
 import cv2
 import numpy as np
 
+from cooper.config import Config
 from cooper.detector import Detection
+from cooper.leds import Leds
+from cooper.predictor import Tracks
+from cooper.risk import RiskJudge
 
 SKY, ROAD, MARKING = (40, 34, 30), (58, 58, 58), (190, 190, 190)
 
@@ -192,6 +197,43 @@ class SceneDetector:
         return found
 
 
+class SimFrame:
+    """One simulated frame: its time, the risk output, every object's risk, the LEDs."""
+
+    __slots__ = ("t", "level", "reason", "raw_level", "objects", "leds")
+
+    def __init__(self, t, assessment, leds):
+        self.t, self.level, self.reason = t, assessment.level, assessment.reason
+        self.raw_level, self.objects, self.leds = assessment.raw_level, assessment.objects, leds
+
+
+def simulate(duration_s=20.0, fps=30.0, start_s=0.0, cfg=None):
+    """Run the scene through the detector, Tracks, RiskJudge and (mock) Leds in simulated
+    time, frame by frame, exactly as cooper.main chains them. Returns [SimFrame]."""
+    cfg = cfg or Config()
+    cam = cfg.camera
+    scene = RoadScene(cam.width, cam.height, cam.hfov_deg)
+    detector, tracks, judge = SceneDetector(), Tracks(cfg.prediction), RiskJudge(cfg.risk)
+    leds = Leds(dataclasses.replace(cfg.leds, enabled=False))
+    frames = []
+    for i in range(int(round(duration_s * fps))):
+        t = start_s + i / fps
+        assessment = judge.update(tracks.update(detector.detect(scene.render(t)), t), cam.width, cam.height, t)
+        leds.set(assessment.level)
+        frames.append(SimFrame(t, assessment, dict(leds.state)))
+    return frames
+
+
+def print_timeline(frames):
+    """Every change of the output level and of each LED, with the reason."""
+    prev = None
+    for f in frames:
+        if prev is None or f.level != prev.level or f.leds != prev.leds:
+            lit = [name for name, on in f.leds.items() if on] or ["-"]
+            print(f"{f.t:6.2f} s  {f.level:8} LED {'+'.join(lit):7} {f.reason}")
+        prev = f
+
+
 def patch_main(main_module, stop=None, start_s=0.0, speed=1.0, frames=None):
     """Swap cooper.main's Camera and Detector for the synthetic ones."""
     def camera(cfg):
@@ -208,7 +250,13 @@ def main(argv=None):
     parser.add_argument("--start-s", type=float, default=0.0, help="where in the 20 s loop to start")
     parser.add_argument("--speed", type=float, default=1.0, help="scene seconds per real second")
     parser.add_argument("--frames", type=int, default=None, help=argparse.SUPPRESS)  # tests: stop after N
+    parser.add_argument("--timeline", action="store_true",
+                        help="print one loop's risk and LED changes (simulated time) and exit")
     args = parser.parse_args(argv)
+
+    if args.timeline:
+        print_timeline(simulate(start_s=args.start_s))
+        return
 
     import cooper.main
 
