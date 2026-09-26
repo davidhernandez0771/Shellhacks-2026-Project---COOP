@@ -31,7 +31,7 @@ _(paste everything inside the box. Devpost supports Markdown and LaTeX)_
 ## What it does
 COOP (**C**omputer-vision **O**bject **O**bservation & **P**rediction) is a self-aiming camera. A Raspberry Pi 5 watches the scene, detects **people and vehicles** in real time, locks onto a target, and physically rotates the camera on stepper motors to keep that target centered, even as it moves. Instead of chasing where the target *was*, COOP **predicts where it's going** and aims ahead of it.
 
-Everything streams live to a web dashboard: the annotated video feed with clickable bounding boxes (click a detection to lock onto it), the current target's confidence and velocity, a pan dial showing the gimbal's live and predicted angle against its physical limits, and a scrolling event log. An operator can also take over: flip the Auto/Manual/Stop switch, drive the gimbal with a D-pad in manual mode, or lock onto a specific track — every mode change and target lock/loss is written to that event log. A hardware-style **E-STOP** brakes the motor and then cuts driver power until someone explicitly re-arms it, **ZERO** makes wherever the camera points the new 0°, and in Stop mode the drivers power down after a while so the motor doesn't sit there heating up. It's a glassy, dark control-room look that works down to phone width, since judges open it on their own devices.
+Everything streams live to a web dashboard: the video feed with clickable detections (corner brackets with leader-line labels that decode in when a target is first seen; click one to lock onto it), the target's confidence, velocity and lead, and a big pan gauge showing the camera's live angle and its predicted aim against the physical limits. An operator can take over: flip Auto/Manual/Stop, aim by clicking the dial or with ◀ Home ▶ in manual mode, lock onto a specific track, hit a one-click **E-stop** that cuts the motor drivers, or set "zero here". A diagnostics strip shows the Pi's temperature and throttling, vision and camera frame rates, inference time, end-to-end latency and the Arduino link, and a tuning panel changes the lead time, deadband, confidence, speed and motor direction live. Every failure has its own designed state (no camera, Arduino reconnecting, signed out, e-stop), all in the same black-white-and-orange identity as the showcase site, down to phone width, since judges open it on their own devices.
 
 The dashboard is reachable from anywhere over HTTPS at the team's own subdomain, behind an email login, so only approved people can watch the feed or take control.
 
@@ -62,6 +62,8 @@ Working in world angles means the camera's own rotation doesn't look like target
 
 **Deployment.** A systemd unit (`scripts/coop.service`, installed by `scripts/install_service.sh`) runs COOP on boot and restarts it automatically if it crashes. A second unit runs a **Cloudflare Tunnel**, which publishes the dashboard at an HTTPS subdomain through an outbound-only connection, so it works from venue Wi-Fi behind NAT with no port forwarding. **Cloudflare Access** sits in front: only approved email addresses (one-time PIN login) can see the camera or send it commands. The live MJPEG stream passes through the tunnel unbuffered.
 
+**Showcase site.** The public page tells the pipeline as seven scroll-driven chapters in one persistent three.js scene: a street of people and cars made of ~20,000 points, which COOP scans, boxes, predicts and turns to follow, then an exploded view of the hardware. anime.js v4 drives the "COOP" decode intro (`scrambleText`), the scroll timelines (`onScroll`) and the labels that scramble in when a target is acquired. The overlays reuse the real math: detections are projected through the same camera, and the prediction is drawn in world angles like the dashboard's. It has no build step (native ES modules, vendored libraries, self-hosted fonts), a still version for reduced motion, and a 2D-canvas fallback for browsers without WebGL.
+
 **Testing.** A pytest suite covers the pixel-to-angle math, the Kalman predictor, target selection, the `Control` state machine, and the Flask API (via Flask's test client) — plus the Arduino serial protocol against a fake serial port that plays the Uno's side of the handshake, including simulated link drops. Because the hardware arrived last, we also wrote an **emulator of our own Arduino firmware** (`tools/fake_uno.py`): it parses commands with the sketch's exact rules, runs an AccelStepper-style acceleration ramp and the 2 s watchdog in real time, and tracks the step counter and the physical shaft separately, so a test can tell when the controller has lost count. To make sure the emulator isn't just agreeing with our assumptions, we also ran the real compiled firmware on a simulated ATmega328P (simavr) and counted its actual STEP pulses: the two agree within about 2% on every scripted scenario, and the real firmware confirms the e-stop trap (stop-then-power-off loses 334 steps; our sequence loses none). pyserial opens it as `socket://localhost:5555`, so the real motor code can't tell the difference. On top of it, a rehearsal mode runs the entire app against a synthetic walker seen by a camera that turns with the emulated shaft: tracking, E-STOP, zeroing and USB unplug/replug were all exercised end to end before the first motor was wired. Bench tools for the day the hardware arrives jog the motor from the keyboard, check the camera, and benchmark YOLO in PyTorch vs NCNN at several input sizes. None of it needs a Pi, camera, or Arduino attached. GitHub Actions runs the suite on every push and pull request with only the lightweight dependencies installed. It skips the multi-GB PyTorch/Ultralytics install entirely, which also proves the tests never load the model or the Pi camera stack.
 
 ## Challenges we ran into
@@ -72,6 +74,7 @@ Working in world angles means the camera's own rotation doesn't look like target
 - **Real-time stepping.** Python on Linux can't produce reliably timed step pulses, so we moved step generation to an Arduino and kept the Pi focused on vision.
 - **A flaky USB link shouldn't end the demo.** The Arduino connection can drop mid-run (a bumped cable, a brownout). We moved the serial link to its own supervisor thread that keeps retrying instead of taking down the whole process. The subtle part was reconnecting *safely*: opening the port resets the Uno, which zeroes its step counter wherever the camera stopped, so replaying the last target would have turned the camera past its cable limits. Now the Pi restores the Uno's counter to the last position it reported (a new `Z <pan> <tilt>` command) and freezes its own angle estimate during the outage instead of simulating motion that isn't happening.
 - **An emergency stop that doesn't lose track of where the camera is.** The obvious e-stop, "stop, then cut motor power", is wrong for a stepper: the Arduino's AccelStepper keeps counting the steps of its braking ramp even with the drivers disabled, so at full speed the controller would believe the camera turned up to 75° further than it did. COOP brakes first and cuts power only once the reported position has been still for a quarter second (with a worst-case deadline), never sends a move while power is off, and re-disables the drivers after a USB reconnect because the Arduino boots with them on. A firmware emulator that tracks the step counter and the physical shaft separately proves the two stay equal.
+- **A cinematic site that still runs on a judge's laptop.** The showcase animates ~20,000 points, so every person's walk cycle and every car's motion is computed in the vertex shader from a handful of uniforms: one draw call, and the CPU never touches the points. The same scene description drives a CPU fallback that draws still frames on a 2D canvas when WebGL isn't available.
 - ✏️ _Add anything that actually went wrong during the hackathon (wiring, power, calibration, time pressure). Judges like real stories._
 
 ## Accomplishments that we're proud of
@@ -109,11 +112,11 @@ kalman-filter
 flask
 pyserial
 picamera2
-libcamera
+three.js
 accelstepper
 tmc2209
 nema-17
-computer-vision
+anime.js
 html
 css
 javascript
@@ -126,9 +129,10 @@ pytest
 
 ## "Try it out" links
 ```
+https://coop.davidhernandez.work
 https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP
 ```
-✏️ Once `site/` is deployed (see `site/README.md`), add the showcase URL here too, e.g. `https://coop.<your-domain>`. Don't list the live dashboard: it's behind Cloudflare Access, so judges would hit a login wall.
+Don't list the live dashboard: it's behind Cloudflare Access, so judges would hit a login wall.
 
 ---
 

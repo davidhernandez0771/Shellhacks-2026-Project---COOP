@@ -1,45 +1,49 @@
 # COOP design brief
 
-The single source of truth for the dashboard's look. Its style comes from the team's previous project (SANT): clean, Apple-style restraint; dark, warm, glassy; one accent color; calm motion. COOP applies that to a **live camera console**.
+The single source of truth for the dashboard's look. It shares its identity with the showcase site (`site/`, rationale in `docs/DESIGN_DIRECTIONS.md`): **black, white and one orange**. The showcase is cinematic; the dashboard is a tool: calm, legible, fast.
 
-**Vibe in one line:** a calm, premium control room. The live feed is the hero, and everything else is quiet glass around it.
+**Vibe in one line:** an instrument panel for a camera that aims itself. The live feed and the pan gauge are the heroes; everything else is quiet.
 
 ## Tokens
-All colors, radii, spacing and motion live in **`web/tokens.css`**. No hard-coded colors anywhere else.
+All colors, type, spacing and motion live in **`web/tokens.css`**. No hard-coded colors anywhere else.
 
 | Token | Value | Use |
 |---|---|---|
-| `--bg-0` | `#0B0807` | page background |
-| `--bg-glow` | `#2A130A` | warm radial glow, top-left and bottom |
-| `--surface` | `rgba(255,255,255,0.045)` | glass cards |
-| `--surface-border` | `rgba(255,255,255,0.09)` | 1px card outline |
-| `--text` | `#F4F0EC` | primary text |
-| `--text-muted` | `#8E837B` | secondary text |
-| `--accent` | `#35F0D0` | **the one accent**: live, active mode, locked target, primary buttons |
-| `--warm` | `#FF9A2E` | meters, "searching", warnings, mock motors |
-| `--danger` | `#FF5A5F` | stop, disconnected, errors |
+| `--ink` | `#060606` | page background |
+| `--ink-2` | `#0E0E0D` | panels |
+| `--paper` | `#EEEDEA` | primary text, the active mode, the auto-picked target |
+| `--paper-2` | `#9C9B98` | secondary text (7:1 on ink) |
+| `--paper-3` | `#62615F` | ticks, disabled, never body text |
+| `--lock` | `#FF5A1F` | **the one orange**: a locked target, the predicted aim, the primary action, and anything that needs you (e-stop, Arduino away, warnings) |
+| `--hazard` | orange/ink stripes | the e-stop control and alert banners only |
 
-Shape: cards 24–28px radius with `backdrop-filter: blur(20px)`, a 1px border, a soft inner top highlight and no hard shadows. Pills for status chips. Meters are rows of dots, not bars. Type: the system sans stack; large light headings; small muted sublines; **tabular numbers** for angles and fps; a small monospace for telemetry labels. Motion: 150–350ms ease-out; respect `prefers-reduced-motion`.
+There is no red and no green. Severity is shown with orange plus shape (hazard stripes, filled vs. outlined), never color alone.
 
-## Layout (desktop; stacks vertically on phones)
+**Type:** Archivo (display at 112–125% width for the brand and big numbers; normal width for UI text) and Martian Mono for telemetry, labels and numbers (tabular). Fonts are served from `web/fonts/`, so the Pi works offline. Sentence-case headings, no all-caps labels except detection tags (which mirror the model's class names).
+
+**Shape:** 10px panels with a 1px line and no shadows or blur; pills for the mode switch and chips; a rectangular e-stop with a hazard edge. **Motion:** 140–240 ms ease-out; detection labels decode in (scramble) when a target is first seen; respect `prefers-reduced-motion`.
+
+## Layout (desktop; one column on phones: feed → pan → target → lists → diagnostics)
 ```
-┌ top bar ────────────────────────────────────────────────────────────┐
-│ COOP (wordmark)     [● LIVE · 14 fps]      [ Auto | Manual | Stop ] │
-├──────────────────────────────────────────────┬──────────────────────┤
-│                                              │ Target card          │
-│  LIVE FEED (hero, glass frame, 4:3)          │  label #id, dot-meter│
-│  • overlay boxes drawn client-side from      │  velocity, lock/clear│
-│    /api/status so they're clickable (click a │ Gimbal card          │
-│    box = lock that target)                   │  pan dial (arc gauge)│
-│                                              │  with limits + target│
-│  manual mode: D-pad + home under the feed    │ Detections card      │
-│                                              │ Event log card       │
-└──────────────────────────────────────────────┴──────────────────────┘
+┌ COOP  ● Live · 14.2 fps            [ Auto | Manual | Stop ]  [Zero here] [▨E-stop▨] ┐
+├ banner (only when something needs attention: signed out, offline, e-stop, Arduino)   ┤
+├───────────────────────────────────────────────┬──────────────────────────────────────┤
+│                                               │ Pan: gauge (hero), ±170° limits,     │
+│  LIVE FEED (4:3)                              │  needle = pan, orange mark = aim;    │
+│  corner brackets + leader-line mono labels    │  Manual: ◀  Home  ▶, click the dial  │
+│  (click a box = lock), velocity arrow,        │ Target: name, confidence, velocity,  │
+│  predicted aim + trail                        │  lead, Lock / Clear                  │
+│                                               │ In view (detections)                 │
+├ diagnostics: CPU · Power · Vision · Camera ·  │ Event log                            │
+│ Inference · Latency · Arduino · Uptime        │ Tuning (live settings, collapsed)    │
+└───────────────────────────────────────────────┴──────────────────────────────────────┘
 ```
 
 ## Rules
-- **The feed is sacred.** Nothing covers the center of the video except the target reticle.
-- State is always visible: mode, connection (live/stale), and motors (live / mock / disconnected).
-- A locked target uses the accent; an auto-picked target uses a softer accent outline; other detections are muted white.
+- **The feed is sacred.** Nothing covers the center of the video except the target brackets and the prediction overlay.
+- State is always visible: mode, connection (live / stale / offline / signed out), motors (live / mock / drivers off / Arduino reconnecting), e-stop.
+- A locked target is orange; the auto-picked target is paper white; other detections are muted.
+- Every failure has a designed state that says what happened and what to do: no camera, Arduino reconnecting, Access session expired, offline, stale, e-stop, no target. Preview them with mock data: `?demo=nocam|reconnecting|expired|offline|stale|estop|notarget|hot`.
+- E-stop fires on one click (or `X`) and never waits for anything; Zero needs a second click within 3 s.
 - It must work on a phone. Judges will open it on theirs.
 - No build step: plain HTML, CSS and JS served by Flask, so the Pi serves it as is.
