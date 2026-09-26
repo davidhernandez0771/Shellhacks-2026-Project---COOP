@@ -1,0 +1,18 @@
+[Unit]
+Description=Cloudflare Tunnel for the COOP dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStart=__CLOUDFLARED__ --no-autoupdate --config __CONFIG__ tunnel run
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=0
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
