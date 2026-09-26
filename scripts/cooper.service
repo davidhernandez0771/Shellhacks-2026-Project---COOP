@@ -1,5 +1,5 @@
 [Unit]
-Description=COOP tracking camera
+Description=COOPER dashcam
 After=network-online.target
 Wants=network-online.target
 
@@ -8,7 +8,7 @@ Type=simple
 User=__USER__
 WorkingDirectory=__WORKDIR__
 Environment=PYTHONUNBUFFERED=1
-ExecStart=__PYTHON__ -m coop.main
+ExecStart=__PYTHON__ -m cooper.main
 Restart=on-failure
 RestartSec=3
 StartLimitIntervalSec=60

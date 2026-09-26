@@ -17,5 +17,5 @@ pip install -r requirements.txt
 
 python -c "import picamera2, serial, ultralytics; print('imports OK')"
 echo "Test the camera with:  rpicam-hello -t 5000"
-echo "Run COOP with:         source .venv/bin/activate && python -m coop.main"
+echo "Run COOPER with:         source .venv/bin/activate && python -m cooper.main"
 echo "Run it as a service:   sudo bash scripts/install_service.sh"

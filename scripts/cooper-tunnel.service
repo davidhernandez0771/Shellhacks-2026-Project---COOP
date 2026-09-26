@@ -1,5 +1,5 @@
 [Unit]
-Description=Cloudflare Tunnel for the COOP dashboard
+Description=Cloudflare Tunnel for the COOPER dashboard
 After=network-online.target
 Wants=network-online.target
 
