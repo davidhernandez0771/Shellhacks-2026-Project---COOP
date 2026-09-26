@@ -64,7 +64,7 @@ def _read_toml(path):
     try:
         with open(path, "rb") as f:
             return tomllib.load(f)
-    except tomllib.TOMLDecodeError as e:
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError, OSError) as e:
         raise SettingsError(f"{path}: {e}") from None
 
 
@@ -183,7 +183,10 @@ def save_settings(path, updates):
     result is re-parsed and checked before it replaces the file."""
     path = Path(path)
     apply_overrides(Config(), {s: dict(v) for s, v in updates.items()}, source="save")  # names and types
-    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    try:
+        text = path.read_text(encoding="utf-8") if path.exists() else ""
+    except (OSError, UnicodeDecodeError) as e:
+        raise SettingsError(f"can't read {path}: {e}") from None
     before = _parse_text(text, path)
 
     lines = text.splitlines()
@@ -226,17 +229,19 @@ def save_settings(path, updates):
     if after != expected:
         raise SettingsError(f"couldn't update {path} safely (unusual layout?); edit it by hand")
 
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".coop-", suffix=".toml")
+    tmp = None
     try:
+        fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".coop-", suffix=".toml")
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
             f.write(result)
         os.replace(tmp, path)
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+    except OSError as e:
+        if tmp is not None:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+        raise SettingsError(f"can't write {path}: {e}") from None
 
 
 def _parse_text(text, path, saving=False):

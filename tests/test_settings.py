@@ -198,3 +198,22 @@ def test_save_handles_a_dotted_table_it_cannot_edit_safely(tmp_path):
     with pytest.raises(SettingsError):
         save_settings(path, {"tracking": {"lead_time_s": 0.3}})
     assert path.read_text(encoding="utf-8") == before
+
+
+def test_save_reports_filesystem_errors_as_settings_errors(tmp_path):
+    with pytest.raises(SettingsError, match="can't write"):
+        save_settings(tmp_path / "no-such-dir" / "coop.toml", {"tracking": {"lead_time_s": 0.3}})
+
+
+def test_save_reports_an_undecodable_file(tmp_path):
+    path = tmp_path / "coop.toml"
+    path.write_bytes(b"\xff\xfe[tracking]\n")
+    with pytest.raises(SettingsError):
+        save_settings(path, {"tracking": {"lead_time_s": 0.3}})
+
+
+def test_load_reports_an_undecodable_file(tmp_path):
+    path = tmp_path / "coop.toml"
+    path.write_bytes(b"[tracking]\nlead_time_s = 0.2 # \xff\n")
+    with pytest.raises(SettingsError):
+        load_config(path)
