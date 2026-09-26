@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Models (auto-downloaded / exported)
+*.pt
+*.onnx
+*_ncnn_model/
+
+# Runtime output
+recordings/
+runs/
+*.log
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

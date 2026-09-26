@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>COOP</title>
+  <style>
+    :root { --bg: #0e1116; --panel: #161b22; --text: #e6edf3; --muted: #8b949e; --accent: #f85149; --ok: #3fb950; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+    header { padding: 12px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #30363d; }
+    header h1 { margin: 0; font-size: 18px; letter-spacing: 2px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+    .dot.live { background: var(--ok); }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; padding: 16px; }
+    @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+    .video { width: 100%; border-radius: 8px; background: #000; display: block; }
+    .panel { background: var(--panel); border-radius: 8px; padding: 16px; }
+    .stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #21262d; }
+    .stat span:first-child { color: var(--muted); }
+    .target { color: var(--accent); font-weight: 600; }
+    ul { list-style: none; padding: 0; margin: 8px 0 0; }
+    li { padding: 4px 0; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header><div class="dot" id="live"></div><h1>COOP</h1></header>
+  <main>
+    <img class="video" src="/video" alt="Live camera feed">
+    <section class="panel">
+      <div class="stat"><span>FPS</span><span id="fps">–</span></div>
+      <div class="stat"><span>Target</span><span id="target" class="target">none</span></div>
+      <div class="stat"><span>Pan / Tilt</span><span id="gimbal">–</span></div>
+      <div class="stat"><span>Target velocity</span><span id="vel">–</span></div>
+      <div class="stat"><span>Motors</span><span id="motors">–</span></div>
+      <h3>Detections</h3>
+      <ul id="dets"></ul>
+    </section>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    async function poll() {
+      try {
+        const s = await (await fetch("/api/status")).json();
+        $("live").classList.toggle("live", Date.now() / 1000 - s.server_time < 2);
+        $("fps").textContent = s.fps ?? "–";
+        $("target").textContent = s.target ? `${s.target.label} #${s.target.id}` : "none";
+        if (s.gimbal) {
+          $("gimbal").textContent = `${s.gimbal.pan}° / ${s.gimbal.tilt}°`;
+          $("motors").textContent = s.gimbal.mock ? "mock" : "live";
+        }
+        if (s.velocity_deg_s) $("vel").textContent = s.velocity_deg_s.map((v) => `${v}°/s`).join(" , ");
+        $("dets").innerHTML = (s.detections || [])
+          .map((d) => `<li>${d.label} #${d.id ?? "?"} (${d.conf})</li>`).join("") || "<li>nothing in view</li>";
+      } catch { $("live").classList.remove("live"); }
+    }
+    setInterval(poll, 300);
+    poll();
+  </script>
+</body>
+</html>
