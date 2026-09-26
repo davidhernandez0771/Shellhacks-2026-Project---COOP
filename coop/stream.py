@@ -28,11 +28,11 @@ class SharedState:
         with self._cond:
             self._jpeg = jpeg
             self._seq += 1
-            self.status = status
+            self.status = {**status, "frame_seq": self._seq}
             self._cond.notify_all()
 
     def frames(self):
-        seq = -1
+        seq = 0  # _seq is 0 until the first publish, so this waits for a real frame
         while True:
             with self._cond:
                 self._cond.wait_for(lambda: self._seq != seq, timeout=1.0)
