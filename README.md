@@ -37,7 +37,8 @@ coop/
 firmware/       Arduino Uno sketch (AccelStepper → TMC2209)
 web/            dashboard (served by the Pi)
 hardware/       wiring, BOM, CAD / 3D-print files
-scripts/        Pi setup
+scripts/        Pi setup, systemd services, Cloudflare Tunnel
+site/           public one-page project showcase (static; see site/README.md)
 tests/          pytest suite (pixel math, Kalman, control, serial protocol, Flask API)
 ```
 
@@ -52,6 +53,9 @@ source .venv/bin/activate
 python -m coop.main            # add --no-motors to test without steppers
 ```
 Then open `http://<pi-hostname>.local:8000` from the laptop.
+
+- **Run on boot:** `sudo bash scripts/install_service.sh` installs a systemd service that starts COOP at boot and restarts it if it crashes.
+- **Remote access:** to reach the dashboard over HTTPS from anywhere, with an email login in front, see [scripts/setup_tunnel.md](scripts/setup_tunnel.md).
 
 ### On a laptop (no Pi, no motors)
 ```bash

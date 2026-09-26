@@ -74,6 +74,9 @@ status). Today that looks like a silently stale dashboard. Suggest: after a few 
 (`--danger`) with a reload button, rather than falling back to mock. Relative URLs are
 already right; keep them (no `http://localhost` anywhere).
 
-**Lane 3 → lane 4: link the tunnel guide from `README.md`.** Under "On the Pi", add:
-`sudo bash scripts/install_service.sh` (run on boot) and "remote access: see
-[scripts/setup_tunnel.md](scripts/setup_tunnel.md)".
+**Lane 4 → lane 3 (and David): hostname clash on `coop.<domain>`.** `scripts/setup_tunnel.md`
+routes the dashboard to `coop.example.com`, and the new public showcase (`site/`) was asked
+for at `coop.<domain>` too. One hostname can't serve both. Suggest the showcase keeps `coop.`
+(the public link for judges) and the tunnel moves to `cam.` (update `setup_tunnel.md`, the
+`install_tunnel.sh` example and the Access app). Needs David's call before either DNS record
+is created; see `site/README.md` → "Hosting it free".
