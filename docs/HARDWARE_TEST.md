@@ -9,7 +9,8 @@ Work through this top to bottom on the real Pi 5, camera, Uno, TMC2209 and motor
 What *has* been verified, off hardware only:
 - The pytest suite: pixel→angle math, Kalman, target choice, `Control` (including e-stop/arm/zero), the settings file, the Flask API, diagnostics, the capture thread, the serial protocol against a line-recording fake port, the real `Gimbal` against `tools/fake_uno.py` (a real-time emulator of the firmware that tracks the step counter and the physical shaft separately), and the **whole app** against the emulator with a synthetic camera (`tests/test_app_e2e.py`: tracking, manual, e-stop, zero, arm, live settings, unplug/replug). It runs with only the minimal CI dependencies.
 - `python -m tools.jog` driven through a real terminal against the emulator; `python -m tools.rehearsal` serving the dashboard.
-- Nothing has touched the Pi camera, a real serial port, the firmware (never compiled: there's no `arduino-cli` on the dev machine), systemd, or Cloudflare.
+- The firmware **compiles** for the Uno (2026-09-26, avr-gcc 7.3 with the Arduino AVR core 1.8.6 and AccelStepper 1.64, `-Wall -Wextra`: no warnings; 10,882 bytes flash = 33%, 451 bytes RAM = 22%). It has never been flashed or run.
+- Nothing has touched the Pi camera, a real serial port, systemd, or Cloudflare.
 
 **The build is pan-only.** The firmware still has a tilt axis in its protocol; the Pi always sends `0` for it. Nothing needs to be connected to the Y/tilt driver.
 
@@ -66,7 +67,7 @@ This proves the software end to end before anything can spin.
 The pan axis uses 200 steps × 8 microsteps = **1600 microsteps per motor turn**, times `pan_gear_ratio`. `tools.jog` and the Serial Monitor both hold the port, so close one before using the other, and close both before starting COOP.
 
 - [ ] **Compile and upload** `firmware/coop_motors/coop_motors.ino` from the Arduino IDE (board: Arduino Uno; library: AccelStepper). Driver 12 V off for now. `[never run]`
-  **Expect:** it compiles with no errors (this sketch has never been compiled) and uploads.
+  **Expect:** it compiles with no errors (it compiled off-hardware; see the top) and uploads.
 - [ ] **Firmware talks.** Serial Monitor at 115200 baud, line ending "Newline". `[never run]`
   **Expect:** `READY`, then `P 0 0` every 50 ms. Send `Z 400 0` → the reports change to `P 400 0` and nothing moves. Send `Z` → back to `P 0 0`.
 - [ ] **The Pi sees the Uno:** plug it into the Pi, then `ls /dev/ttyACM* /dev/ttyUSB* 2>/dev/null` and `python -c "from coop.motors import find_arduino_port as f; print(f())"`. `[never run]`
