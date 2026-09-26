@@ -14,6 +14,7 @@ from .config import Config
 from .detector import Detector
 from .motors import Gimbal
 from .predictor import KalmanPredictor
+from .sim import VirtualGimbal
 from .stream import SharedState, serve_in_background
 
 log = logging.getLogger("coop")
@@ -77,6 +78,7 @@ def main():
     camera = Camera(cfg.camera)
     detector = Detector(cfg.detector)
     gimbal = Gimbal(cfg.motors)
+    virtual_gimbal = VirtualGimbal(cfg.camera, cfg.sim)
     predictor = KalmanPredictor()
     state = SharedState()
     serve_in_background(state, cfg.stream)
@@ -93,11 +95,13 @@ def main():
                 time.sleep(0.01)
                 continue
             now = time.monotonic()
+            pan, tilt = gimbal.angles
+            if gimbal.mock and cfg.sim.enabled:
+                frame = virtual_gimbal.crop(frame, pan, tilt)
             h, w = frame.shape[:2]
 
             detections = detector.detect(frame)
             target = choose_target(detections, target_id, trk.priority)
-            pan, tilt = gimbal.angles
             aim_px = None
 
             if target is not None:

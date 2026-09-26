@@ -46,6 +46,8 @@ Working in world angles means the camera's own rotation doesn't look like target
 
 **Streaming.** A Flask server on the Pi serves an MJPEG video stream and a JSON status API to a lightweight HTML/JS dashboard that any device on the network can open.
 
+**Dev without hardware.** With motors mocked, a virtual gimbal (`coop/sim.py`) crops a panning window out of the laptop webcam's frame, centered wherever the simulated pan/tilt currently points, so tracking is visibly following a person on a laptop with no motors or Pi camera attached.
+
 **Hardware.** One 12 V supply powers everything: the motors directly, and the Pi through a 5.1 V buck converter. The mount and enclosure were designed and built by our hardware lead.
 
 ## Challenges we ran into

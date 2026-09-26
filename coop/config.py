@@ -49,6 +49,17 @@ class TrackingConfig:
 
 
 @dataclass
+class SimConfig:
+    """Virtual gimbal (coop/sim.py): only used when the motors are in mock mode."""
+    enabled: bool = True
+    # Assumed FOV of the dev webcam, standing in for the world the real (narrower) camera
+    # would be able to scan by rotating. Must exceed CameraConfig.hfov_deg/vfov_deg or there's
+    # no room to crop and the pan won't be visible. Tune to your actual webcam if it differs.
+    world_hfov_deg: float = 100.0
+    world_vfov_deg: float = 75.0
+
+
+@dataclass
 class StreamConfig:
     host: str = "0.0.0.0"
     port: int = 8000
@@ -61,4 +72,5 @@ class Config:
     detector: DetectorConfig = field(default_factory=DetectorConfig)
     motors: MotorConfig = field(default_factory=MotorConfig)
     tracking: TrackingConfig = field(default_factory=TrackingConfig)
+    sim: SimConfig = field(default_factory=SimConfig)
     stream: StreamConfig = field(default_factory=StreamConfig)
