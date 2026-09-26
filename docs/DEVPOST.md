@@ -126,9 +126,10 @@ pytest
 
 ## "Try it out" links
 ```
+https://coop.davidhernandez.work
 https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP
 ```
-✏️ Once `site/` is deployed (see `site/README.md`), add the showcase URL here too, e.g. `https://coop.<your-domain>`. Don't list the live dashboard: it's behind Cloudflare Access, so judges would hit a login wall.
+Don't list the live dashboard: it's behind Cloudflare Access, so judges would hit a login wall.
 
 ---
 

@@ -28,7 +28,6 @@ Search for `✏️ PLACEHOLDER` (HTML comments) and `data-placeholder` (elements
 | `teammate-name`, `teammate-what` | Team chapter | name and a one-line description |
 | `devpost-url` | Team chapter | the Devpost project URL (until then `main.js` makes the link inert) |
 | gallery `<li>` items | Gallery chapter | photos and videos, see below |
-| `coop.example.com` | `<head>` canonical/og | the real hostname |
 
 ## Add photos and videos to the gallery
 The 3D carousel is built from the list in `index.html` (`<ul id="gallery-list">`). Without WebGL the same list shows as a grid, so it's also the accessible version. Put files in `site/media/` and replace a placeholder `<li>`:
@@ -77,7 +76,7 @@ The Pages project is **`coop-224`**: framework **None**, build command **empty**
 
 To connect it the first time: Cloudflare dashboard → **Workers & Pages → Create → Pages → Connect to Git** → this repo, with the settings above.
 
-**Hostname:** the showcase is served at `coop.<domain>` (the public link for judges); the live dashboard is at `coop-live.<domain>` behind Cloudflare Access (see `scripts/setup_tunnel.md`). Don't put an Access policy on the showcase hostname.
+**Hostname:** the showcase is served at `coop.davidhernandez.work` (the public link for judges); the live dashboard is at `coop-live.davidhernandez.work` behind Cloudflare Access (see `scripts/setup_tunnel.md`). Don't put an Access policy on the showcase hostname.
 
 ### Alternative: GitHub Pages
 GitHub Pages can only publish from the repo root or `/docs`, so deploy `site/` with an Actions workflow (`actions/upload-pages-artifact` with `path: site`, then `actions/deploy-pages`), and set **Settings → Pages → Source: GitHub Actions**.
