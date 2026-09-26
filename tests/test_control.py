@@ -1,9 +1,9 @@
-"""Shared control state behind the HTTP API (coop/control.py): mode, target lock, manual
+"""Shared control state behind the HTTP API (cooper/control.py): mode, target lock, manual
 aim, and the event log described in docs/API.md."""
 import pytest
 
-from coop.config import MotorConfig
-from coop.control import Control, ControlError
+from cooper.config import MotorConfig
+from cooper.control import Control, ControlError
 
 
 def make_control(**overrides):

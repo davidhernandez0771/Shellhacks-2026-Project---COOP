@@ -11,9 +11,9 @@ import flask
 import numpy as np
 import pytest
 
-import coop.main
-import coop.motors
-import coop.stream
+import cooper.main
+import cooper.motors
+import cooper.stream
 
 
 class WideCamera:
@@ -41,23 +41,23 @@ class NoDetections:
 @pytest.fixture
 def published_status(monkeypatch):
     apps = []
-    real_create_app = coop.stream.create_app
+    real_create_app = cooper.stream.create_app
 
     def capture_create_app(*args, **kwargs):
         apps.append(real_create_app(*args, **kwargs))
         return apps[-1]
 
-    monkeypatch.setattr(coop.main, "Camera", WideCamera)
-    monkeypatch.setattr(coop.main, "Detector", NoDetections)
-    monkeypatch.setattr(coop.stream, "create_app", capture_create_app)
+    monkeypatch.setattr(cooper.main, "Camera", WideCamera)
+    monkeypatch.setattr(cooper.main, "Detector", NoDetections)
+    monkeypatch.setattr(cooper.stream, "create_app", capture_create_app)
     monkeypatch.setattr(flask.Flask, "run", lambda self, *a, **k: None)
     # Motors enabled but no Uno found: the gimbal stays in mock mode while it keeps retrying.
-    monkeypatch.setattr(coop.motors, "find_arduino_port", lambda: None)
-    monkeypatch.setattr(coop.motors, "RECONNECT_S", 0.01)
+    monkeypatch.setattr(cooper.motors, "find_arduino_port", lambda: None)
+    monkeypatch.setattr(cooper.motors, "RECONNECT_S", 0.01)
 
     def run(*cli_args):
-        monkeypatch.setattr(sys, "argv", ["coop.main", *cli_args])
-        coop.main.main()
+        monkeypatch.setattr(sys, "argv", ["cooper.main", *cli_args])
+        cooper.main.main()
         return apps[-1].test_client().get("/api/status").get_json()
 
     return run

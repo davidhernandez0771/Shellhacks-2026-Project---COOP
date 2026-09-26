@@ -1,7 +1,7 @@
-"""Pixel -> world-angle offset math (the pinhole model in coop.main)."""
+"""Pixel -> world-angle offset math (the pinhole model in cooper.main)."""
 import pytest
 
-from coop.main import pixel_to_offset_deg
+from cooper.main import pixel_to_offset_deg
 
 W, H = 640, 480
 HFOV, VFOV = 63.0, 49.0

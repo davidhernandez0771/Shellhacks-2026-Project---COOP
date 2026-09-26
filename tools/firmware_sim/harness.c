@@ -1,4 +1,4 @@
-// Runs the real compiled COOP firmware in simavr and scripts it over UART.
+// Runs the real compiled COOPER firmware in simavr and scripts it over UART.
 // Physical shaft = STEP (PD2) rising edges while EN (PB0) is low, signed by DIR (PD5).
 #include <stdio.h>
 #include <stdlib.h>

@@ -10,8 +10,8 @@ Keys (interactive):  <- / -> or a / d  jog by the step    [ / ]  smaller / bigge
                      0 or h  go to 0     z  zero here     s or space  stop
                      e  e-stop / re-arm (drivers off / on) q or Esc  quit
 
-It drives the real coop.motors.Gimbal with the settings from coop.toml (microsteps, gear
-ratio, pan_invert, limits, speed), so what you check here is what COOP will do. Close COOP
+It drives the real cooper.motors.Gimbal with the settings from cooper.toml (microsteps, gear
+ratio, pan_invert, limits, speed), so what you check here is what COOPER will do. Close COOPER
 first: only one program can hold the serial port.
 
 Note: opening the port resets the Uno, which makes wherever the shaft is right now 0. So
@@ -26,8 +26,8 @@ from pathlib import Path
 if __package__ in (None, ""):  # allow `python tools/jog.py`
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from coop.motors import Gimbal
-from coop.settings import SettingsError, load_config
+from cooper.motors import Gimbal
+from cooper.settings import SettingsError, load_config
 
 STEPS = (0.5, 1.0, 5.0, 10.0, 45.0)
 CONNECT_TIMEOUT_S = 8.0
@@ -154,9 +154,9 @@ def wait_for_arrival(gimbal, target, timeout=ARRIVE_TIMEOUT_S):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Jog the COOP pan motor over serial (no vision).")
-    parser.add_argument("--port", help="serial port or URL (default: motors.port from coop.toml, i.e. auto)")
-    parser.add_argument("--config", help="settings file (default: coop.toml if present)")
+    parser = argparse.ArgumentParser(description="Jog the COOPER pan motor over serial (no vision).")
+    parser.add_argument("--port", help="serial port or URL (default: motors.port from cooper.toml, i.e. auto)")
+    parser.add_argument("--config", help="settings file (default: cooper.toml if present)")
     parser.add_argument("--step", type=float, default=5.0, help="jog step in degrees (default 5)")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--goto", type=float, metavar="DEG", help="move to an absolute angle and exit")
@@ -180,7 +180,7 @@ def main(argv=None):
             time.sleep(0.05)
         if gimbal.mock:
             print(f"no Uno answered on {cfg.port} within {CONNECT_TIMEOUT_S:.0f} s "
-                  "(flashed? port busy? close COOP first)", file=sys.stderr)
+                  "(flashed? port busy? close COOPER first)", file=sys.stderr)
             return 1
         print(f"Connected on {cfg.port}. {cfg.microsteps} microsteps, gear {cfg.pan_gear_ratio:g}:1, "
               f"{gimbal.steps_per_deg:.3f} microsteps/deg, invert={cfg.pan_invert}, "

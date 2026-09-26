@@ -1,23 +1,23 @@
-"""coop.toml: loading, validation and in-place saving (coop/settings.py)."""
+"""cooper.toml: loading, validation and in-place saving (cooper/settings.py)."""
 import tomllib
 from pathlib import Path
 
 import pytest
 
-from coop.config import Config
-from coop.settings import SettingsError, load_config, save_settings, validate_config
+from cooper.config import Config
+from cooper.settings import SettingsError, load_config, save_settings, validate_config
 
 REPO = Path(__file__).resolve().parent.parent
 
 
-def write(tmp_path, text, name="coop.toml"):
+def write(tmp_path, text, name="cooper.toml"):
     path = tmp_path / name
     path.write_text(text, encoding="utf-8")
     return path
 
 
 def test_missing_default_file_means_defaults(tmp_path):
-    assert load_config(tmp_path / "coop.toml") == Config()
+    assert load_config(tmp_path / "cooper.toml") == Config()
 
 
 def test_explicitly_requested_file_must_exist(tmp_path):
@@ -88,7 +88,7 @@ def test_wrong_types_are_errors(tmp_path, text):
 
 def test_syntax_error_names_the_file(tmp_path):
     path = write(tmp_path, "[motors\n")
-    with pytest.raises(SettingsError, match="coop.toml"):
+    with pytest.raises(SettingsError, match="cooper.toml"):
         load_config(path)
 
 
@@ -126,19 +126,19 @@ def test_defaults_are_valid():
 
 
 def test_example_file_matches_the_defaults():
-    """coop.example.toml documents every default; this keeps it from drifting."""
-    example = REPO / "coop.example.toml"
+    """cooper.example.toml documents every default; this keeps it from drifting."""
+    example = REPO / "cooper.example.toml"
     assert load_config(example, required=True) == Config()
 
 
 def test_example_file_lists_every_setting():
     import dataclasses
 
-    data = tomllib.loads((REPO / "coop.example.toml").read_text(encoding="utf-8"))
+    data = tomllib.loads((REPO / "cooper.example.toml").read_text(encoding="utf-8"))
     for section in dataclasses.fields(Config):
         listed = set(data.get(section.name, {}))
         expected = {f.name for f in dataclasses.fields(getattr(Config(), section.name))}
-        assert listed == expected, f"[{section.name}] in coop.example.toml"
+        assert listed == expected, f"[{section.name}] in cooper.example.toml"
 
 
 # ---- saving ----
@@ -163,7 +163,7 @@ pan_gear_ratio = 3.0
 
 
 def test_save_creates_missing_sections_and_file(tmp_path):
-    path = tmp_path / "coop.toml"
+    path = tmp_path / "cooper.toml"
     save_settings(path, {"detector": {"conf": 0.55}, "motors": {"max_steps_per_sec": 1500.0}})
     cfg = load_config(path)
     assert cfg.detector.conf == 0.55
@@ -171,7 +171,7 @@ def test_save_creates_missing_sections_and_file(tmp_path):
 
 
 def test_save_round_trips_floats_exactly(tmp_path):
-    path = tmp_path / "coop.toml"
+    path = tmp_path / "cooper.toml"
     save_settings(path, {"tracking": {"lead_time_s": 0.1 + 0.2}})
     assert load_config(path).tracking.lead_time_s == 0.1 + 0.2
 
@@ -202,18 +202,18 @@ def test_save_handles_a_dotted_table_it_cannot_edit_safely(tmp_path):
 
 def test_save_reports_filesystem_errors_as_settings_errors(tmp_path):
     with pytest.raises(SettingsError, match="can't write"):
-        save_settings(tmp_path / "no-such-dir" / "coop.toml", {"tracking": {"lead_time_s": 0.3}})
+        save_settings(tmp_path / "no-such-dir" / "cooper.toml", {"tracking": {"lead_time_s": 0.3}})
 
 
 def test_save_reports_an_undecodable_file(tmp_path):
-    path = tmp_path / "coop.toml"
+    path = tmp_path / "cooper.toml"
     path.write_bytes(b"\xff\xfe[tracking]\n")
     with pytest.raises(SettingsError):
         save_settings(path, {"tracking": {"lead_time_s": 0.3}})
 
 
 def test_load_reports_an_undecodable_file(tmp_path):
-    path = tmp_path / "coop.toml"
+    path = tmp_path / "cooper.toml"
     path.write_bytes(b"[tracking]\nlead_time_s = 0.2 # \xff\n")
     with pytest.raises(SettingsError):
         load_config(path)

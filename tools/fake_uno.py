@@ -1,13 +1,13 @@
 """Fake Arduino Uno: an emulator of firmware/coop_motors.ino on a TCP socket.
 
-Lets the real coop.motors.Gimbal (and tools/jog.py, and the whole app) run against
+Lets the real cooper.motors.Gimbal (and tools/jog.py, and the whole app) run against
 something that speaks the exact firmware protocol, with no hardware:
 
     python -m tools.fake_uno --port 5555
-    python -m coop.main --source webcam --motor-port socket://localhost:5555
+    python -m cooper.main --source webcam --motor-port socket://localhost:5555
     python -m tools.jog --port socket://localhost:5555
 
-pyserial opens "socket://host:port" URLs like a serial port, so nothing in coop/ knows it
+pyserial opens "socket://host:port" URLs like a serial port, so nothing in cooper/ knows it
 isn't talking to a Uno. Works the same on Windows, macOS and Linux.
 
 What it emulates (see the .ino for the source of truth):
@@ -371,7 +371,7 @@ class FakeUnoServer:
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Emulate the COOP Uno firmware on a TCP port.")
+    parser = argparse.ArgumentParser(description="Emulate the COOPER Uno firmware on a TCP port.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5555)
     parser.add_argument("--boot-delay", type=float, default=BOOT_DELAY_S,
@@ -382,7 +382,7 @@ def main(argv=None):
                         format="%(asctime)s %(name)s %(message)s")
 
     server = FakeUnoServer(args.host, args.port, args.boot_delay).start()
-    print(f"Fake Uno listening. Point COOP at it with:  --motor-port {server.url}")
+    print(f"Fake Uno listening. Point COOPER at it with:  --motor-port {server.url}")
     print("Ctrl+C to quit.")
     try:
         while True:

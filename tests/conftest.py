@@ -8,7 +8,7 @@ class FakeSerial:
     """Mimics pyserial's Serial: a byte-line queue in, a list of written lines out.
 
     Sends "READY\\n" as the first line read, matching the real Uno's boot message, so the
-    Gimbal handshake in coop.motors succeeds without a real port.
+    Gimbal handshake in cooper.motors succeeds without a real port.
     """
 
     def __init__(self, port, baudrate, timeout=0.1):
@@ -52,5 +52,5 @@ def fake_serial_factory(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def no_local_settings_file(monkeypatch, tmp_path):
-    """Tests never read the developer's own coop.toml (it could point at a real Uno)."""
-    monkeypatch.setattr("coop.settings.DEFAULT_PATH", tmp_path / "coop.toml")
+    """Tests never read the developer's own cooper.toml (it could point at a real Uno)."""
+    monkeypatch.setattr("cooper.settings.DEFAULT_PATH", tmp_path / "cooper.toml")

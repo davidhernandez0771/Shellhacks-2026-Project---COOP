@@ -1,11 +1,11 @@
-"""Health readouts for /api/status.diag (coop/diag.py), with fake /sys files and vcgencmd."""
+"""Health readouts for /api/status.diag (cooper/diag.py), with fake /sys files and vcgencmd."""
 import subprocess
 import time
 
-from coop.config import MotorConfig
-from coop.control import Control
-from coop.diag import DIAG_KEYS, SystemMonitor, read_cpu_temp_c, read_throttled
-from coop.stream import SharedState, create_app
+from cooper.config import MotorConfig
+from cooper.control import Control
+from cooper.diag import DIAG_KEYS, SystemMonitor, read_cpu_temp_c, read_throttled
+from cooper.stream import SharedState, create_app
 
 
 def test_cpu_temp_from_sysfs_millidegrees(tmp_path):

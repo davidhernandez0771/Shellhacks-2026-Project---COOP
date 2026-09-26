@@ -1,4 +1,4 @@
-"""Flask MJPEG stream + control API (coop/stream.py), via the Flask test client.
+"""Flask MJPEG stream + control API (cooper/stream.py), via the Flask test client.
 
 /video's body is an unbounded MJPEG generator that only ends when the client disconnects,
 so tests only assert on the response's status/mimetype and never read the streamed body
@@ -6,9 +6,9 @@ so tests only assert on the response's status/mimetype and never read the stream
 """
 import pytest
 
-from coop.config import MotorConfig
-from coop.control import Control
-from coop.stream import SharedState, create_app
+from cooper.config import MotorConfig
+from cooper.control import Control
+from cooper.stream import SharedState, create_app
 
 
 def make_client(motors_cfg=None):

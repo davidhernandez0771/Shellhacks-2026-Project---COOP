@@ -1,6 +1,6 @@
-"""COOP main loop: capture -> detect/track -> predict -> aim the pan stepper -> stream.
+"""COOPER main loop: capture -> detect/track -> predict -> aim the pan stepper -> stream.
 
-Run with:  python -m coop.main [--source webcam] [--no-motors]
+Run with:  python -m cooper.main [--source webcam] [--no-motors]
 """
 import argparse
 import logging
@@ -20,7 +20,7 @@ from .settings import LiveSettings, SettingsError, load_config
 from .sim import VirtualGimbal
 from .stream import SharedState, serve_in_background
 
-log = logging.getLogger("coop")
+log = logging.getLogger("cooper")
 
 
 def pixel_to_offset_deg(x, y, width, height, hfov, vfov):
@@ -89,12 +89,12 @@ def annotate(frame, detections, target, aim_px):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="COOP tracking camera")
+    parser = argparse.ArgumentParser(description="COOPER tracking camera")
     parser.add_argument("--source", choices=["auto", "picamera", "webcam"])
     parser.add_argument("--no-motors", action="store_true", help="run steppers in mock mode")
     parser.add_argument("--port", type=int)
     parser.add_argument("--annotate", action="store_true", help="draw boxes into the /video stream")
-    parser.add_argument("--config", help="settings file (default: coop.toml in the repo root, if present)")
+    parser.add_argument("--config", help="settings file (default: cooper.toml in the repo root, if present)")
     parser.add_argument("--motor-port", help='Uno serial port or URL, e.g. /dev/ttyACM0, COM5, '
                                              'socket://localhost:5555 (tools/fake_uno.py)')
     args = parser.parse_args()
@@ -106,7 +106,7 @@ def main():
     except SettingsError as e:
         parser.error(str(e))
     log.info("Settings: %s", args.config or (settings.DEFAULT_PATH if settings.DEFAULT_PATH.exists()
-                                            else "built-in defaults (no coop.toml)"))
+                                            else "built-in defaults (no cooper.toml)"))
     if args.motor_port:
         cfg.motors.port = args.motor_port
     if args.source:

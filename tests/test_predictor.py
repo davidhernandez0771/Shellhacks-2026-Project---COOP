@@ -1,7 +1,7 @@
 """Constant-velocity Kalman filter over the target's world angle."""
 import pytest
 
-from coop.predictor import KalmanPredictor
+from cooper.predictor import KalmanPredictor
 
 
 def test_fresh_predictor_is_inactive():

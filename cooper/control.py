@@ -1,11 +1,11 @@
 """Shared control state for the tracking loop and the HTTP API.
 
 Holds the operating mode, the operator's target lock, the manual pan setpoint, and the
-event log described in docs/API.md. One Control instance is created in coop/main.py and
-handed to both the tracking loop and coop.stream's Flask app, so it's the single
+event log described in docs/API.md. One Control instance is created in cooper/main.py and
+handed to both the tracking loop and cooper.stream's Flask app, so it's the single
 thread-safe hub between "what the operator asked for" and "what the camera is doing".
 
-See the "Requests" section of docs/TERMINALS.md for how coop/main.py wires this in.
+See the "Requests" section of docs/TERMINALS.md for how cooper/main.py wires this in.
 """
 from __future__ import annotations
 
@@ -176,7 +176,7 @@ class Control:
         self._mode = mode
         self._log_locked("mode_changed", mode=mode)
 
-    # ---- event log (also called by coop/main.py and coop/motors.py) ----
+    # ---- event log (also called by cooper/main.py and cooper/motors.py) ----
 
     def log_event(self, event_type, **fields):
         with self._lock:

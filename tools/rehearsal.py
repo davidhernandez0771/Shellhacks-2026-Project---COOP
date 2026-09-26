@@ -1,4 +1,4 @@
-"""Full-app rehearsal with no hardware at all: the real coop.main loop, a synthetic scene
+"""Full-app rehearsal with no hardware at all: the real cooper.main loop, a synthetic scene
 seen through a camera that turns with the fake Uno's shaft, and the fake Uno itself.
 
     python -m tools.rehearsal            # then open http://localhost:8000
@@ -28,7 +28,7 @@ if __package__ in (None, ""):  # allow `python tools/rehearsal.py`
 import cv2
 import numpy as np
 
-from coop.detector import Detection
+from cooper.detector import Detection
 from tools.fake_uno import FakeUnoServer
 
 WALKER_BGR = (0, 110, 255)  # orange, easy to threshold
@@ -57,7 +57,7 @@ class World:
 
 class SyntheticCamera:
     """Renders what a camera pointing at World.camera_pan() sees. Same interface as
-    coop.camera.Camera. `stop` (a threading.Event) ends the run like Ctrl+C."""
+    cooper.camera.Camera. `stop` (a threading.Event) ends the run like Ctrl+C."""
 
     def __init__(self, world, cfg, stop=None, fps=30.0):
         self.world, self.cfg = world, cfg
@@ -88,7 +88,7 @@ class SyntheticCamera:
 
 
 class SyntheticDetector:
-    """Finds the orange walker by colour. Same interface as coop.detector.Detector."""
+    """Finds the orange walker by colour. Same interface as cooper.detector.Detector."""
 
     def __init__(self, cfg=None):
         self.cfg = cfg
@@ -105,13 +105,13 @@ class SyntheticDetector:
 
 
 def patch_main(main_module, world, stop):
-    """Swap coop.main's Camera and Detector for the synthetic ones."""
+    """Swap cooper.main's Camera and Detector for the synthetic ones."""
     main_module.Camera = lambda cfg: SyntheticCamera(world, cfg, stop)
     main_module.Detector = SyntheticDetector
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Run COOP against a synthetic scene and a fake Uno.")
+    parser = argparse.ArgumentParser(description="Run COOPER against a synthetic scene and a fake Uno.")
     parser.add_argument("--port", type=int, default=8000, help="dashboard port")
     parser.add_argument("--uno-port", type=int, default=0, help="fake Uno TCP port (0 = any free one)")
     parser.add_argument("--walk-deg", type=float, default=25.0)
@@ -120,22 +120,22 @@ def main(argv=None):
                         help="configure pan_invert=true on a correctly wired motor (shows a runaway)")
     args = parser.parse_args(argv)
 
-    import coop.main
-    from coop.settings import load_config
+    import cooper.main
+    from cooper.settings import load_config
 
     uno = FakeUnoServer(port=args.uno_port, boot_delay_s=0.3).start()
     m = load_config().motors  # same gearing as the app will use
     world = World(uno, m.steps_per_rev * m.microsteps / 360.0 * m.pan_gear_ratio, args.walk_deg, args.period_s)
     stop = threading.Event()
-    patch_main(coop.main, world, stop)
+    patch_main(cooper.main, world, stop)
     print(f"Fake Uno on {uno.url}. Dashboard: http://localhost:{args.port}  (Ctrl+C to quit)")
-    sys.argv = ["coop.main", "--motor-port", uno.url, "--port", str(args.port)]
+    sys.argv = ["cooper.main", "--motor-port", uno.url, "--port", str(args.port)]
     if args.invert:
-        # Applied after coop.toml is loaded: a live change, exactly as the dashboard would.
+        # Applied after cooper.toml is loaded: a live change, exactly as the dashboard would.
         print("pan_invert will be set to true once running (stop mode required).")
         threading.Thread(target=_invert_later, args=(args.port,), daemon=True).start()
     try:
-        coop.main.main()
+        cooper.main.main()
     finally:
         uno.close()
 

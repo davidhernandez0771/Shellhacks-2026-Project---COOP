@@ -1,7 +1,7 @@
 """Virtual gimbal for development without motor hardware.
 
 On real hardware, the narrow-FOV camera physically rotates on the pan/tilt steppers, so
-what the sensor sees changes as the gimbal moves. With motors mocked (see coop/motors.py
+what the sensor sees changes as the gimbal moves. With motors mocked (see cooper/motors.py
 Gimbal.mock) there's nothing to rotate, so we fake it: the webcam's wider FOV stands in
 for the world the real camera could scan, and we cut out the view of a camera with the
 configured FOV and resolution, pointed wherever the mock gimbal points. It hands detection

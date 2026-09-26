@@ -1,4 +1,4 @@
-"""Camera check: grab frames through coop.camera.Camera, report resolution and FPS, save a still.
+"""Camera check: grab frames through cooper.camera.Camera, report resolution and FPS, save a still.
 
     python -m tools.camera_check                     # Pi camera (falls back to webcam)
     python -m tools.camera_check --source picamera --frames 150 --out still.jpg
@@ -18,8 +18,8 @@ if __package__ in (None, ""):  # allow `python tools/camera_check.py`
 
 import cv2
 
-from coop.camera import Camera
-from coop.settings import SettingsError, load_config
+from cooper.camera import Camera
+from cooper.settings import SettingsError, load_config
 
 
 def measure(camera, frames=90):
@@ -45,10 +45,10 @@ def measure(camera, frames=90):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Check the camera: resolution, FPS, and a saved still.")
-    parser.add_argument("--source", choices=["auto", "picamera", "webcam"], help="default: camera.source from coop.toml")
+    parser.add_argument("--source", choices=["auto", "picamera", "webcam"], help="default: camera.source from cooper.toml")
     parser.add_argument("--frames", type=int, default=90, help="read attempts (default 90)")
     parser.add_argument("--out", default="camera_check.jpg", help="where to save the last frame")
-    parser.add_argument("--config", help="settings file (default: coop.toml if present)")
+    parser.add_argument("--config", help="settings file (default: cooper.toml if present)")
     args = parser.parse_args(argv)
 
     try:
@@ -77,7 +77,7 @@ def main(argv=None):
     w, h = stats["width"], stats["height"]
     print(f"Resolution:   {w}x{h} (configured {cam_cfg.width}x{cam_cfg.height})")
     if (w, h) != (cam_cfg.width, cam_cfg.height):
-        print("  ! differs from the config: FOV maths in COOP assumes the configured size")
+        print("  ! differs from the config: FOV maths in COOPER assumes the configured size")
     fps = stats["fps"]
     print(f"Delivered:    {fps:.1f} fps (configured {cam_cfg.fps})" if fps else "Delivered:    only one frame")
     print(f"First frame:  {stats['first_frame_s']:.2f} s   failed grabs: {stats['failed']}")

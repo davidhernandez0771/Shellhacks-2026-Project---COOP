@@ -1,8 +1,8 @@
-"""Settings file (coop.toml) on top of the coop/config.py defaults.
+"""Settings file (cooper.toml) on top of the cooper/config.py defaults.
 
-Load order: the dataclass defaults, then coop.toml next to the repo (if it exists), then
-command-line flags. coop.example.toml documents every key; copy it to coop.toml and delete
-what you don't change. coop.toml is gitignored, so each machine keeps its own.
+Load order: the dataclass defaults, then cooper.toml next to the repo (if it exists), then
+command-line flags. cooper.example.toml documents every key; copy it to cooper.toml and delete
+what you don't change. cooper.toml is gitignored, so each machine keeps its own.
 
 The file mirrors Config: one [section] per Config field (camera, detector, motors, ...),
 one key per dataclass field. Unknown sections or keys and wrong types are errors, not
@@ -23,7 +23,7 @@ from pathlib import Path
 
 from .config import Config
 
-DEFAULT_PATH = Path(__file__).resolve().parent.parent / "coop.toml"
+DEFAULT_PATH = Path(__file__).resolve().parent.parent / "cooper.toml"
 
 MICROSTEP_CHOICES = (1, 2, 4, 8, 16, 32, 64, 128, 256)
 
@@ -231,7 +231,7 @@ def save_settings(path, updates):
 
     tmp = None
     try:
-        fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".coop-", suffix=".toml")
+        fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".cooper-", suffix=".toml")
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
             f.write(result)
         os.replace(tmp, path)
@@ -307,7 +307,7 @@ class LiveSettings:
                 continue
             if key not in LIVE_KEYS:
                 raise SettingsError(f"unknown setting '{key}'; live settings are "
-                                    f"{', '.join(LIVE_KEYS)} (others need coop.toml and a restart)."
+                                    f"{', '.join(LIVE_KEYS)} (others need cooper.toml and a restart)."
                                     f"{_suggest(key, LIVE_KEYS)}")
             section = LIVE_KEYS[key]
             if key == "pan_invert":

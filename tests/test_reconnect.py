@@ -11,8 +11,8 @@ import time
 
 import pytest
 
-from coop.config import MotorConfig
-from coop.motors import Gimbal
+from cooper.config import MotorConfig
+from cooper.motors import Gimbal
 from tests.conftest import FakeSerial
 
 STEPS_PER_DEG = 200 * 8 / 360.0  # MotorConfig defaults: 200 steps/rev, 8 microsteps, 1:1
@@ -43,7 +43,7 @@ class DroppableSerial(FakeSerial):
 @pytest.fixture
 def link(monkeypatch):
     """First connection is droppable; the second one waits until `allow_reconnect` is set."""
-    import coop.motors as motors_mod
+    import cooper.motors as motors_mod
 
     monkeypatch.setattr(motors_mod, "RECONNECT_S", 0.01)
     created = []

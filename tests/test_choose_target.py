@@ -1,6 +1,6 @@
 """Target selection: stick with the current track, else pick by class priority then size."""
-from coop.detector import Detection
-from coop.main import choose_target
+from cooper.detector import Detection
+from cooper.main import choose_target
 
 PRIORITY = ("person", "car", "truck", "bus", "motorcycle")
 

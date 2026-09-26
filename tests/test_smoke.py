@@ -1,4 +1,4 @@
-"""Startup smoke tests: run the real coop.main.main() for one loop iteration.
+"""Startup smoke tests: run the real cooper.main.main() for one loop iteration.
 
 Only the hardware/ML edges are faked (Camera, Detector) and Flask.run is a no-op, so the
 real wiring runs: Config, Control, Gimbal (--no-motors), VirtualGimbal, KalmanPredictor,
@@ -12,10 +12,10 @@ import flask
 import numpy as np
 import pytest
 
-import coop.main
-import coop.stream
-from coop.detector import Detection
-from coop.stream import SharedState
+import cooper.main
+import cooper.stream
+from cooper.detector import Detection
+from cooper.stream import SharedState
 
 
 class FakeCamera:
@@ -51,21 +51,21 @@ def run_main(monkeypatch):
     """Run main() once; return the Flask app it built, for querying afterwards."""
     FakeCamera.instances.clear()
     apps = []
-    real_create_app = coop.stream.create_app
+    real_create_app = cooper.stream.create_app
 
     def capture_create_app(*args, **kwargs):
         app = real_create_app(*args, **kwargs)
         apps.append(app)
         return app
 
-    monkeypatch.setattr(coop.main, "Camera", FakeCamera)
-    monkeypatch.setattr(coop.main, "Detector", FakeDetector)
-    monkeypatch.setattr(coop.stream, "create_app", capture_create_app)
+    monkeypatch.setattr(cooper.main, "Camera", FakeCamera)
+    monkeypatch.setattr(cooper.main, "Detector", FakeDetector)
+    monkeypatch.setattr(cooper.stream, "create_app", capture_create_app)
     monkeypatch.setattr(flask.Flask, "run", lambda self, *a, **k: None)
     def run(argv=("--no-motors",)):
         if argv is not None:
-            monkeypatch.setattr(sys, "argv", ["coop.main", *argv])
-        coop.main.main()
+            monkeypatch.setattr(sys, "argv", ["cooper.main", *argv])
+        cooper.main.main()
         assert len(apps) == 1, "serve_in_background should build exactly one app"
         return apps[0]
 
@@ -125,9 +125,9 @@ def test_video_stream_waits_for_the_first_frame():
 
 
 def test_settings_file_is_loaded(run_main, tmp_path, monkeypatch):
-    path = tmp_path / "coop.toml"
+    path = tmp_path / "cooper.toml"
     path.write_text("[camera]\nhfov_deg = 50.0\n", encoding="utf-8")
-    monkeypatch.setattr("coop.settings.DEFAULT_PATH", path)
+    monkeypatch.setattr("cooper.settings.DEFAULT_PATH", path)
     status = run_main().test_client().get("/api/status").get_json()
     assert status["frame"]["hfov_deg"] == 50.0
 
@@ -136,14 +136,14 @@ def test_config_flag_and_motor_port_flag(run_main, tmp_path, monkeypatch):
     path = tmp_path / "bench.toml"
     path.write_text("[camera]\nhfov_deg = 55.0\n", encoding="utf-8")
     seen = {}
-    real_gimbal = coop.main.Gimbal
+    real_gimbal = cooper.main.Gimbal
 
     def spy_gimbal(cfg, **kwargs):
         seen["port"] = cfg.port
         return real_gimbal(cfg, **kwargs)
 
-    monkeypatch.setattr(coop.main, "Gimbal", spy_gimbal)
-    monkeypatch.setattr(sys, "argv", ["coop.main", "--no-motors", "--config", str(path),
+    monkeypatch.setattr(cooper.main, "Gimbal", spy_gimbal)
+    monkeypatch.setattr(sys, "argv", ["cooper.main", "--no-motors", "--config", str(path),
                                       "--motor-port", "socket://localhost:5555"])
     status = run_main(argv=None).test_client().get("/api/status").get_json()
     assert status["frame"]["hfov_deg"] == 55.0
@@ -151,9 +151,9 @@ def test_config_flag_and_motor_port_flag(run_main, tmp_path, monkeypatch):
 
 
 def test_invalid_settings_file_exits_with_the_error(run_main, tmp_path, monkeypatch, capsys):
-    path = tmp_path / "coop.toml"
+    path = tmp_path / "cooper.toml"
     path.write_text("[motors]\npan_inverted = true\n", encoding="utf-8")
-    monkeypatch.setattr("coop.settings.DEFAULT_PATH", path)
+    monkeypatch.setattr("cooper.settings.DEFAULT_PATH", path)
     with pytest.raises(SystemExit) as e:
         run_main()
     assert e.value.code == 2
@@ -161,7 +161,7 @@ def test_invalid_settings_file_exits_with_the_error(run_main, tmp_path, monkeypa
 
 
 def test_missing_explicit_config_exits(run_main, tmp_path, monkeypatch):
-    monkeypatch.setattr(sys, "argv", ["coop.main", "--config", str(tmp_path / "nope.toml")])
+    monkeypatch.setattr(sys, "argv", ["cooper.main", "--config", str(tmp_path / "nope.toml")])
     with pytest.raises(SystemExit):
         run_main(argv=None)
 
@@ -170,7 +170,7 @@ def test_main_serves_live_settings(run_main, tmp_path):
     client = run_main().test_client()
     body = client.get("/api/settings").get_json()
     assert body["settings"]["lead_time_s"] == 0.15
-    assert body["file"].endswith("coop.toml")
+    assert body["file"].endswith("cooper.toml")
     resp = client.post("/api/settings", json={"lead_time_s": 0.3})
     assert resp.status_code == 200
 
@@ -205,7 +205,7 @@ def test_a_locked_target_that_disappears_is_lost_and_unlocked(run_main, monkeypa
     """Lock #3, then it vanishes: after lost_timeout_s (1 s) of capture time, target_lost
     fires and the lock clears. Exercises the loop's timing on FrameGrabber timestamps."""
     controls = []
-    real_control = coop.main.Control
+    real_control = cooper.main.Control
 
     def capture_control(*a, **k):
         controls.append(real_control(*a, **k))
@@ -221,9 +221,9 @@ def test_a_locked_target_that_disappears_is_lost_and_unlocked(run_main, monkeypa
                 controls[0].set_target(3)
             return [Detection(3, "person", 0.9, (100, 60, 180, 260))] if self.calls <= 2 else []
 
-    monkeypatch.setattr(coop.main, "Control", capture_control)
-    monkeypatch.setattr(coop.main, "Camera", lambda cfg: TimedCamera(frames=8, period_s=0.25))
-    monkeypatch.setattr(coop.main, "Detector", LockThenVanish)
+    monkeypatch.setattr(cooper.main, "Control", capture_control)
+    monkeypatch.setattr(cooper.main, "Camera", lambda cfg: TimedCamera(frames=8, period_s=0.25))
+    monkeypatch.setattr(cooper.main, "Detector", LockThenVanish)
     client = run_main().test_client()
     types = [e["type"] for e in client.get("/api/events").get_json()["events"]]
     assert "target_acquired" in types and "target_lost" in types

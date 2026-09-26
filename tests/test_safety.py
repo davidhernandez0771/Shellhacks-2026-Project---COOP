@@ -7,9 +7,9 @@ import time
 
 import pytest
 
-import coop.motors as motors_mod
-from coop.config import MotorConfig
-from coop.motors import Gimbal
+import cooper.motors as motors_mod
+from cooper.config import MotorConfig
+from cooper.motors import Gimbal
 
 STEPS_PER_DEG = 200 * 8 / 360.0
 

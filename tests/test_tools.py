@@ -4,7 +4,7 @@ import time
 import numpy as np
 import pytest
 
-import coop.motors as motors_mod
+import cooper.motors as motors_mod
 from tools import bench_fps, camera_check, jog
 from tools.fake_uno import FakeUnoServer
 
@@ -220,7 +220,7 @@ def fake_ultralytics(monkeypatch):
             return str(out)
 
         def track(self, frame, **kwargs):
-            assert kwargs["persist"] and kwargs["tracker"] == "bytetrack.yaml"  # same call as COOP
+            assert kwargs["persist"] and kwargs["tracker"] == "bytetrack.yaml"  # same call as COOPER
             return []
 
     module = types.ModuleType("ultralytics")

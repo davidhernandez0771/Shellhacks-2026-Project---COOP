@@ -1,4 +1,4 @@
-"""The whole app, headless: the real coop.main loop against tools/fake_uno.py, with the
+"""The whole app, headless: the real cooper.main loop against tools/fake_uno.py, with the
 synthetic camera/detector from tools/rehearsal.py (the camera turns with the emulated
 shaft, so tracking is closed-loop). Drives it through the HTTP API like the dashboard.
 """
@@ -9,9 +9,9 @@ import time
 import flask
 import pytest
 
-import coop.main
-import coop.motors
-import coop.stream
+import cooper.main
+import cooper.motors
+import cooper.stream
 from tools.fake_uno import FakeUnoServer
 from tools.rehearsal import World, patch_main
 
@@ -29,31 +29,31 @@ def wait_until(predicate, timeout=8.0, interval=0.02):
 
 @pytest.fixture
 def settings_file(monkeypatch, tmp_path):
-    path = tmp_path / "coop.toml"
-    monkeypatch.setattr("coop.settings.DEFAULT_PATH", path)
+    path = tmp_path / "cooper.toml"
+    monkeypatch.setattr("cooper.settings.DEFAULT_PATH", path)
     return path
 
 
 @pytest.fixture
 def app(monkeypatch, settings_file):
-    monkeypatch.setattr(coop.motors, "RECONNECT_S", 0.05)
+    monkeypatch.setattr(cooper.motors, "RECONNECT_S", 0.05)
     uno = FakeUnoServer(boot_delay_s=0.05).start()
     world = World(uno, STEPS_PER_DEG, walk_deg=20.0, period_s=10.0)
     stop = threading.Event()
-    monkeypatch.setattr(coop.main, "Camera", None)  # patched below; restored by monkeypatch
-    monkeypatch.setattr(coop.main, "Detector", None)
-    patch_main(coop.main, world, stop)
+    monkeypatch.setattr(cooper.main, "Camera", None)  # patched below; restored by monkeypatch
+    monkeypatch.setattr(cooper.main, "Detector", None)
+    patch_main(cooper.main, world, stop)
     apps = []
-    real_create_app = coop.stream.create_app
-    monkeypatch.setattr(coop.stream, "create_app", lambda *a, **k: apps.append(real_create_app(*a, **k)) or apps[-1])
+    real_create_app = cooper.stream.create_app
+    monkeypatch.setattr(cooper.stream, "create_app", lambda *a, **k: apps.append(real_create_app(*a, **k)) or apps[-1])
     monkeypatch.setattr(flask.Flask, "run", lambda self, *a, **k: None)
-    monkeypatch.setattr(sys, "argv", ["coop.main", "--motor-port", uno.url])
+    monkeypatch.setattr(sys, "argv", ["cooper.main", "--motor-port", uno.url])
 
     errors = []
 
     def run():
         try:
-            coop.main.main()
+            cooper.main.main()
         except BaseException as e:  # surfaced by the test
             errors.append(e)
 

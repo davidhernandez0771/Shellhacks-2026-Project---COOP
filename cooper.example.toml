@@ -1,10 +1,10 @@
-# COOP settings. Copy this file to coop.toml (next to it, in the repo root) and change what
-# you need; delete the lines you don't change. coop.toml is gitignored, so each machine
+# COOPER settings. Copy this file to cooper.toml (next to it, in the repo root) and change what
+# you need; delete the lines you don't change. cooper.toml is gitignored, so each machine
 # (the Pi, a laptop) keeps its own. Every value below is the built-in default.
 #
-# Precedence: coop/config.py defaults < coop.toml < command-line flags.
-# Use another file with:  python -m coop.main --config path/to/file.toml
-# Unknown keys or wrong types stop COOP at startup with an error naming the key.
+# Precedence: cooper/config.py defaults < cooper.toml < command-line flags.
+# Use another file with:  python -m cooper.main --config path/to/file.toml
+# Unknown keys or wrong types stop COOPER at startup with an error naming the key.
 #
 # Live-tunable from the dashboard / POST /api/settings (and saved back here with
 # "save": true): lead_time_s, deadband_deg, conf, max_steps_per_sec,

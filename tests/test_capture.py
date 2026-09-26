@@ -1,10 +1,10 @@
-"""FrameGrabber (coop/camera.py): capture on its own thread, always hand over the newest frame."""
+"""FrameGrabber (cooper/camera.py): capture on its own thread, always hand over the newest frame."""
 import threading
 import time
 
 import pytest
 
-from coop.camera import FrameGrabber
+from cooper.camera import FrameGrabber
 
 
 class CountingCamera:

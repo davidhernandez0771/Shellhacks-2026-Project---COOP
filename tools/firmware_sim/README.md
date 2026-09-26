@@ -13,7 +13,7 @@ ACCEL=/tmp/AccelStepper bash tools/firmware_sim/build_and_run.sh
 ```
 
 Scenarios (`harness.c`): `move`, `naive_estop` (S then E 0 at once), `coop_estop` (S, wait
-until still, E 0: what `coop/motors.py` does), `watchdog`, `zero5`, `disabled_T`.
+until still, E 0: what `cooper/motors.py` does), `watchdog`, `zero5`, `disabled_T`.
 
 Results on 2026-09-26 (Arduino AVR core 1.8.6, AccelStepper 1.64), next to
 `tools/fake_uno.py` running the same scripts:
@@ -24,7 +24,7 @@ Results on 2026-09-26 (Arduino AVR core 1.8.6, AccelStepper 1.64), next to
 | position 0.6 s into a 2000 steps/s move | 1158 | 1167 |
 | naive e-stop: counter minus shaft | **334 steps (75 deg) lost** | 334 |
 | braking distance after `S` at 2000 steps/s | 341 | 334 |
-| COOP e-stop: counter minus shaft | 0 | 0 |
+| COOPER e-stop: counter minus shaft | 0 | 0 |
 | watchdog (500 steps/s, silence): at 1.5 s / final | 687 / 999 | 687 / 1000 |
 | `Z 5` | zeroes the counter | same |
 | `E 0` then `T 200 0`: counter / shaft | 200 / 0 | 200 / 0 |

@@ -1,4 +1,4 @@
-"""The Pi <-> Arduino serial protocol (coop/motors.py), against a fake serial port.
+"""The Pi <-> Arduino serial protocol (cooper/motors.py), against a fake serial port.
 
 Protocol reference: firmware/coop_motors/coop_motors.ino header. Connecting (and
 reconnecting) happens on a background supervisor thread, so most assertions here poll
@@ -8,8 +8,8 @@ import time
 
 import pytest
 
-from coop.config import MotorConfig
-from coop.motors import Gimbal, find_arduino_port
+from cooper.config import MotorConfig
+from cooper.motors import Gimbal, find_arduino_port
 from tests.conftest import FakeSerial
 
 
@@ -195,7 +195,7 @@ def test_reader_thread_ignores_garbled_lines(fake_serial_factory):
 
 
 def test_heartbeat_sent_when_idle(fake_serial_factory, monkeypatch):
-    import coop.motors as motors_mod
+    import cooper.motors as motors_mod
 
     monkeypatch.setattr(motors_mod, "HEARTBEAT_S", 0.02)
     cfg = make_cfg()
@@ -210,7 +210,7 @@ def test_heartbeat_sent_when_idle(fake_serial_factory, monkeypatch):
 
 
 def test_falls_back_to_mock_when_handshake_never_gets_ready(monkeypatch):
-    import coop.motors as motors_mod
+    import cooper.motors as motors_mod
 
     monkeypatch.setattr(motors_mod, "RECONNECT_S", 0.01)
 
@@ -245,7 +245,7 @@ def test_falls_back_to_mock_when_handshake_never_gets_ready(monkeypatch):
 
 
 def test_supervisor_reconnects_after_link_drop_and_resends_target(monkeypatch):
-    import coop.motors as motors_mod
+    import cooper.motors as motors_mod
 
     monkeypatch.setattr(motors_mod, "RECONNECT_S", 0.02)
 

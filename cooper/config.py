@@ -55,7 +55,7 @@ class TrackingConfig:
 
 @dataclass
 class SimConfig:
-    """Virtual gimbal (coop/sim.py): only used when the motors are in mock mode."""
+    """Virtual gimbal (cooper/sim.py): only used when the motors are in mock mode."""
     enabled: bool = True
     # Assumed horizontal FOV of the dev webcam, standing in for the world the real (narrower)
     # camera could scan by rotating; vertical FOV is derived from the webcam's aspect ratio.

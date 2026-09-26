@@ -1,12 +1,12 @@
-"""Live tuning: coop.settings.LiveSettings and GET/POST /api/settings."""
+"""Live tuning: cooper.settings.LiveSettings and GET/POST /api/settings."""
 import tomllib
 
 import pytest
 
-from coop.config import Config
-from coop.control import Control
-from coop.settings import LiveSettings, SettingsError
-from coop.stream import SharedState, create_app
+from cooper.config import Config
+from cooper.control import Control
+from cooper.settings import LiveSettings, SettingsError
+from cooper.stream import SharedState, create_app
 
 
 class FakeGimbal:
@@ -29,9 +29,9 @@ def rig(tmp_path):
     cfg = Config()
     control = Control(cfg.motors)
     gimbal = FakeGimbal(cfg.motors)
-    live = LiveSettings(cfg, path=tmp_path / "coop.toml", gimbal=gimbal, control=control)
+    live = LiveSettings(cfg, path=tmp_path / "cooper.toml", gimbal=gimbal, control=control)
     client = create_app(SharedState(), control, settings=live).test_client()
-    return cfg, control, gimbal, live, client, tmp_path / "coop.toml"
+    return cfg, control, gimbal, live, client, tmp_path / "cooper.toml"
 
 
 def test_get_lists_values_ranges_and_units(rig):
@@ -97,7 +97,7 @@ def test_apply_then_save_persists_the_earlier_change(rig):
 
 
 def test_saved_file_loads_back_to_the_same_live_values(rig):
-    from coop.settings import load_config
+    from cooper.settings import load_config
 
     _, _, _, live, client, path = rig
     client.post("/api/settings", json={"conf": 0.55, "max_steps_per_sec": 1500, "save": True})

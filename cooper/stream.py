@@ -2,8 +2,8 @@
 
 Route handlers never touch the Gimbal directly: motion and safety requests go through the
 Control object (which forwards e-stop/arm/zero to the motors at once), and /api/settings
-through coop.settings.LiveSettings. See docs/API.md for the wire contract and
-docs/TERMINALS.md's Requests section for how coop/main.py's loop turns Control's state into
+through cooper.settings.LiveSettings. See docs/API.md for the wire contract and
+docs/TERMINALS.md's Requests section for how cooper/main.py's loop turns Control's state into
 motor motion each frame.
 """
 import math
@@ -80,8 +80,8 @@ def _pan_arg(body, pan_key, tilt_key):
 
 
 def create_app(state, control, diag=None, settings=None):
-    """`diag`: optional callable returning live health readings (coop.diag.SystemMonitor.snapshot).
-    `settings`: optional coop.settings.LiveSettings behind /api/settings (404 without one)."""
+    """`diag`: optional callable returning live health readings (cooper.diag.SystemMonitor.snapshot).
+    `settings`: optional cooper.settings.LiveSettings behind /api/settings (404 without one)."""
     app = Flask(__name__, static_folder=str(WEB_DIR), static_url_path="")
 
     @app.route("/")

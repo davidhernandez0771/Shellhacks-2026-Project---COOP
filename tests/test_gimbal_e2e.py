@@ -1,4 +1,4 @@
-"""The real coop.motors.Gimbal against tools/fake_uno.py over a local TCP socket.
+"""The real cooper.motors.Gimbal against tools/fake_uno.py over a local TCP socket.
 
 Unlike test_motors.py's FakeSerial (which records lines), the emulator runs the firmware's
 logic in real time, so these check outcomes: the shaft (`rotor`) ends up where the Pi
@@ -8,9 +8,9 @@ import time
 
 import pytest
 
-import coop.motors as motors_mod
-from coop.config import MotorConfig
-from coop.motors import Gimbal
+import cooper.motors as motors_mod
+from cooper.config import MotorConfig
+from cooper.motors import Gimbal
 from tools.fake_uno import FakeUnoServer
 
 STEPS_PER_DEG = 200 * 8 / 360.0
