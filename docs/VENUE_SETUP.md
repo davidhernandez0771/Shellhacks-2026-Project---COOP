@@ -1,4 +1,4 @@
-# COOP: setting up at the venue (laptop)
+# COOPER: setting up at the venue (laptop)
 
 Everything is on GitHub. Nothing is left only on the desktop.
 Repo: https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP
@@ -26,7 +26,7 @@ git switch dev
 pip install -r requirements.txt
 python -m pytest -q
 ```
-`pytest` should end with **310 passed**. The install takes a few minutes (PyTorch is big).
+`pytest` should end with every test passed and none skipped. The install takes a few minutes (PyTorch is big).
 
 Then create one folder per design lane (each is its own branch, so terminals can't collide):
 ```
@@ -53,7 +53,7 @@ In VS Code, open a new terminal for each one. `cd` into its folder, run `claude`
 ### Coordinator: `C:\dev\COOP` · Opus 5.5
 Merges each lane after you approve its preview, and keeps an eye on everything.
 ```
-You are the coordinator for COOP. Read CLAUDE.md, docs/TERMINALS.md and docs/SHOWCASE_V2_PLAN.md (on branch design/showcase-v2: git fetch, then git show origin/design/showcase-v2:docs/SHOWCASE_V2_PLAN.md). Three design lanes work in separate worktrees: C:\dev\COOP-site (design/showcase-v2, the integration branch), C:\dev\COOP-fx (design/fx) and C:\dev\COOP-sims (design/sims). When I say a lane is approved, merge it into design/showcase-v2, resolve conflicts carefully, check the site in the browser (no console errors, 1440 and 390 px), and push. When I approve the whole redesign, merge design/showcase-v2 into dev, run pytest, and push, which makes it live on coop.davidhernandez.work. Never push to main. Confirm with me before every merge.
+You are the coordinator for COOPER. Read CLAUDE.md, docs/TERMINALS.md and docs/SHOWCASE_V2_PLAN.md (on branch design/showcase-v2: git fetch, then git show origin/design/showcase-v2:docs/SHOWCASE_V2_PLAN.md). Three design lanes work in separate worktrees: C:\dev\COOP-site (design/showcase-v2, the integration branch), C:\dev\COOP-fx (design/fx) and C:\dev\COOP-sims (design/sims). When I say a lane is approved, merge it into design/showcase-v2, resolve conflicts carefully, check the site in the browser (no console errors, 1440 and 390 px), and push. When I approve the whole redesign, merge design/showcase-v2 into dev, run pytest, and push, which makes it live on coop.davidhernandez.work. Never push to main. Confirm with me before every merge.
 ```
 
 ### Lane A (Type & wordmark): `C:\dev\COOP-site` · Opus 5.5
@@ -74,7 +74,7 @@ Read CLAUDE.md and docs/SHOWCASE_V2_PLAN.md. You are Lane C (Simulations): step 
 ### Hardware: `C:\dev\COOP` · Sonnet 5 (switch to Opus if stuck)
 Use this once the parts are on the desk. It can share the coordinator's folder, but use a separate terminal.
 ```
-Read CLAUDE.md and docs/HARDWARE_TEST.md. Today we bring up the real hardware (Pi 5, Arduino Uno, TMC2209, NEMA 17, OV5647 camera, pan only). Walk me through the checklist one step at a time, starting with the laptop rehearsal (python -m tools.rehearsal) and flashing the Uno. Wait for me to report each result before moving on, and fix anything that fails. Work on dev, commit small, and tell me before pushing.
+Read CLAUDE.md and docs/HARDWARE_TEST.md. Today we bring up the real hardware (Pi 5, OV5647 camera, the yellow and red LEDs, mounted in the car). Walk me through the checklist one step at a time, starting with the laptop rehearsal (python -m tools.rehearsal --timeline), then the camera, the LEDs, the lane calibration and the parked risk test. Wait for me to report each result before moving on, and fix anything that fails. Work on dev, commit small, and tell me before pushing.
 ```
 
 **If usage runs low:** pause Lane B first (its extras are the least essential), then Lane A. Keep Lane C and Hardware.
@@ -107,8 +107,8 @@ Read CLAUDE.md and docs/HARDWARE_TEST.md. Today we bring up the real hardware (P
 | What | Command (from `C:\dev\COOP`) |
 |---|---|
 | Tests | `python -m pytest -q` |
-| The whole app with no hardware (fake Arduino, fake camera) | `python -m tools.rehearsal`, then open http://localhost:8000 |
-| App with the laptop webcam | `python -m coop.main --source webcam --no-motors` |
+| The whole app with no hardware (a synthetic road, mocked LEDs) | `python -m tools.rehearsal`, then open http://localhost:8000 |
+| App with the laptop webcam | `python -m cooper.main --source webcam` |
 | Preview a design lane locally | `python -m http.server 8124 --directory C:\dev\COOP-site\site`, then open http://localhost:8124 |
 
 ## 7. Reminders

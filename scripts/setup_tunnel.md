@@ -1,6 +1,6 @@
 # Exposing the dashboard with Cloudflare Tunnel
 
-This guide makes the Pi's dashboard reachable at `https://cooper-live.example.com` from anywhere, without opening a port on the venue's router. Cloudflare Access sits in front of it so only approved email addresses can see the camera or send it commands.
+This guide makes the Pi's dashboard reachable at `https://cooper-live.example.com` from anywhere, without opening a port on the venue's router. Cloudflare Access sits in front of it so only approved email addresses can see the camera or change its lane and settings.
 
 **Placeholder:** replace `example.com` with your domain everywhere below.
 
@@ -49,7 +49,7 @@ Stick to a single-level subdomain like `cooper-live.example.com`: Cloudflare's f
    - Public hostname: subdomain `cooper-live`, domain `example.com`, **path empty** so it covers `/`, `/video` and `/api/*`
    - Session duration: `24 hours`
 4. Add a policy: **Action: Allow**, **Include → Emails** → the team's addresses (add judges' emails on demo day, or use "Emails ending in" for a whole domain).
-5. In the application's cookie settings, set **SameSite = Lax** and keep **HttpOnly** on. The control endpoints (`POST /api/mode`, `/api/home`, ...) are authorized purely by the Access cookie, so `Lax` stops another website from firing cross-site POSTs at the camera with a logged-in user's cookie.
+5. In the application's cookie settings, set **SameSite = Lax** and keep **HttpOnly** on. The write endpoints (`POST /api/lane`, `/api/settings`) are authorized purely by the Access cookie, so `Lax` stops another website from firing cross-site POSTs at COOPER with a logged-in user's cookie.
 6. Save.
 
 ## 3. Install cloudflared, create the tunnel, run it as a service

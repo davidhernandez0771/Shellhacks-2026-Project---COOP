@@ -1,6 +1,6 @@
 # Parallel work plan (multiple Claude terminals)
 
-Every terminal works in the same folder (`C:\dev\COOP`) on its **own files**. Shared contracts are in `docs/API.md` (backend ↔ web) and `docs/DESIGN_BRIEF.md` (look).
+Every terminal works in the same folder on its **own files**. Shared contracts are in `docs/API.md` (backend ↔ web), `docs/MATH.md` (the filter and risk rules) and `docs/DESIGN_BRIEF.md` (look).
 
 ## Rules for every terminal
 1. Only edit files in your lane. If you need a change in another lane's file, write it in the **Requests** section at the bottom of this file instead.
@@ -12,36 +12,14 @@ Every terminal works in the same folder (`C:\dev\COOP`) on its **own files**. Sh
 
 | # | Lane | Owns | Goal |
 |---|---|---|---|
-| 1 | **Vision & tracking** | `coop/main.py`, `coop/camera.py`, `coop/detector.py`, `coop/predictor.py`, `coop/sim.py`, `coop/config.py` | Make it run on the laptop and fix bugs. Build the virtual gimbal (a crop window that pans with the simulated motors) so tracking is visible without hardware. Measure and tune FPS. |
-| 2 | **Web dashboard** | `web/**` | Rebuild the dashboard to `docs/DESIGN_BRIEF.md` against `docs/API.md`. Use fake data until the endpoints exist. |
-| 3 | **Control API & hardware link** | `coop/stream.py`, `coop/control.py`, `coop/motors.py`, `coop/settings.py`, `coop/diag.py`, `coop.example.toml`, `firmware/**`, `tools/**`, `scripts/**`, `.github/**`, `docs/HARDWARE_TEST.md`, `tests/test_smoke.py`, `tests/test_reconnect.py` | Implement every endpoint in `docs/API.md`: the mode, lock and aim state in `control.py`, plus the event log. Harden the serial link (reconnect). Pi deploy: a systemd service and a Cloudflare Tunnel guide. CI (pytest on GitHub Actions) and the first-hardware checklist. |
-| 4 | **Quality & ship** | `tests/**`, `docs/DEVPOST.md`, `README.md`, `site/**` | pytest suite (pixel math, Kalman, target choice, serial protocol with a fake port, API with the Flask test client). Keep the docs current. Later: a landing page for the domain. |
+| 1 | **Vision, prediction & risk** | `cooper/main.py`, `cooper/camera.py`, `cooper/detector.py`, `cooper/predictor.py`, `cooper/risk.py`, `cooper/config.py`, `docs/MATH.md` | The main loop, the per-object Kalman filter and the lane rules. Measure and tune FPS and the risk thresholds on real footage. Keep `docs/MATH.md` matching the code. |
+| 2 | **Web dashboard** | `web/**` | The dashboard against `docs/API.md` and `docs/DESIGN_BRIEF.md`. Use the mock (`web/mock.js`) until an endpoint exists. |
+| 3 | **API, LEDs & deploy** | `cooper/stream.py`, `cooper/control.py`, `cooper/settings.py`, `cooper/diag.py`, `cooper/leds.py`, `cooper.example.toml`, `tools/**`, `scripts/**`, `.github/**`, `hardware/README.md`, `docs/HARDWARE_TEST.md`, `docs/API.md` | Every endpoint in `docs/API.md`, live settings and the lane, the LEDs on GPIO, Pi deploy (systemd, Cloudflare Tunnel), CI, and the first-hardware checklist. |
+| 4 | **Quality & ship** | `tests/**`, `docs/DEVPOST.md`, `README.md`, `site/**` | The pytest suite, the docs and the Devpost copy, and the showcase site. |
 
-**Lane 1 ↔ 3 handoff:** lane 3 builds `coop/control.py` (a thread-safe object holding mode, locked ID, manual aim and events). Lane 1 wires it into `main.py`'s loop. Agree on its interface here before coding it.
+**Lane 1 ↔ 3 handoff:** `cooper/main.py` (lane 1) publishes the status that `cooper/stream.py` (lane 3) serves; the shape is in `docs/API.md`. The lane lives in `cfg.risk.lane`: lane 3's `/api/lane` writes it, lane 1's risk judge reads it every frame.
 
 **Fewer terminals?** With 3, fold lane 4 into lanes 1 and 3. With 2, run lane 1, and have the second terminal do lanes 2 and 3 together.
 
 ## Requests
 _(cross-lane asks: "lane X → lane Y: need ...". Delete when done.)_
-
-**Lane 2 → lane 4: Devpost copy for the prediction overlay.** (Lane 2 was told to commit only
-`web/` and `docs/API.md`.) Suggested additions:
-- *What it does*, after the dashboard paragraph: "In auto mode the feed shows the prediction
-  itself: an arrow for the target's velocity, and the predicted aim point with a fading trail
-  of where it has been, so you can watch COOP aim ahead of a moving target instead of behind
-  it."
-- *How we built it → Dashboard*: "The prediction overlay works in world angles, like the
-  tracker: the aim trail is stored as pan/tilt and re-projected through the current gimbal
-  angle every frame, so it stays fixed in the world while the camera turns instead of smearing
-  across the image."
-- *Challenges*: "**A dashboard that doesn't lie.** A request-time timestamp always looks fresh,
-  and the Pi's and a phone's clocks disagree. Staleness is detected from a per-frame counter
-  timed on the client's own clock, and an expired Cloudflare Access session is told apart from
-  a dead network by reading the login redirect (`redirect: "manual"`) instead of the opaque
-  CORS error."
-
-**Lane 3 → lane 4: record the hostname decision in `site/README.md`.** David decided
-(2026-09-26): the showcase keeps `coop.<domain>`, and the live dashboard moves to
-`coop-live.<domain>` (`scripts/setup_tunnel.md` and `install_tunnel.sh` are updated;
-the installer now refuses `coop.*`). The "Hostname clash" note there can become a
-one-line pointer.
