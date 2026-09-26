@@ -7,7 +7,13 @@ microsteps; everything in Python is degrees.
 Without an Arduino (or with motors disabled) the gimbal runs in mock mode and simulates
 the motion, so the rest of the pipeline and the dashboard behave normally. If the link
 drops after connecting (cable pulled, Uno reset, USB brownout), a background thread keeps
-retrying the connection and the gimbal falls back to mock mode in the meantime.
+retrying the connection. Meanwhile `mock` is True but the position is NOT simulated: the
+real motors are stopped, so `angles` holds the last position the Uno reported.
+
+Opening the port resets the Uno, which restarts its step counter at 0 wherever the axis
+happens to be. The first connection accepts that (power-on position = 0 deg); every
+reconnect sends "Z <pan> <tilt>" with the last reported position, so the Uno's counter,
+the Pi's angles and the configured limits stay in the same frame of reference.
 """
 import logging
 import threading
@@ -41,8 +47,9 @@ class Gimbal:
         base = cfg.steps_per_rev * cfg.microsteps / 360.0
         self._steps_per_deg = (base * cfg.pan_gear_ratio, base * cfg.tilt_gear_ratio)
         self._pos = [0, 0]  # microsteps, as last reported (or simulated)
+        self._hw_pos = None  # last position the Uno reported; None until the first connect
         self._target = [0, 0]
-        self._state_lock = threading.Lock()  # guards _serial and _pos
+        self._state_lock = threading.Lock()  # guards _serial, _pos and _hw_pos
         self._write_lock = threading.Lock()
         self._running = True
         self._serial = None
@@ -106,7 +113,12 @@ class Gimbal:
             ser.close()
             raise RuntimeError(f"no READY from {port}; is the firmware flashed?")
 
-        ser.write(f"C {int(self.cfg.max_steps_per_sec)} {int(self.cfg.accel_steps_per_sec2)}\nZ\n".encode())
+        with self._state_lock:
+            restore = self._hw_pos
+            self._pos = list(restore) if restore is not None else [0, 0]
+            self._hw_pos = list(self._pos)
+        zero = "Z" if restore is None else f"Z {restore[0]} {restore[1]}"
+        ser.write(f"C {int(self.cfg.max_steps_per_sec)} {int(self.cfg.accel_steps_per_sec2)}\n{zero}\n".encode())
         return ser
 
     def _send(self, ser, line):
@@ -124,8 +136,10 @@ class Gimbal:
             try:
                 parts = ser.readline().decode(errors="ignore").split()
                 if len(parts) == 3 and parts[0] == "P":
+                    pos = [int(parts[1]), int(parts[2])]
                     with self._state_lock:
-                        self._pos = [int(parts[1]), int(parts[2])]
+                        self._pos = pos
+                        self._hw_pos = list(pos)
                 if time.monotonic() - last_heartbeat > HEARTBEAT_S:
                     self._send(ser, "H")
                     last_heartbeat = time.monotonic()
@@ -146,7 +160,7 @@ class Gimbal:
     @property
     def angles(self):
         with self._state_lock:
-            if self._serial is None:
+            if self._serial is None and self._hw_pos is None:  # never had hardware: simulate
                 self._simulate()
             pos = list(self._pos)
         return pos[0] / self._steps_per_deg[0], pos[1] / self._steps_per_deg[1]

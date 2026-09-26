@@ -5,6 +5,9 @@
 //   Pi -> Uno:  T <pan> <tilt>        move to target
 //               C <max_speed> <accel> set motion limits (steps/s, steps/s^2)
 //               Z                     current position becomes 0,0
+//               Z <pan> <tilt>        current position becomes pan,tilt (restores the
+//                                     Pi's last known position after a reconnect,
+//                                     since opening the port resets the Uno)
 //               S                     decelerate to a stop
 //               E <0|1>               disable/enable drivers
 //               H                     heartbeat
@@ -56,8 +59,9 @@ void handle(char *line) {
       if (sscanf(line + 1, "%ld %ld", &a, &b) == 2) setLimits(a, b);
       break;
     case 'Z':
-      pan.setCurrentPosition(0);
-      tilt.setCurrentPosition(0);
+      if (sscanf(line + 1, "%ld %ld", &a, &b) != 2) a = b = 0;
+      pan.setCurrentPosition(a);  // also sets the target here, so nothing moves until the next T
+      tilt.setCurrentPosition(b);
       break;
     case 'S':
       pan.stop();
