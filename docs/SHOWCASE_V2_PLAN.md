@@ -35,11 +35,15 @@ Never scrape or copy components David hasn't copied through his own account.
 | **Neon Border / Glow Border** | B | Figure frames and cards: corner-bracket glow, recolored orange |
 | **Pixel Trail** | B | A very subtle orange pixel trail behind the target cursor, like camera pixels |
 | **Predictive Arc** | C | Background of 03 PREDICT (a WebGL dot arch; the name fits) |
-| **ASCII Wave** | C | 01 SEE: the camera "pinging" the scene with ASCII rings, in orange |
+| **ASCII Wave** (optional) | C | 01 SEE: the camera "pinging" the scene with ASCII rings, in orange. **David isn't sure how it will look. Prototype it on its own and show him before using it; drop it if it doesn't fit.** |
+| **Dither Reveal** (trending) | C | Every photo and video frame (gallery carousel items, team portraits) renders as 1-bit dithered "sensor output" in black, white and orange, and the cursor reveals the real image under it. It ties the media to the dithered simulations. |
+| **Morphing Glyph Cloud** (trending) | C | 02 DETECT: a cloud of class-label glyphs ("PERSON", "CAR") reforms into the silhouettes they name, the moment a detection happens |
 | **Dither Globe** (reference only) | C | Proof that the 1-bit dither look is current. Build the dither shader for the scenes (step 5). |
 | **Round Carousel** | — | Already in, and David loves it. Keep it. |
 
-**Today's 10 free copies, in order:** Vector Wordmark, Particle Gimbal, Mask Text Reveal, Scan Grid Button, Tactile Button, Neon Border, Predictive Arc, ASCII Wave, Interactive Grid, Pixel Trail. Outline Typeflow and Glow Border are for tomorrow.
+**Today's 10 free copies, in order:** Vector Wordmark, Particle Gimbal, Dither Reveal, Mask Text Reveal, Scan Grid Button, Tactile Button, Neon Border, Predictive Arc, Morphing Glyph Cloud, Interactive Grid. **Tomorrow:** Pixel Trail, Outline Typeflow, Glow Border, ASCII Wave (only if the prototype convinces David).
+
+Also seen on the trending page, not picked: Type Slab Field (a curved wall of 3D text, too loud), Glyph Tumbler (a Rubik's-cube letter loader, playful but off-tone), Grain Mass (another particle cloud, which is exactly what we're moving away from). Pro-only trending: Reactive Lines, Rising Lines, Grid Hole, Reactive Grid, Wave Arcs, Prism Grid, ASCII Sphere, Text Fall.
 
 **Pro-only (need a paid plan; don't use unless David upgrades):** Axis Cursor (crosshair with an "Aim" label, perfect for COOP), Beam Sweep, Focus Reveal, Magnetic Hover Button, Pixel LED Display, Kinetic Grid, Encrypt Button, Spotlight Frames, Circular Gallery, Twin Galaxy Rings. The target cursor, magnetic buttons and the rest of step 6 stay our own implementations.
 
