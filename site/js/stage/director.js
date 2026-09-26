@@ -3,7 +3,7 @@
 
 import { EYE, RIG, OBJECTS, FOCUS_INDEX, objectState } from "./world.js";
 
-export const CHAPTERS = ["Intro", "See", "Detect", "Predict", "Move", "Build", "Gallery", "Team"];
+export const CHAPTERS = ["Intro", "See", "Detect", "Predict", "Warn", "Build", "Gallery", "Team"];
 export const LEAD_S = 0.15;          // the real lead time (coop/config.py lead_time_s)
 export const SCAN_PERIOD = 2.4;      // seconds per rolling-shutter sweep in chapter 01
 export const GHOST_S = 1.6;          // the ghost is drawn further ahead than t_lead so it's visible

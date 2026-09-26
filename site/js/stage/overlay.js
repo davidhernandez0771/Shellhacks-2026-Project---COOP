@@ -215,7 +215,7 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
         ctx.stroke();
         ctx.globalAlpha = 1;
         const tg = tag(key);
-        setTag(tg, flip ? ex - 4 - labelW : ex + 4, ly - 7, a, label, { lock: locked, dim: !isFocus, sub: locked ? "LOCKED" : null, ident: `${o.id}${small && !isFocus ? "s" : ""}` });
+        setTag(tg, flip ? ex - 4 - labelW : ex + 4, ly - 7, a, label, { lock: locked, dim: !isFocus, sub: locked ? "TRACKED" : null, ident: `${o.id}${small && !isFocus ? "s" : ""}` });
       });
     }
 
@@ -289,7 +289,7 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
           ctx.setLineDash([]);
         }
         ctx.globalAlpha = 1;
-        setTag(tag("ghost"), g.x + r * 2 + 6, g.y + 6, pr, `AIM · t + ${GHOST_S.toFixed(1)} s`, { lock: true });
+        setTag(tag("ghost"), g.x + r * 2 + 6, g.y + 6, pr, `PATH · t + ${GHOST_S.toFixed(1)} s`, { lock: true });
         // angular rate as COOP measures it: world-angle change seen from the camera
         const w = (bearing(EYE, objectState(FOCUS_INDEX, t + 0.1).x, st.z) - bearing(EYE, st.x, st.z)) / 0.1;
         setTag(tag("vel"), c.x - 8, c.y + (small ? 40 : 64), pr * 0.9, `ω ${w >= 0 ? "+" : "−"}${Math.abs(w).toFixed(1)}°/s`, { dim: true, ident: "vel" });
