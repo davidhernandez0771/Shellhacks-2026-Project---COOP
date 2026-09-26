@@ -7,16 +7,17 @@ Base URL: `http://<pi>:8000` (or `http://localhost:8000` on the laptop). All JSO
 ## Read
 
 ### `GET /video`
-MJPEG stream (`multipart/x-mixed-replace`) of the annotated frame. Use as `<img src="/video">`.
+MJPEG stream (`multipart/x-mixed-replace`) of the camera frame. Use as `<img src="/video">`. The frame is **clean by default**: the dashboard draws boxes, the reticle and the prediction overlay client-side from `/api/status`, so they stay clickable. `python -m coop.main --annotate` burns boxes into the frame for debugging without the dashboard (you'll then see them twice in the dashboard).
 
 ### `GET /api/status`
 Polled by the dashboard (~300 ms).
 ```json
 {
   "server_time": 1790000000.12,
+  "frame_seq": 18234,
   "fps": 14.2,
   "mode": "auto",
-  "frame": { "w": 640, "h": 480 },
+  "frame": { "w": 640, "h": 480, "hfov_deg": 63.0, "vfov_deg": 49.0 },
   "target": { "id": 3, "label": "person", "conf": 0.87, "box": [210, 80, 330, 400], "locked": false },
   "detections": [
     { "id": 3, "label": "person", "conf": 0.87, "box": [210, 80, 330, 400] },
@@ -33,7 +34,17 @@ Polled by the dashboard (~300 ms).
 }
 ```
 - `mode`: `"auto"` (track automatically) | `"manual"` (operator aims) | `"stop"` (motors hold still)
+- `server_time`: stamped per request, so it is always fresh; it does **not** tell you the vision loop is alive. Don't compare it to the client's clock (Pi and phone clocks differ).
+- `frame_seq`: increments once per frame the main loop publishes (`SharedState._seq`). The dashboard shows "stale" when it stops advancing for 2 s, timed on the client's own clock. *Added for the connection banner; if absent the dashboard never reports stale.*
+- Before the first frame is published the payload is just `{server_time, mode}`; clients must tolerate missing fields.
 - `target`: `null` when nothing is being tracked. `locked: true` when the operator picked it through `POST /api/target`.
+- `frame.hfov_deg` / `frame.vfov_deg`: field of view of the frame actually served on `/video` (in virtual-gimbal mode that's the crop, which `coop/sim.py` sizes to the camera FOV). Used by the prediction overlay; the dashboard assumes 63 × 49 if absent.
+- `gimbal.target_pan` / `target_tilt`: the angle the gimbal is being driven to. In `auto` with a target this is the Kalman predictor's **lead aim** (`θ + θ̇·t_lead`), so it sits ahead of the target in its direction of travel.
+- `velocity_deg_s`: the target's estimated `[pan, tilt]` angular velocity in world angles (not frame pixels), so the camera's own rotation isn't counted.
+
+**Prediction overlay (computed client-side from the fields above).** The dashboard projects any world angle `(p, t)` into the current frame with the same pinhole model as `coop/main.py`:
+`x = w/2 + (w/2)·tan(p − gimbal.pan) / tan(hfov/2)`, `y = h/2 − (h/2)·tan(t − gimbal.tilt) / tan(vfov/2)`.
+It uses this for the predicted aim point (`target_pan/tilt`), its fading trail (stored as world angles and re-projected every frame, so it doesn't smear when the camera turns), and the velocity arrow (`velocity_deg_s` scaled by the local px-per-degree at the target's position).
 
 ### `GET /api/events?since=<seq>`
 Recent event log, newest last. `since` returns only events with `seq > since`.
