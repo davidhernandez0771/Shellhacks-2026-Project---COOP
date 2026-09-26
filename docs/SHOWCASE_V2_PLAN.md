@@ -16,6 +16,33 @@ David is present in VS Code for this work. **Show him each step in the browser a
 - Need something in another lane's files? Write it in a **Requests** section at the bottom of this plan instead of editing.
 - Each lane commits only its own paths and pushes to its own branch. **Merging B and C into `design/showcase-v2` is done by the coordinator** (David's main Claude session) after David approves each lane's preview.
 
+## OriginKit components (researched 2026-09-26)
+OriginKit (originkit.dev) has 547 animated components. **David's free account can copy 10 a day**; Pro ($79/yr) unlocks the rest. The code is React/Framer, and our site has no build step, so the workflow is:
+1. David opens the component, sets its colors to our tokens (`#060606` / off-white / orange), clicks **Get this Component** and saves the code to `site/_originkit/<name>.txt`. That folder is git-ignored reference material and is never published.
+2. The lane ports it to vanilla JS/CSS in its own files, adapting it to COOP, and credits it in `site/CREDITS.md`.
+
+Never scrape or copy components David hasn't copied through his own account.
+
+| Component (all **free**) | Lane | Where it goes in COOP |
+|---|---|---|
+| **Vector Wordmark** | A | "COOP" hero, every chapter title, a giant footer wordmark (step 3) |
+| **Mask Text Reveal** | A | Chapter subtitles and body copy revealing on scroll |
+| **Outline Typeflow** | A | "COMPUTER-VISION OBJECT OBSERVATION & PREDICTION" running along the camera's traced outline in 05 BUILD |
+| **Interactive Grid** | A | A "Built with" section: a hover grid of the stack (Pi 5, YOLO, OpenCV, three.js, anime.js, Arduino, Flask, Cloudflare) |
+| **Particle Gimbal** | B | **The loader**: it's literally a gimbal. Replace the current dotted-ring loader. (Alternative: Gyro Loader.) |
+| **Scan Grid Button** | B | Primary CTAs (a sci-fi HUD hover) |
+| **Tactile Button** | B | Secondary buttons (the orange underside fits the palette) |
+| **Neon Border / Glow Border** | B | Figure frames and cards: corner-bracket glow, recolored orange |
+| **Pixel Trail** | B | A very subtle orange pixel trail behind the target cursor, like camera pixels |
+| **Predictive Arc** | C | Background of 03 PREDICT (a WebGL dot arch; the name fits) |
+| **ASCII Wave** | C | 01 SEE: the camera "pinging" the scene with ASCII rings, in orange |
+| **Dither Globe** (reference only) | C | Proof that the 1-bit dither look is current. Build the dither shader for the scenes (step 5). |
+| **Round Carousel** | — | Already in, and David loves it. Keep it. |
+
+**Today's 10 free copies, in order:** Vector Wordmark, Particle Gimbal, Mask Text Reveal, Scan Grid Button, Tactile Button, Neon Border, Predictive Arc, ASCII Wave, Interactive Grid, Pixel Trail. Outline Typeflow and Glow Border are for tomorrow.
+
+**Pro-only (need a paid plan; don't use unless David upgrades):** Axis Cursor (crosshair with an "Aim" label, perfect for COOP), Beam Sweep, Focus Reveal, Magnetic Hover Button, Pixel LED Display, Kinetic Grid, Encrypt Button, Spotlight Frames, Circular Gallery, Twin Galaxy Rings. The target cursor, magnetic buttons and the rest of step 6 stay our own implementations.
+
 ## Rules
 - Work only in `site/` (plus `docs/DEVPOST.md` and `README.md` when relevant) on branch `design/showcase-v2`, in the folder `C:\dev\COOP-site`. Commit small and push often; each push gets a Cloudflare Pages preview at `https://design-showcase-v2.coop-224.pages.dev`. **Never push to `dev` or `main`.**
 - No build step: native ES modules, vendored libraries in `site/vendor/`, self-hosted fonts in `site/fonts/`. Every library and font must allow commercial use and self-hosting. Record each one in `site/CREDITS.md` with its license file.

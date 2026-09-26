@@ -24,3 +24,6 @@ Thumbs.db
 
 # Local settings (copy coop.example.toml)
 coop.toml
+
+# OriginKit reference code copied through David's account (ported, never published)
+site/_originkit/
