@@ -1,8 +1,10 @@
 # Exposing the dashboard with Cloudflare Tunnel
 
-This guide makes the Pi's dashboard reachable at `https://coop.example.com` from anywhere, without opening a port on the venue's router. Cloudflare Access sits in front of it so only approved email addresses can see the camera or send it commands.
+This guide makes the Pi's dashboard reachable at `https://coop-live.example.com` from anywhere, without opening a port on the venue's router. Cloudflare Access sits in front of it so only approved email addresses can see the camera or send it commands.
 
 **Placeholder:** replace `example.com` with your domain everywhere below.
+
+**Hostnames (decided 2026-09-26):** the live dashboard is `coop-live.<domain>`, behind Access. The public showcase page (`site/`, see `site/README.md`) keeps `coop.<domain>`. Don't point the tunnel at `coop.`; one hostname can't serve both.
 
 ```
 browser ──HTTPS──► Cloudflare edge ──(Access: email login)──► tunnel ──► cloudflared on the Pi ──HTTP──► 127.0.0.1:8000 (coop.service)
@@ -34,9 +36,9 @@ Tunnels need the zone on Cloudflare's nameservers (a "full" setup; the CNAME-onl
    nslookup -type=NS example.com 1.1.1.1
    ```
 
-Don't create a DNS record for `coop` by hand; step 4 does it.
+Don't create a DNS record for `coop-live` by hand; section 3 does it.
 
-Stick to a single-level subdomain like `coop.example.com`: Cloudflare's free Universal SSL certificate covers `example.com` and `*.example.com`, but not `cam.coop.example.com`.
+Stick to a single-level subdomain like `coop-live.example.com`: Cloudflare's free Universal SSL certificate covers `example.com` and `*.example.com`, but not `live.coop.example.com`. That's why it's `coop-live.`, not `live.coop.`.
 
 ## 2. Put Cloudflare Access in front (before the hostname goes live)
 
@@ -44,7 +46,7 @@ Stick to a single-level subdomain like `coop.example.com`: Cloudflare's free Uni
 2. Login method: **One-time PIN** is enabled by default. Approved users type their email and get a code. Optionally add Google or GitHub under Settings → Authentication.
 3. **Access → Applications → Add an application → Self-hosted** (newer dashboards call the menu "Access controls → Applications"):
    - Name: `COOP`
-   - Public hostname: subdomain `coop`, domain `example.com`, **path empty** so it covers `/`, `/video` and `/api/*`
+   - Public hostname: subdomain `coop-live`, domain `example.com`, **path empty** so it covers `/`, `/video` and `/api/*`
    - Session duration: `24 hours`
 4. Add a policy: **Action: Allow**, **Include → Emails** → the team's addresses (add judges' emails on demo day, or use "Emails ending in" for a whole domain).
 5. In the application's cookie settings, set **SameSite = Lax** and keep **HttpOnly** on. The control endpoints (`POST /api/mode`, `/api/home`, ...) are authorized purely by the Access cookie, so `Lax` stops another website from firing cross-site POSTs at the camera with a logged-in user's cookie.
@@ -55,7 +57,7 @@ Stick to a single-level subdomain like `coop.example.com`: Cloudflare's free Uni
 On the Pi, from the repo root, as your normal user (the script calls `sudo` where needed, and the login cert must land in your home directory):
 
 ```bash
-bash scripts/install_tunnel.sh coop.example.com
+bash scripts/install_tunnel.sh coop-live.example.com
 ```
 
 The script is idempotent; re-run it to change the hostname or rebuild the service. It:
@@ -68,14 +70,14 @@ The script is idempotent; re-run it to change the hostname or rebuild the servic
    tunnel: <tunnel-id>
    credentials-file: /etc/cloudflared/<tunnel-id>.json
    ingress:
-     - hostname: coop.example.com
+     - hostname: coop-live.example.com
        service: http://127.0.0.1:8000
      - service: http_status:404
    ```
    The origin is `127.0.0.1`, not `localhost`: Flask binds IPv4 `0.0.0.0`, and `localhost` can resolve to `::1` first. The catch-all `http_status:404` rule is required by cloudflared.
-5. Asks you to confirm the Access app from step 2 exists, then creates the proxied DNS record `coop.example.com CNAME <tunnel-id>.cfargotunnel.com` (`cloudflared tunnel route dns`).
+5. Asks you to confirm the Access app from step 2 exists, then creates the proxied DNS record `coop-live.example.com CNAME <tunnel-id>.cfargotunnel.com` (`cloudflared tunnel route dns`).
 6. Installs `coop-tunnel.service` next to `coop.service` and starts it.
-7. Requests `https://coop.example.com/api/status` without a login and warns loudly if it gets a `200`, which would mean Access isn't in front.
+7. Requests `https://coop-live.example.com/api/status` without a login and warns loudly if it gets a `200`, which would mean Access isn't in front.
 
 `coop-tunnel.service` is deliberately independent of `coop.service`. If COOP restarts, the tunnel stays up and visitors briefly see a Cloudflare 502 instead of a DNS error; if the tunnel restarts, the camera keeps running and the LAN dashboard still works.
 
@@ -97,7 +99,7 @@ sudo install -d /etc/cloudflared
 sudo install -m 600 ~/.cloudflared/<ID>.json /etc/cloudflared/
 sudoedit /etc/cloudflared/coop.yml             # contents as above
 sudo cloudflared tunnel --config /etc/cloudflared/coop.yml ingress validate
-cloudflared tunnel route dns coop coop.example.com
+cloudflared tunnel route dns coop coop-live.example.com
 sed -e "s|__CLOUDFLARED__|$(command -v cloudflared)|" -e "s|__CONFIG__|/etc/cloudflared/coop.yml|" \
   scripts/coop-tunnel.service | sudo tee /etc/systemd/system/coop-tunnel.service
 sudo systemctl daemon-reload && sudo systemctl enable --now coop-tunnel
@@ -111,7 +113,7 @@ The `.deb` doesn't auto-update. To track releases through apt instead, add Cloud
 
 - **No buffering.** cloudflared and the Cloudflare edge forward the response body as it arrives. Response buffering is an Enterprise-only setting and is off by default, so each JPEG part reaches the browser as soon as the Pi writes it.
 - **Timeouts.** Cloudflare's 100 s limit (error 524) is for the origin to *start* responding. `/video` sends its headers with the first frame, then keeps streaming, so long sessions are fine as long as frames keep coming.
-- **Caching.** Cloudflare never caches the stream or `/api/*` JSON. It *does* cache `.js`/`.css` by extension, which makes dashboard edits look like they didn't deploy. Add a **Cache Rule**: hostname equals `coop.example.com` → **Bypass cache**. Alternatively, purge the cache after changing `web/`.
+- **Caching.** Cloudflare never caches the stream or `/api/*` JSON. It *does* cache `.js`/`.css` by extension, which makes dashboard edits look like they didn't deploy. Add a **Cache Rule**: hostname equals `coop-live.example.com` → **Bypass cache**. Alternatively, purge the cache after changing `web/`.
 - **Auth.** The dashboard loads `/video` with a same-origin `<img>`, so the browser sends the Access cookie automatically. Nothing in the app needs to know about Access.
 - **Bandwidth.** Each viewer gets its own stream from the Pi (the edge doesn't fan out). A 640×480 JPEG at quality 70 is roughly 25–40 KB, so at 15 fps that's about 3–5 Mbit/s of **upload** per open tab. On weak venue Wi-Fi, lower `StreamConfig.jpeg_quality` in `coop/config.py` or keep the number of open tabs small.
 
@@ -122,16 +124,16 @@ Check it end to end:
 curl -sN --max-time 2 http://127.0.0.1:8000/video -o /dev/null -w '%{size_download} bytes\n'
 
 # anywhere: no login -> Access redirect (302), never 200
-curl -s -o /dev/null -w '%{http_code}\n' https://coop.example.com/video
+curl -s -o /dev/null -w '%{http_code}\n' https://coop-live.example.com/video
 ```
 
-Then open `https://coop.example.com` in a browser, sign in with an approved email, and confirm the feed moves. In DevTools → Network, `/video` should be a single pending request whose size keeps growing.
+Then open `https://coop-live.example.com` in a browser, sign in with an approved email, and confirm the feed moves. In DevTools → Network, `/video` should be a single pending request whose size keeps growing.
 
 To test the stream through Access from a terminal (install cloudflared on the laptop with `winget install Cloudflare.cloudflared`):
 
 ```powershell
-cloudflared access login https://coop.example.com
-cloudflared access curl https://coop.example.com/video --max-time 5 -s -o NUL -w '%{size_download} bytes\n'
+cloudflared access login https://coop-live.example.com
+cloudflared access curl https://coop-live.example.com/video --max-time 5 -s -o NUL -w '%{size_download} bytes\n'
 ```
 
 ## 5. Everyday commands
@@ -149,7 +151,7 @@ Uninstall:
 sudo systemctl disable --now coop-tunnel
 sudo rm /etc/systemd/system/coop-tunnel.service
 cloudflared tunnel cleanup coop && cloudflared tunnel delete coop
-# then delete the coop CNAME in the Cloudflare DNS tab, and the Access application
+# then delete the coop-live CNAME in the Cloudflare DNS tab, and the Access application
 ```
 
 ## Troubleshooting
@@ -162,8 +164,8 @@ cloudflared tunnel cleanup coop && cloudflared tunnel delete coop
 | Status updates but the video freezes or stutters | Upload bandwidth (see section 4). Close extra tabs, lower `jpeg_quality`. |
 | Dashboard changes don't show up | Edge cache on `.js`/`.css`. Add the bypass Cache Rule, or purge. |
 | Dashboard stops updating after many hours | The Access session expired. `/api/*` fetches are now redirected to the login page, which the browser blocks as cross-origin. Reload the page to sign in again. |
-| `NXDOMAIN` / "server not found" | Zone not Active yet, or `route dns` never ran. Check the DNS tab for a `coop` CNAME to `<id>.cfargotunnel.com`. |
-| SSL error | You used a two-level subdomain (`a.b.example.com`). Use `coop.example.com`. |
+| `NXDOMAIN` / "server not found" | Zone not Active yet, or `route dns` never ran. Check the DNS tab for a `coop-live` CNAME to `<id>.cfargotunnel.com`. |
+| SSL error | You used a two-level subdomain (`a.b.example.com`). Use `coop-live.example.com`. |
 
 ## Note: the LAN still bypasses Access
 

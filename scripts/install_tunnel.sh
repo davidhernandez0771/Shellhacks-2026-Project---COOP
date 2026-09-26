@@ -2,7 +2,7 @@
 # Expose the COOP dashboard at https://<hostname> through a Cloudflare Tunnel, run by
 # systemd as coop-tunnel.service. Full guide: scripts/setup_tunnel.md.
 # Run from the repo root as your normal user (not sudo); re-running is safe:
-#   bash scripts/install_tunnel.sh coop.example.com
+#   bash scripts/install_tunnel.sh coop-live.example.com
 set -euo pipefail
 
 HOST="${1:-}"
@@ -14,7 +14,12 @@ ETC_DIR=/etc/cloudflared
 CONFIG="$ETC_DIR/coop.yml"
 
 if [ -z "$HOST" ]; then
-  echo "Usage: bash scripts/install_tunnel.sh coop.example.com" >&2
+  echo "Usage: bash scripts/install_tunnel.sh coop-live.example.com" >&2
+  exit 1
+fi
+if [[ "$HOST" == coop.* ]]; then
+  # --overwrite-dns below would silently repoint the showcase's record at the tunnel.
+  echo "coop.<domain> is the public showcase (site/); the dashboard goes on coop-live.<domain>." >&2
   exit 1
 fi
 if [ "$(id -u)" -eq 0 ]; then
