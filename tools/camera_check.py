@@ -59,7 +59,12 @@ def main(argv=None):
     if args.source:
         cam_cfg.source = args.source
 
-    camera = Camera(cam_cfg)
+    try:
+        camera = Camera(cam_cfg)
+    except Exception as e:  # ImportError (no picamera2), RuntimeError (nothing attached), ...
+        print(f"Camera didn't open ({cam_cfg.source}): {e}\n"
+              "On the Pi: check the ribbon cable and `rpicam-hello --list-cameras`.", file=sys.stderr)
+        return 1
     try:
         stats = measure(camera, args.frames)
     finally:

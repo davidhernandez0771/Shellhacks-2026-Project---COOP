@@ -247,3 +247,13 @@ def test_bench_fps_runs_both_backends_and_skips_missing_ncnn(fake_ultralytics, t
     assert "skip ncnn @ 256" in out
     assert "| torch | 256 |" in out and "| torch | 320 |" in out and "| ncnn | 320 |" in out
     assert "yolo11n_imgsz320_ncnn_model" in fake_ultralytics
+
+
+def test_camera_check_explains_a_camera_that_wont_open(monkeypatch, capsys):
+    def no_camera(cfg):
+        raise RuntimeError("Could not open webcam 0")
+
+    monkeypatch.setattr(camera_check, "Camera", no_camera)
+    assert camera_check.main(["--frames", "1"]) == 1
+    err = capsys.readouterr().err
+    assert "Could not open webcam 0" in err and "rpicam-hello" in err
