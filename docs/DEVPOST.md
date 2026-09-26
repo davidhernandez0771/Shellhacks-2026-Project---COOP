@@ -10,6 +10,8 @@ Copy each section into the matching Devpost field. This file is kept up to date 
 ```
 COOP
 ```
+**Stands for:** Computer-vision Object Observation & Prediction.
+**Tagline for the video and pitch:** "COOP keeps an eye on the coop."
 
 ## Elevator pitch
 _(max 200 characters, currently 191)_
@@ -27,7 +29,7 @@ _(paste everything inside the box. Devpost supports Markdown and LaTeX)_
 ✏️ _What made you want to build this? A problem you've seen, a use case (security, sports filming, traffic monitoring, wildlife), or just wanting to make hardware and AI work together. Write 2–4 sentences in your own words._
 
 ## What it does
-COOP is a self-aiming camera. A Raspberry Pi 5 watches the scene, detects **people and vehicles** in real time, locks onto a target, and physically rotates the camera on stepper motors to keep that target centered, even as it moves. Instead of chasing where the target *was*, COOP **predicts where it's going** and aims ahead of it.
+COOP (**C**omputer-vision **O**bject **O**bservation & **P**rediction) is a self-aiming camera. A Raspberry Pi 5 watches the scene, detects **people and vehicles** in real time, locks onto a target, and physically rotates the camera on stepper motors to keep that target centered, even as it moves. Instead of chasing where the target *was*, COOP **predicts where it's going** and aims ahead of it.
 
 Everything streams live to a web dashboard: the annotated video feed with clickable bounding boxes (click a detection to lock onto it), the current target's confidence and velocity, a pan dial showing the gimbal's live and predicted angle against its physical limits, and a scrolling event log. An operator can also take over: flip the Auto/Manual/Stop switch, drive the gimbal with a D-pad in manual mode, or lock onto a specific track — every mode change and target lock/loss is written to that event log. It's a glassy, dark control-room look that works down to phone width, since judges open it on their own devices.
 

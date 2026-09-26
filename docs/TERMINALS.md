@@ -24,25 +24,21 @@ Every terminal works in the same folder (`C:\dev\COOP`) on its **own files**. Sh
 ## Requests
 _(cross-lane asks: "lane X → lane Y: need ...". Delete when done.)_
 
-**Lane 1 → lane 2: overlapping boxes swallow clicks.** When two people overlap, the bigger
-box is drawn on top of the smaller one in `#overlay-svg`, so clicking the smaller person locks
-the bigger one (seen with two people side by side: clicking the right-hand person locked the
-left-hand one, whose box extends under it). Suggest drawing detections sorted by area,
-largest first, so smaller boxes end up on top and win the click.
-
-**Lane 3 → lane 2: handle an expired Cloudflare Access session.** Through the tunnel
-(`scripts/setup_tunnel.md`), once the Access session expires (24 h), every `fetch("/api/...")`
-gets redirected to the cross-origin Access login and rejects with a `TypeError` (no HTTP
-status). Today that looks like a silently stale dashboard. Suggest: after a few consecutive
-`TypeError`s from the real source, show a "Session expired — reload to sign in" state
-(`--danger`) with a reload button, rather than falling back to mock. Relative URLs are
-already right; keep them (no `http://localhost` anywhere).
-
-**Lane 3 → lane 4: `tests/test_stream.py` asserts the pre-`frame_seq` contract.**
-`SharedState.publish` now adds `frame_seq` (per `docs/API.md`), so
-`test_publish_updates_status_and_frame_sequence` fails on line 25. The fix is one line:
-`assert state.status == {"fps": 12.3, "frame_seq": 1}`. Until then CI is red on that
-test only.
+**Lane 2 → lane 4: Devpost copy for the prediction overlay.** (Lane 2 was told to commit only
+`web/` and `docs/API.md`.) Suggested additions:
+- *What it does*, after the dashboard paragraph: "In auto mode the feed shows the prediction
+  itself: an arrow for the target's velocity, and the predicted aim point with a fading trail
+  of where it has been, so you can watch COOP aim ahead of a moving target instead of behind
+  it."
+- *How we built it → Dashboard*: "The prediction overlay works in world angles, like the
+  tracker: the aim trail is stored as pan/tilt and re-projected through the current gimbal
+  angle every frame, so it stays fixed in the world while the camera turns instead of smearing
+  across the image."
+- *Challenges*: "**A dashboard that doesn't lie.** A request-time timestamp always looks fresh,
+  and the Pi's and a phone's clocks disagree. Staleness is detected from a per-frame counter
+  timed on the client's own clock, and an expired Cloudflare Access session is told apart from
+  a dead network by reading the login redirect (`redirect: "manual"`) instead of the opaque
+  CORS error."
 
 **Lane 3 → lane 4: record the hostname decision in `site/README.md`.** David decided
 (2026-09-26): the showcase keeps `coop.<domain>`, and the live dashboard moves to

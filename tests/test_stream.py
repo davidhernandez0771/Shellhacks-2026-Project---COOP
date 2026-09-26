@@ -22,8 +22,11 @@ def test_shared_state_starts_with_empty_status():
 def test_publish_updates_status_and_frame_sequence():
     state = SharedState()
     state.publish(b"jpeg-bytes", {"fps": 12.3})
-    assert state.status == {"fps": 12.3}
+    assert state.status == {"fps": 12.3, "frame_seq": 1}
     assert state._seq == 1
+
+    state.publish(b"jpeg-bytes", {"fps": 12.3})
+    assert state.status["frame_seq"] == 2
 
 
 def test_frames_generator_yields_an_mjpeg_chunk_with_the_published_frame():

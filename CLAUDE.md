@@ -3,6 +3,8 @@
 ShellHacks 2026 hackathon project. A two-person team: David (software) and a teammate (design/hardware).
 
 ## What it is
+**COOP = Computer-vision Object Observation & Prediction** (final name, decided 2026-09-26; don't rename to COOPER). Tagline: "COOP keeps an eye on the coop."
+
 A Raspberry Pi 5 (8 GB) tracking camera. It detects people and cars, predicts their motion, rotates on stepper motors to follow the target, and streams live video to a browser on the laptop.
 
 ## Hardware facts

@@ -1,4 +1,5 @@
 # COOP
+**Computer-vision Object Observation & Prediction**
 
 > COOP is an AI tracking camera on a Raspberry Pi 5 that spots people and cars, predicts where they're heading, and turns on stepper motors to keep them in frame, streamed live to your browser.
 
