@@ -45,6 +45,11 @@ classes = [0, 2]
     assert cfg.stream == Config().stream  # untouched sections keep their defaults
 
 
+def test_the_lane_is_read_as_eight_numbers(tmp_path):
+    path = write(tmp_path, "[risk]\nlane = [0.4, 0.55, 0.6, 0.55, 0.9, 1, 0.1, 1]\n")
+    assert load_config(path).risk.lane == (0.4, 0.55, 0.6, 0.55, 0.9, 1.0, 0.1, 1.0)
+
+
 @pytest.mark.parametrize("section", ["motors", "tracking", "sim"])
 def test_the_old_gimbal_sections_are_unknown(tmp_path, section):
     """A cooper.toml copied from the gimbal era fails loudly instead of being half-applied."""
@@ -101,6 +106,28 @@ def test_syntax_error_names_the_file(tmp_path):
     ("camera", "width", 0),
     ("stream", "port", 70000),
     ("stream", "jpeg_quality", 0),
+    ("prediction", "meas_std_px", 0.0),
+    ("prediction", "accel_std_px_s2", -1.0),
+    ("prediction", "lost_timeout_s", 0.0),
+    ("prediction", "min_hits", 1),            # 1 hit has no velocity yet
+    ("prediction", "gate_sigma", 0.0),
+    ("prediction", "max_coast_s", 0.0),
+    ("risk", "horizon_s", 0.0),
+    ("risk", "step_s", 0.0),
+    ("risk", "step_s", 2.0),                  # longer than the horizon
+    ("risk", "ttc_warn_s", 3.0),              # must be below ttc_clear_s (2.5)
+    ("risk", "ttc_min_height_px", -1.0),
+    ("risk", "enter_frames", 0),
+    ("risk", "hold_s", -0.1),
+    ("risk", "min_overlap", 0.0),
+    ("risk", "min_overlap", 1.5),
+    ("risk", "lane_margin", -0.1),
+    ("risk", "lane", (0.44, 0.6, 0.56, 0.6, 0.79, 1.0)),                 # 3 corners
+    ("risk", "lane", (0.44, 0.6, 0.56, 0.6, 0.79, 1.2, 0.21, 1.2)),      # off the frame
+    ("risk", "lane", (0.44, 1.0, 0.56, 1.0, 0.79, 0.6, 0.21, 0.6)),      # top edge below the bottom
+    ("risk", "lane", (0.56, 0.6, 0.44, 0.6, 0.79, 1.0, 0.21, 1.0)),      # top corners swapped
+    ("leds", "yellow_pin", 28),               # BCM GPIO numbers are 0..27
+    ("leds", "red_pin", 17),                  # same pin as yellow
 ])
 def test_validate_rejects_out_of_range_values(section, key, value):
     cfg = Config()

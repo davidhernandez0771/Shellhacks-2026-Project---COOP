@@ -10,6 +10,7 @@ warnings: a typo silently ignored is how a threshold ends up at its default on d
 """
 from __future__ import annotations
 
+import copy
 import dataclasses
 import difflib
 import math
@@ -27,6 +28,10 @@ DEFAULT_PATH = Path(__file__).resolve().parent.parent / "cooper.toml"
 # Numeric ranges shared by file validation and live tuning (GET /api/settings "ranges").
 RANGES = {
     ("detector", "conf"): (0.05, 0.95),
+    ("risk", "horizon_s"): (0.1, 5.0),
+    ("risk", "ttc_warn_s"): (0.1, 10.0),
+    ("risk", "ttc_clear_s"): (0.1, 10.0),
+    ("risk", "hold_s"): (0.0, 5.0),
 }
 
 
@@ -131,6 +136,28 @@ def validate_config(cfg):
     check(det.imgsz >= 32 and det.imgsz % 32 == 0, "imgsz", "must be a multiple of 32 (e.g. 256, 320, 416)")
     check(cam.webcam_index >= 0, "webcam_index", "must be 0 or more")
     check(all(c >= 0 for c in det.classes), "classes", "COCO class ids are 0 or more")
+    pred, risk, leds = cfg.prediction, cfg.risk, cfg.leds
+    for key in ("accel_std_px_s2", "height_accel_std_px_s2", "meas_std_px", "init_vel_std_px_s",
+                "lost_timeout_s", "gate_sigma", "max_coast_s"):
+        check(getattr(pred, key) > 0, key, "must be positive")
+    check(pred.min_hits >= 2, "min_hits", "must be at least 2 (one measurement has no velocity)")
+    check(pred.growth_min_sigma >= 0, "growth_min_sigma", "must be 0 or more")
+    check(len(risk.lane) == 8, "lane", "must be 8 numbers: x, y of the top-left, top-right, "
+                                       "bottom-right and bottom-left corners")
+    if len(risk.lane) == 8:
+        tlx, tly, trx, try_, brx, bry, blx, bly = risk.lane
+        check(all(0 <= c <= 1 for c in risk.lane), "lane", "corners are fractions of the frame, 0..1")
+        check(max(tly, try_) < min(bly, bry), "lane", "the top edge must be above the bottom edge")
+        check(tlx < trx and blx < brx, "lane", "left corners must be left of the right ones")
+    check(0 < risk.step_s <= risk.horizon_s, "step_s", "must be positive and at most horizon_s")
+    check(risk.ttc_warn_s < risk.ttc_clear_s, "ttc_warn_s", "must be below ttc_clear_s")
+    check(risk.ttc_min_height_px >= 0, "ttc_min_height_px", "must be 0 or more")
+    check(risk.enter_frames >= 1, "enter_frames", "must be at least 1")
+    check(0 < risk.min_overlap <= 1, "min_overlap", "must be in 0..1 (a share of the bottom edge)")
+    check(risk.lane_margin >= 0, "lane_margin", "must be 0 or more")
+    check(0 <= leds.yellow_pin <= 27, "yellow_pin", "BCM GPIO numbers are 0..27")
+    check(0 <= leds.red_pin <= 27, "red_pin", "BCM GPIO numbers are 0..27")
+    check(leds.red_pin != leds.yellow_pin, "red_pin", "must differ from yellow_pin")
     check(1 <= stream.port <= 65535, "port", "must be 1..65535")
     check(1 <= stream.jpeg_quality <= 100, "jpeg_quality", "must be 1..100")
 
@@ -235,6 +262,10 @@ def _parse_text(text, path, saving=False):
 # Every live setting is a number with an entry in RANGES.
 LIVE_KEYS = {
     "conf": "detector",
+    "horizon_s": "risk",
+    "ttc_warn_s": "risk",
+    "ttc_clear_s": "risk",
+    "hold_s": "risk",
 }
 
 
@@ -290,6 +321,11 @@ class LiveSettings:
         (and changes nothing) if any part is invalid or the save fails."""
         changes, save = self._validate(body)
         with self._lock:
+            # Rules between settings (ttc_warn_s < ttc_clear_s, ...) hold on the result.
+            candidate = copy.deepcopy(self.cfg)
+            for key, value in changes.items():
+                setattr(getattr(candidate, LIVE_KEYS[key]), key, value)
+            validate_config(candidate)
             if save:
                 # Persist every live value as it will be after this request, not just the keys
                 # sent: "apply" now and "save" later must not lose the applied change.

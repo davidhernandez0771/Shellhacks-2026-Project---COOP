@@ -5,7 +5,7 @@ import pytest
 
 from cooper.config import Config
 from cooper.control import Control
-from cooper.settings import LIVE_KEYS, LiveSettings, SettingsError
+from cooper.settings import LiveSettings, SettingsError
 from cooper.stream import SharedState, create_app
 
 
@@ -21,17 +21,28 @@ def rig(tmp_path):
 def test_get_lists_values_ranges_and_file(rig):
     _, _, _, client, path = rig
     body = client.get("/api/settings").get_json()
-    assert body["settings"]["conf"] == 0.4
-    assert set(body["settings"]) == set(LIVE_KEYS)
+    assert body["settings"] == {"conf": 0.4, "horizon_s": 1.5, "ttc_warn_s": 2.0, "ttc_clear_s": 2.5,
+                                "hold_s": 0.5}
     assert body["ranges"]["conf"] == [0.05, 0.95]
     assert set(body["ranges"]) == set(body["settings"])
     assert body["file"] == str(path)
-    assert "steps_per_deg" not in body
 
 
-def test_no_motor_settings_are_live():
-    assert not {"lead_time_s", "deadband_deg", "max_steps_per_sec", "accel_steps_per_sec2",
-                "pan_invert"} & set(LIVE_KEYS)
+def test_risk_settings_apply_to_the_risk_config(rig):
+    cfg, _, _, client, _ = rig
+    resp = client.post("/api/settings", json={"horizon_s": 2.0, "ttc_warn_s": 1.5, "hold_s": 0.3})
+    assert resp.status_code == 200
+    assert (cfg.risk.horizon_s, cfg.risk.ttc_warn_s, cfg.risk.hold_s) == (2.0, 1.5, 0.3)
+
+
+def test_a_change_that_breaks_a_cross_setting_rule_is_rejected(rig):
+    """ttc_warn_s must stay below ttc_clear_s, or the TTC warning could never release."""
+    cfg, _, _, client, _ = rig
+    resp = client.post("/api/settings", json={"ttc_warn_s": 3.0})
+    assert resp.status_code == 400 and "ttc_warn_s" in resp.get_json()["error"]
+    assert cfg.risk.ttc_warn_s == 2.0
+    both = client.post("/api/settings", json={"ttc_warn_s": 3.0, "ttc_clear_s": 3.5})
+    assert both.status_code == 200 and cfg.risk.ttc_clear_s == 3.5
 
 
 def test_post_applies_immediately(rig):
@@ -77,7 +88,6 @@ def test_saved_file_loads_back_to_the_same_live_values(rig):
 @pytest.mark.parametrize("body,fragment", [
     ({"confidence": 0.3}, "unknown setting"),
     ({"imgsz": 256}, "unknown setting"),          # file-only, needs a restart
-    ({"pan_invert": True}, "unknown setting"),    # the motors are gone
     ({"conf": 1.2}, "conf"),
     ({"conf": "0.5"}, "conf"),
     ({"conf": True}, "conf"),
