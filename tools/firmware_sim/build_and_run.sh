@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Compile firmware/coop_motors for the Uno and run it in simavr, counting real STEP pulses.
-# Linux only. Needs: sudo apt install gcc-avr avr-libc arduino-core-avr simavr libsimavr-dev libelf-dev
+# Linux only. Needs: sudo apt install gcc-avr avr-libc arduino-core-avr simavr libsimavr-dev (libelf-dev on some distros)
 # plus AccelStepper: git clone --depth 1 https://github.com/waspinator/AccelStepper "$ACCEL"
 # Usage: ACCEL=/path/to/AccelStepper bash tools/firmware_sim/build_and_run.sh [scenario...]
 set -euo pipefail
@@ -22,7 +22,9 @@ for f in "$CORE"/*.cpp; do $CXX -w "$f" -o "$(basename "$f").o"; done
 for f in "$CORE"/*.S; do avr-gcc -c -x assembler-with-cpp -flto $DEFS "$f" -o "$(basename "$f").o"; done
 avr-gcc -Os -flto -fuse-linker-plugin -Wl,--gc-sections -mmcu=atmega328p -o sketch.elf ./*.o -lm
 avr-size -C --mcu=atmega328p sketch.elf
-gcc -O2 -o harness "$HERE/harness.c" -I/usr/include/simavr -I/usr/include/simavr/avr -lsimavr -lelf
+SIMAVR="-I/usr/include/simavr -I/usr/include/simavr/avr"
+gcc -O2 -o harness "$HERE/harness.c" $SIMAVR -lsimavr 2>/dev/null \
+  || gcc -O2 -o harness "$HERE/harness.c" $SIMAVR -lsimavr -lelf  # some distros need libelf
 for s in "${@:-move naive_estop coop_estop watchdog zero5 disabled_T}"; do
   for one in $s; do ./harness sketch.elf "$one" | grep -v '^Loaded'; done
 done

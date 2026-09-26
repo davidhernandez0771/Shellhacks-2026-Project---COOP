@@ -7,7 +7,7 @@ low, signed by DIR on D5). That measures the shaft independently of the firmware
 counter, which is how it checks the claims the rest of the code relies on.
 
 ```bash
-sudo apt install gcc-avr avr-libc arduino-core-avr simavr libsimavr-dev libelf-dev
+sudo apt install gcc-avr avr-libc arduino-core-avr simavr libsimavr-dev   # + libelf-dev on some distros
 git clone --depth 1 https://github.com/waspinator/AccelStepper /tmp/AccelStepper
 ACCEL=/tmp/AccelStepper bash tools/firmware_sim/build_and_run.sh
 ```
