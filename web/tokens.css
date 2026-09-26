@@ -1,6 +1,8 @@
-/* COOP dashboard tokens: the single source of color, type, spacing and motion.
+/* COOPER dashboard tokens: the single source of color, type, spacing and motion.
    Same identity as the showcase (site/tokens.css): black, white and one orange.
-   Orange means "lock / active / needs you". Nothing outside this file hard-codes a color.
+   Orange means "active / needs you". The two LED colors are the only other hues: they
+   mirror the physical warning LEDs, so they're used only for the risk level (status, LED
+   lamps, and objects and paths at that level). Nothing outside this file hard-codes a color.
    See docs/DESIGN_BRIEF.md. */
 
 @font-face {
@@ -34,6 +36,13 @@
   --lock-dim: rgba(255, 90, 31, 0.16);
   --lock-line: rgba(255, 90, 31, 0.55);
   --hazard: repeating-linear-gradient(-45deg, var(--lock) 0 5px, var(--ink) 5px 10px);
+
+  /* the physical LEDs: yellow = warning, red = danger */
+  --led-yellow: #FFC53D;
+  --led-yellow-dim: rgba(255, 197, 61, 0.16);
+  --led-red: #E8202A;
+  --led-red-dim: rgba(232, 32, 42, 0.2);
+  --led-off: #1E1E1C;
 
   /* live feed */
   --feed-bg: #000000;
