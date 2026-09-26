@@ -25,21 +25,19 @@ class DetectorConfig:
 @dataclass
 class MotorConfig:
     enabled: bool = True
-    # Step/dir driver (A4988 / DRV8825 / TMC2209). Pins are BCM numbers.
+    # Arduino Uno running firmware/coop_motors; pins live in the .ino file.
+    port: str = "auto"  # "auto" finds the Uno on USB, or set e.g. "/dev/ttyACM0" / "COM5"
+    baud: int = 115200
+    # NEMA 17 (1.8 deg) on TMC2209. MS1/MS2 both low = 8 microsteps (TMC2209 default).
     steps_per_rev: int = 200
-    microsteps: int = 16
-    gear_ratio: float = 1.0  # output turns per motor turn denominator, e.g. 3.0 for a 1:3 belt
-    pan_step_pin: int = 17
-    pan_dir_pin: int = 27
+    microsteps: int = 8
+    pan_gear_ratio: float = 1.0  # motor turns per camera turn, e.g. 3.0 for a 20T->60T belt
+    tilt_gear_ratio: float = 1.0
     tilt_enabled: bool = False
-    tilt_step_pin: int = 22
-    tilt_dir_pin: int = 23
-    enable_pin: int | None = 24  # driver EN (active low); None if tied to GND
-    pan_limits_deg: tuple = (-170.0, 170.0)
+    pan_limits_deg: tuple = (-170.0, 170.0)  # keep cables from wrapping
     tilt_limits_deg: tuple = (-30.0, 45.0)
-    max_steps_per_sec: float = 3000.0
-    min_steps_per_sec: float = 200.0
-    accel_steps_per_sec2: float = 8000.0
+    max_steps_per_sec: float = 2000.0
+    accel_steps_per_sec2: float = 6000.0
 
 
 @dataclass

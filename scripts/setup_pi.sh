@@ -4,14 +4,17 @@
 set -euo pipefail
 
 sudo apt update
-sudo apt install -y python3-picamera2 python3-gpiozero python3-lgpio python3-venv
+sudo apt install -y python3-picamera2 python3-venv
 
-# --system-site-packages lets the venv see picamera2/gpiozero installed by apt.
+# Serial access to the Arduino (takes effect after logging out and back in).
+sudo usermod -aG dialout "$USER"
+
+# --system-site-packages lets the venv see picamera2 installed by apt.
 python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-python -c "import picamera2, gpiozero, ultralytics; print('imports OK')"
+python -c "import picamera2, serial, ultralytics; print('imports OK')"
 echo "Test the camera with:  rpicam-hello -t 5000"
 echo "Run COOP with:         source .venv/bin/activate && python -m coop.main"

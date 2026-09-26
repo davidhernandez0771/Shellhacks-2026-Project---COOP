@@ -17,7 +17,8 @@ Pi Camera ─► YOLO detect + ByteTrack IDs ─► pick target ─► Kalman pr
 ## Hardware
 - Raspberry Pi 5 (8 GB)
 - 5 MP OV5647 camera, 3.6 mm lens, 75° diagonal FOV (needs a **15→22 pin Pi 5 camera cable**)
-- Stepper motor(s) + step/dir drivers (A4988 / DRV8825 / TMC2209) and a separate motor power supply
+- NEMA 17 steppers on TMC2209 drivers, controlled by an **Arduino Uno** connected to the Pi over USB
+- 12 V supply for the motors
 
 Wiring, pinout and BOM: [hardware/README.md](hardware/README.md).
 
@@ -29,8 +30,9 @@ coop/
   camera.py     Picamera2 on the Pi, webcam fallback for laptop dev
   detector.py   YOLO11n + ByteTrack (person, car, motorcycle, bus, truck)
   predictor.py  constant-velocity Kalman filter in world-angle space
-  motors.py     threaded stepper axes with accel ramps; mock mode off-Pi
+  motors.py     sends target angles to the Arduino over serial; mock mode without it
   stream.py     Flask MJPEG stream + /api/status
+firmware/       Arduino Uno sketch (AccelStepper → TMC2209)
 web/            dashboard (served by the Pi)
 hardware/       wiring, BOM, CAD / 3D-print files
 scripts/        Pi setup
@@ -62,7 +64,9 @@ Open `http://localhost:8000`.
 2. **Choose a target:** keep following the current ID. If it's gone, pick by class priority (person before car), then by size.
 3. **Convert to world angle:** gimbal angle + the target's angular offset in the frame. Working in world angles means the camera's own rotation doesn't look like the target moving.
 4. **Predict:** a Kalman filter estimates angular velocity and aims `lead_time_s` ahead to cover processing latency.
-5. **Move:** each stepper axis chases its target angle in its own thread, with acceleration and deceleration ramps.
+5. **Move:** the Pi sends target positions to the Arduino over USB serial. The Arduino runs AccelStepper, which smoothly accelerates each motor toward its target. If the Pi stops talking, the Arduino stops the motors after 2 seconds.
+
+The laptop can drive the real motors too: plug the Uno into the laptop and it's found automatically.
 
 ## Performance tips (Pi 5)
 - Export the model to NCNN for a big CPU speed-up:

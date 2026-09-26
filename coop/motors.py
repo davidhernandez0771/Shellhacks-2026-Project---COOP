@@ -1,8 +1,11 @@
-"""Stepper pan/tilt control through step/dir drivers.
+"""Stepper pan/tilt through an Arduino Uno running firmware/coop_motors.
 
-Each axis runs its own thread that chases a target position with a trapezoidal speed
-ramp. Off the Pi (or with motors disabled) the axes run in mock mode: positions still
-update so the rest of the pipeline and the dashboard behave normally.
+The Uno does the step timing (AccelStepper driving TMC2209s); the Pi only sends target
+positions over USB serial. See the .ino file for the protocol. Positions on the wire are
+microsteps; everything in Python is degrees.
+
+Without an Arduino (or with motors disabled) the gimbal runs in mock mode and simulates
+the motion, so the rest of the pipeline and the dashboard behave normally.
 """
 import logging
 import threading
@@ -10,121 +13,120 @@ import time
 
 log = logging.getLogger(__name__)
 
-
-def _output(pin, **kwargs):
-    from gpiozero import OutputDevice
-
-    return OutputDevice(pin, **kwargs)
+ARDUINO_USB_VIDS = {0x2341, 0x2A03, 0x1A86}  # Arduino, Arduino.org, CH340 clones
+HEARTBEAT_S = 0.5  # firmware stops the motors after 2 s of silence
 
 
-class StepperAxis:
-    def __init__(self, name, step_pin, dir_pin, limits_deg, cfg, mock):
-        self.name = name
-        self.limits = limits_deg
-        self.steps_per_deg = cfg.steps_per_rev * cfg.microsteps * cfg.gear_ratio / 360.0
-        self.max_rate = cfg.max_steps_per_sec
-        self.min_rate = cfg.min_steps_per_sec
-        self.accel = cfg.accel_steps_per_sec2
+def find_arduino_port():
+    from serial.tools import list_ports
 
-        self.position = 0  # steps; 0 = wherever the axis was at startup
-        self.target = 0
-        self._dir = 1
-        self._step = self._dirpin = None
-        if not mock:
-            self._step = _output(step_pin)
-            self._dirpin = _output(dir_pin)
+    for p in list_ports.comports():
+        if p.vid in ARDUINO_USB_VIDS:
+            return p.device
+    return None
 
-        self._running = True
-        self._thread = threading.Thread(target=self._run, name=f"stepper-{name}", daemon=True)
-        self._thread.start()
 
-    @property
-    def angle(self):
-        return self.position / self.steps_per_deg
-
-    @property
-    def target_angle(self):
-        return self.target / self.steps_per_deg
-
-    def set_target_angle(self, deg):
-        lo, hi = self.limits
-        self.target = round(min(max(deg, lo), hi) * self.steps_per_deg)
-
-    def _run(self):
-        rate = self.min_rate
-        while self._running:
-            diff = self.target - self.position
-            if diff == 0:
-                rate = self.min_rate
-                time.sleep(0.002)
-                continue
-
-            direction = 1 if diff > 0 else -1
-            if direction != self._dir:
-                self._dir = direction
-                rate = self.min_rate
-                if self._dirpin is not None:
-                    self._dirpin.value = direction > 0
-                    time.sleep(0.00001)  # driver dir setup time
-
-            # Decelerate when the remaining distance is within stopping distance.
-            stopping_steps = rate * rate / (2 * self.accel)
-            if abs(diff) <= stopping_steps:
-                rate = max(self.min_rate, rate - self.accel / rate)
-            else:
-                rate = min(self.max_rate, rate + self.accel / rate)
-
-            if self._step is not None:
-                self._step.on()
-                self._step.off()
-            self.position += direction
-            time.sleep(1.0 / rate)
-
-    def close(self):
-        self._running = False
-        self._thread.join(timeout=1)
-        for dev in (self._step, self._dirpin):
-            if dev is not None:
-                dev.close()
+def _clamp(value, limits):
+    lo, hi = limits
+    return min(max(value, lo), hi)
 
 
 class Gimbal:
     def __init__(self, cfg):
-        mock = not cfg.enabled
-        self._enable = None
-        if not mock:
-            try:
-                if cfg.enable_pin is not None:
-                    # EN is active low on A4988/DRV8825/TMC2209: driving it low enables the driver.
-                    self._enable = _output(cfg.enable_pin, active_high=False, initial_value=True)
-            except Exception as e:
-                log.warning("GPIO unavailable (%s); motors in mock mode", e)
-                mock = True
-        if mock:
-            log.info("Motors running in mock mode")
+        self.cfg = cfg
+        base = cfg.steps_per_rev * cfg.microsteps / 360.0
+        self._steps_per_deg = (base * cfg.pan_gear_ratio, base * cfg.tilt_gear_ratio)
+        self._pos = [0, 0]  # microsteps, as last reported (or simulated)
+        self._target = [0, 0]
+        self._write_lock = threading.Lock()
+        self._running = True
+        self._serial = None
 
-        self.mock = mock
-        self.pan = StepperAxis("pan", cfg.pan_step_pin, cfg.pan_dir_pin, cfg.pan_limits_deg, cfg, mock)
-        self.tilt = (
-            StepperAxis("tilt", cfg.tilt_step_pin, cfg.tilt_dir_pin, cfg.tilt_limits_deg, cfg, mock)
-            if cfg.tilt_enabled
-            else None
-        )
+        if cfg.enabled:
+            try:
+                self._serial = self._connect()
+            except Exception as e:
+                log.warning("Motor controller unavailable (%s); motors in mock mode", e)
+
+        self.mock = self._serial is None
+        if self.mock:
+            log.info("Motors running in mock mode")
+            self._last_sim = time.monotonic()
+        else:
+            self._thread = threading.Thread(target=self._reader, name="motor-serial", daemon=True)
+            self._thread.start()
+
+    def _connect(self):
+        import serial
+
+        port = find_arduino_port() if self.cfg.port == "auto" else self.cfg.port
+        if port is None:
+            raise RuntimeError("no Arduino found on USB")
+
+        ser = serial.Serial(port, self.cfg.baud, timeout=0.1)
+        deadline = time.monotonic() + 4.0  # opening the port resets the Uno
+        while time.monotonic() < deadline:
+            if ser.readline().strip() == b"READY":
+                break
+        else:
+            ser.close()
+            raise RuntimeError(f"no READY from {port}; is the firmware flashed?")
+
+        ser.write(f"C {int(self.cfg.max_steps_per_sec)} {int(self.cfg.accel_steps_per_sec2)}\nZ\n".encode())
+        log.info("Motor controller connected on %s", port)
+        return ser
+
+    def _send(self, line):
+        with self._write_lock:
+            self._serial.write((line + "\n").encode())
+
+    def _reader(self):
+        last_heartbeat = time.monotonic()
+        while self._running:
+            try:
+                parts = self._serial.readline().decode(errors="ignore").split()
+                if len(parts) == 3 and parts[0] == "P":
+                    self._pos = [int(parts[1]), int(parts[2])]
+                if time.monotonic() - last_heartbeat > HEARTBEAT_S:
+                    self._send("H")
+                    last_heartbeat = time.monotonic()
+            except ValueError:
+                continue  # garbled line
+            except Exception as e:
+                log.error("Motor serial link failed: %s", e)
+                return
+
+    def _simulate(self):
+        now = time.monotonic()
+        max_move = self.cfg.max_steps_per_sec * (now - self._last_sim)
+        self._last_sim = now
+        for i in range(2):
+            delta = self._target[i] - self._pos[i]
+            self._pos[i] += max(-max_move, min(max_move, delta))
 
     @property
     def angles(self):
-        return self.pan.angle, (self.tilt.angle if self.tilt else 0.0)
+        if self.mock:
+            self._simulate()
+        return self._pos[0] / self._steps_per_deg[0], self._pos[1] / self._steps_per_deg[1]
 
     def aim(self, pan_deg, tilt_deg, deadband_deg=0.0):
-        if abs(pan_deg - self.pan.target_angle) > deadband_deg:
-            self.pan.set_target_angle(pan_deg)
-        if self.tilt and abs(tilt_deg - self.tilt.target_angle) > deadband_deg:
-            self.tilt.set_target_angle(tilt_deg)
+        pan = _clamp(pan_deg, self.cfg.pan_limits_deg)
+        tilt = _clamp(tilt_deg, self.cfg.tilt_limits_deg) if self.cfg.tilt_enabled else 0.0
+        target = [round(pan * self._steps_per_deg[0]), round(tilt * self._steps_per_deg[1])]
+
+        moved_deg = max(abs(target[i] - self._target[i]) / self._steps_per_deg[i] for i in range(2))
+        if moved_deg <= deadband_deg:
+            return
+        self._target = target
+        if not self.mock:
+            self._send(f"T {target[0]} {target[1]}")
 
     def close(self):
-        self.pan.close()
-        if self.tilt:
-            self.tilt.close()
-        if self._enable is not None:
-            self._enable.off()
-            self._enable.close()
+        self._running = False
+        if self._serial is not None:
+            try:
+                self._send("S")
+            finally:
+                self._thread.join(timeout=1)
+                self._serial.close()
