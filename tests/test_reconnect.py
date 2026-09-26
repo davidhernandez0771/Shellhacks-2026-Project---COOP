@@ -80,11 +80,11 @@ def test_reconnect_restores_last_reported_position(link, reported_deg):
         first = created[0]
         assert first.sent[0].endswith("\nZ\n")  # first connect: power-on position is 0
 
-        g.aim(90.0, 0.0)
+        g.aim(90.0)
         target = round(90.0 * STEPS_PER_DEG)
         reported = round(reported_deg * STEPS_PER_DEG)
         first.push(f"P {reported} 0\n".encode())
-        assert wait_until(lambda: g.angles[0] == pytest.approx(reported_deg, abs=0.2))
+        assert wait_until(lambda: g.pan == pytest.approx(reported_deg, abs=0.2))
 
         first.dropped = True
         assert wait_until(lambda: "motor_disconnected" in events)
@@ -93,7 +93,7 @@ def test_reconnect_restores_last_reported_position(link, reported_deg):
         # motion toward the 90 deg target.
         time.sleep(0.1)
         assert g.mock
-        assert g.angles[0] == pytest.approx(reported_deg, abs=0.2)
+        assert g.pan == pytest.approx(reported_deg, abs=0.2)
 
         allow_reconnect.set()
         assert wait_until(lambda: len(created) == 2 and not g.mock)
@@ -103,7 +103,7 @@ def test_reconnect_restores_last_reported_position(link, reported_deg):
         # Restore the Uno's counter to where the axis really is, then resume the same target.
         assert second.sent[0] == f"C 2000 6000\nZ {reported} 0\n"
         assert second.sent[1] == f"T {target} 0\n"
-        assert g.angles[0] == pytest.approx(reported_deg, abs=0.2)
+        assert g.pan == pytest.approx(reported_deg, abs=0.2)
     finally:
         g.close()
 
@@ -113,9 +113,9 @@ def test_mock_simulation_still_runs_before_any_hardware(monkeypatch):
     cfg = MotorConfig(enabled=False)
     g = Gimbal(cfg)
     try:
-        g.aim(10.0, 0.0)
-        before = g.angles[0]
+        g.aim(10.0)
+        before = g.pan
         time.sleep(0.05)
-        assert g.angles[0] > before
+        assert g.pan > before
     finally:
         g.close()

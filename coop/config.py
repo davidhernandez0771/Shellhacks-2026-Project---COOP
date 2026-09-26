@@ -32,11 +32,10 @@ class MotorConfig:
     steps_per_rev: int = 200
     microsteps: int = 8
     pan_gear_ratio: float = 1.0  # motor turns per camera turn, e.g. 3.0 for a 20T->60T belt
-    tilt_gear_ratio: float = 1.0
-    tilt_enabled: bool = False
+    # The build is pan-only: the firmware's tilt axis (Y) is always sent 0.
+    pan_invert: bool = False  # flip if +pan turns the camera left instead of right
     pan_limits_deg: tuple = (-170.0, 170.0)  # keep cables from wrapping
-    tilt_limits_deg: tuple = (-30.0, 45.0)
-    max_steps_per_sec: float = 2000.0
+    max_steps_per_sec: float = 2000.0  # microsteps/s; AccelStepper on a Uno tops out near 4000
     accel_steps_per_sec2: float = 6000.0
 
 

@@ -4,6 +4,7 @@ Route handlers only touch the Control object (never the Gimbal directly) — see
 docs/API.md for the wire contract and docs/TERMINALS.md's Requests section for how
 coop/main.py's loop turns Control's state into motor motion each frame.
 """
+import math
 import threading
 import time
 from pathlib import Path
@@ -48,6 +49,23 @@ def _ok(**fields):
 
 def _error(message, status=400):
     return jsonify({"ok": False, "error": message}), status
+
+
+def _number(value):
+    """A finite JSON number as float, else None (bools, strings, NaN and inf are rejected)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    value = float(value)
+    return value if math.isfinite(value) else None
+
+
+def _pan_arg(body, pan_key, tilt_key):
+    """The pan value from an aim/nudge body. The build is pan-only: the tilt key is optional
+    and ignored, but a malformed one is still rejected as a client bug."""
+    pan = _number(body.get(pan_key))
+    if pan is None or (tilt_key in body and _number(body[tilt_key]) is None):
+        return None
+    return pan
 
 
 def create_app(state, control):
@@ -96,12 +114,11 @@ def create_app(state, control):
     @app.route("/api/aim", methods=["POST"])
     def aim():
         body = request.get_json(silent=True) or {}
+        pan = _pan_arg(body, "pan", "tilt")
+        if pan is None:
+            return _error("pan must be a number (tilt, if sent, too; it is ignored)")
         try:
-            pan, tilt = float(body["pan"]), float(body["tilt"])
-        except (KeyError, TypeError, ValueError):
-            return _error("pan and tilt must be numbers")
-        try:
-            control.set_aim(pan, tilt)
+            control.set_aim(pan)
         except ControlError as e:
             return _error(str(e))
         return _ok()
@@ -109,12 +126,11 @@ def create_app(state, control):
     @app.route("/api/nudge", methods=["POST"])
     def nudge():
         body = request.get_json(silent=True) or {}
+        dpan = _pan_arg(body, "dpan", "dtilt")
+        if dpan is None:
+            return _error("dpan must be a number (dtilt, if sent, too; it is ignored)")
         try:
-            dpan, dtilt = float(body["dpan"]), float(body["dtilt"])
-        except (KeyError, TypeError, ValueError):
-            return _error("dpan and dtilt must be numbers")
-        try:
-            control.nudge(dpan, dtilt)
+            control.nudge(dpan)
         except ControlError as e:
             return _error(str(e))
         return _ok()

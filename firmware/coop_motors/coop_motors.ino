@@ -16,6 +16,9 @@
 //
 // Safety: if the Pi goes quiet for WATCHDOG_MS the motors decelerate to a stop.
 //
+// The COOP build is pan-only: the Pi always sends 0 for tilt, so the Y axis never moves.
+// It stays in the protocol so the wire format (and this sketch) needn't change.
+//
 // Pinout matches the Arduino CNC Shield V3 (X = pan, Y = tilt).
 // Requires the "AccelStepper" library (Library Manager).
 

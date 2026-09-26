@@ -1,6 +1,6 @@
 """Shared control state for the tracking loop and the HTTP API.
 
-Holds the operating mode, the operator's target lock, the manual-aim setpoint, and the
+Holds the operating mode, the operator's target lock, the manual pan setpoint, and the
 event log described in docs/API.md. One Control instance is created in coop/main.py and
 handed to both the tracking loop and coop.stream's Flask app, so it's the single
 thread-safe hub between "what the operator asked for" and "what the camera is doing".
@@ -9,6 +9,7 @@ See the "Requests" section of docs/TERMINALS.md for how coop/main.py wires this 
 """
 from __future__ import annotations
 
+import math
 import threading
 import time
 from collections import deque
@@ -19,6 +20,12 @@ EVENT_LOG_SIZE = 200
 
 class ControlError(ValueError):
     """A control request was invalid: bad mode, wrong type, or aim/nudge outside manual mode."""
+
+
+def _finite(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ControlError("angles must be finite numbers")
+    return float(value)
 
 
 def _clamp(value, limits):
@@ -32,7 +39,7 @@ class Control:
         self._lock = threading.Lock()
         self._mode = "auto"
         self._locked_id = None
-        self._manual_aim = (0.0, 0.0)  # (pan_deg, tilt_deg), meaningful only in "manual"
+        self._manual_pan = 0.0  # degrees, meaningful only in "manual" (the build is pan-only)
         self._events = deque(maxlen=EVENT_LOG_SIZE)
         self._next_seq = 1
 
@@ -49,9 +56,9 @@ class Control:
             return self._locked_id
 
     @property
-    def manual_aim(self):
+    def manual_pan(self):
         with self._lock:
-            return self._manual_aim
+            return self._manual_pan
 
     def events_since(self, since):
         with self._lock:
@@ -73,28 +80,23 @@ class Control:
             if track_id is not None:
                 self._set_mode_locked("auto")
 
-    def set_aim(self, pan, tilt):
+    def set_aim(self, pan):
+        pan = _finite(pan)
         with self._lock:
             if self._mode != "manual":
                 raise ControlError("aim requires manual mode")
-            self._manual_aim = (
-                _clamp(pan, self._motors_cfg.pan_limits_deg),
-                _clamp(tilt, self._motors_cfg.tilt_limits_deg),
-            )
+            self._manual_pan = _clamp(pan, self._motors_cfg.pan_limits_deg)
 
-    def nudge(self, dpan, dtilt):
+    def nudge(self, dpan):
+        dpan = _finite(dpan)
         with self._lock:
             if self._mode != "manual":
                 raise ControlError("nudge requires manual mode")
-            pan, tilt = self._manual_aim
-            self._manual_aim = (
-                _clamp(pan + dpan, self._motors_cfg.pan_limits_deg),
-                _clamp(tilt + dtilt, self._motors_cfg.tilt_limits_deg),
-            )
+            self._manual_pan = _clamp(self._manual_pan + dpan, self._motors_cfg.pan_limits_deg)
 
     def home(self):
         with self._lock:
-            self._manual_aim = (0.0, 0.0)
+            self._manual_pan = 0.0
             self._set_mode_locked("manual")
 
     def _set_mode_locked(self, mode):

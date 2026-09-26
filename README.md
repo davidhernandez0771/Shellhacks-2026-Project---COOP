@@ -6,7 +6,7 @@
 Built for **ShellHacks 2026**. Devpost submission text lives in [docs/DEVPOST.md](docs/DEVPOST.md).
 
 ```
-Pi Camera ─► YOLO detect + ByteTrack IDs ─► pick target ─► Kalman prediction ─► stepper pan/tilt
+Pi Camera ─► YOLO detect + ByteTrack IDs ─► pick target ─► Kalman prediction ─► pan stepper
                                                       │
                                                       └──► annotated MJPEG stream + status API ─► web dashboard
 ```

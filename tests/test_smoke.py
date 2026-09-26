@@ -83,6 +83,11 @@ def test_main_runs_one_iteration_and_publishes_status(run_main):
     assert [d["id"] for d in status["detections"]] == [3]
     assert status["gimbal"]["mock"] is True
     assert "server_time" in status
+    # Pan-only, but the dashboard still reads these.
+    assert status["gimbal"]["tilt"] == 0
+    assert status["gimbal"]["target_tilt"] == 0
+    assert status["gimbal"]["tilt_enabled"] is False
+    assert status["gimbal"]["tilt_limits"] == [0, 0]
 
     events = client.get("/api/events").get_json()["events"]
     assert [e["type"] for e in events] == ["target_acquired"]

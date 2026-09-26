@@ -78,7 +78,7 @@ def test_aim_sends_target_in_microsteps(fake_serial_factory):
     try:
         assert wait_until(lambda: not g.mock)
         ser = fake_serial_factory[0]
-        g.aim(10.0, 0.0, deadband_deg=0.0)
+        g.aim(10.0, deadband_deg=0.0)
         steps_per_deg = cfg.steps_per_rev * cfg.microsteps / 360.0
         expected_pan = round(10.0 * steps_per_deg)
         assert ser.sent[-1] == f"T {expected_pan} 0\n"
@@ -92,10 +92,10 @@ def test_aim_within_deadband_does_not_resend(fake_serial_factory):
     try:
         assert wait_until(lambda: not g.mock)
         ser = fake_serial_factory[0]
-        g.aim(10.0, 0.0, deadband_deg=1.0)
+        g.aim(10.0, deadband_deg=1.0)
         sent_count = len(ser.sent)
 
-        g.aim(10.05, 0.0, deadband_deg=1.0)  # well under 1 degree of change
+        g.aim(10.05, deadband_deg=1.0)  # well under 1 degree of change
         assert len(ser.sent) == sent_count
     finally:
         g.close()
@@ -107,7 +107,7 @@ def test_aim_clamps_to_pan_limits(fake_serial_factory):
     try:
         assert wait_until(lambda: not g.mock)
         ser = fake_serial_factory[0]
-        g.aim(999.0, 0.0, deadband_deg=0.0)
+        g.aim(999.0, deadband_deg=0.0)
         steps_per_deg = cfg.steps_per_rev * cfg.microsteps / 360.0
         expected_pan = round(30.0 * steps_per_deg)
         assert ser.sent[-1] == f"T {expected_pan} 0\n"
@@ -115,15 +115,38 @@ def test_aim_clamps_to_pan_limits(fake_serial_factory):
         g.close()
 
 
-def test_aim_ignores_tilt_when_tilt_disabled(fake_serial_factory):
-    cfg = make_cfg(tilt_enabled=False)
+def test_wire_tilt_is_always_zero(fake_serial_factory):
+    """Pan-only build: the firmware protocol still carries a tilt field, always 0."""
+    g = Gimbal(make_cfg())
+    try:
+        assert wait_until(lambda: not g.mock)
+        ser = fake_serial_factory[0]
+        g.aim(15.0, deadband_deg=0.0)
+        assert ser.sent[-1].startswith("T ")
+        assert ser.sent[-1].endswith(" 0\n")
+    finally:
+        g.close()
+
+
+def test_pan_invert_flips_the_wire_sign_and_the_reading(fake_serial_factory):
+    cfg = make_cfg(pan_invert=True, steps_per_rev=200, microsteps=8)
     g = Gimbal(cfg)
     try:
         assert wait_until(lambda: not g.mock)
         ser = fake_serial_factory[0]
-        g.aim(15.0, 20.0, deadband_deg=0.0)
-        assert ser.sent[-1].startswith("T ")
-        assert ser.sent[-1].endswith(" 0\n")
+        g.aim(10.0, deadband_deg=0.0)
+        steps = round(10.0 * 200 * 8 / 360.0)
+        assert ser.sent[-1] == f"T {-steps} 0\n"
+        ser.push(f"P {-steps} 0\n".encode())
+        assert wait_until(lambda: g.pan == pytest.approx(10.0, abs=0.2))
+    finally:
+        g.close()
+
+
+def test_steps_per_deg_includes_microsteps_and_gear_ratio():
+    g = Gimbal(make_cfg(enabled=False, steps_per_rev=200, microsteps=16, pan_gear_ratio=3.0))
+    try:
+        assert g.steps_per_deg == pytest.approx(200 * 16 * 3.0 / 360.0)
     finally:
         g.close()
 
@@ -134,9 +157,9 @@ def test_stop_sends_S_and_holds_current_position(fake_serial_factory):
     try:
         assert wait_until(lambda: not g.mock)
         ser = fake_serial_factory[0]
-        g._pos = [123, 45]
+        g._pos = 123
         g.stop()
-        assert g._target == [123, 45]
+        assert g._target == 123
         assert wait_until(lambda: ser.sent and ser.sent[-1] == "S\n")
     finally:
         g.close()
@@ -149,12 +172,10 @@ def test_reader_thread_parses_position_reports(fake_serial_factory):
         assert wait_until(lambda: not g.mock)
         ser = fake_serial_factory[0]
         ser.push(b"P 400 100\n")
-        assert wait_until(lambda: g._pos == [400, 100])
+        assert wait_until(lambda: g._pos == 400)  # the tilt field is ignored
 
         steps_per_deg = cfg.steps_per_rev * cfg.microsteps / 360.0
-        pan, tilt = g.angles
-        assert pan == pytest.approx(400 / steps_per_deg)
-        assert tilt == pytest.approx(100 / steps_per_deg)
+        assert g.pan == pytest.approx(400 / steps_per_deg)
     finally:
         g.close()
 
@@ -168,7 +189,7 @@ def test_reader_thread_ignores_garbled_lines(fake_serial_factory):
         ser.push(b"garbage\n")
         ser.push(b"P not_a_number 5\n")
         ser.push(b"P 7 9\n")
-        assert wait_until(lambda: g._pos == [7, 9])
+        assert wait_until(lambda: g._pos == 7)
     finally:
         g.close()
 
@@ -268,10 +289,25 @@ def test_mock_mode_never_opens_serial_and_simulates_motion(fake_serial_factory):
         assert g.mock
         assert fake_serial_factory == []
 
-        g.aim(10.0, 0.0, deadband_deg=0.0)
-        pan_before, _ = g.angles
+        g.aim(10.0, deadband_deg=0.0)
+        pan_before = g.pan
         time.sleep(0.05)
-        pan_after, _ = g.angles
+        pan_after = g.pan
         assert pan_after > pan_before
+    finally:
+        g.close()
+
+
+def test_aim_ignores_non_finite_angles(fake_serial_factory):
+    g = Gimbal(make_cfg())
+    try:
+        assert wait_until(lambda: not g.mock)
+        ser = fake_serial_factory[0]
+        assert wait_until(lambda: len(ser.sent) >= 2)
+        sent = len(ser.sent)
+        g.aim(float("nan"))
+        g.aim(float("inf"))
+        assert len(ser.sent) == sent
+        assert g._target == 0
     finally:
         g.close()

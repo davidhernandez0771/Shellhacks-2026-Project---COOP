@@ -59,7 +59,7 @@ The Pi runs vision and sends target positions. The Uno generates the step pulses
 
 ## Mechanics
 - The software treats the power-on position as 0°. Point the camera forward before starting, or add a limit switch for homing later.
-- Set `pan_gear_ratio` / `tilt_gear_ratio` if you use belts or gears. For example, a 20T pulley driving a 60T pulley is `3.0`.
+- The build is pan-only (the tilt driver column above is unused). Set `pan_gear_ratio` if you use belts or gears. For example, a 20T pulley driving a 60T pulley is `3.0`.
 - Pan is limited to ±170° by default so the cables don't wrap. Change `pan_limits_deg` if you add a slip ring.
 
 ## Files

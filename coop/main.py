@@ -1,4 +1,4 @@
-"""COOP main loop: capture -> detect/track -> predict -> aim steppers -> stream.
+"""COOP main loop: capture -> detect/track -> predict -> aim the pan stepper -> stream.
 
 Run with:  python -m coop.main [--source webcam] [--no-motors]
 """
@@ -114,7 +114,7 @@ def main():
     cam, trk, mot = cfg.camera, cfg.tracking, cfg.motors
     target_id, target_label, last_seen = None, None, 0.0
     prev_locked = None
-    aim_cmd = (0.0, 0.0)  # last commanded (pan, tilt), reported as gimbal.target_*
+    aim_pan = 0.0  # last commanded pan, reported as gimbal.target_pan
     fps, last_frame_t = 0.0, time.monotonic()
 
     try:
@@ -124,7 +124,8 @@ def main():
                 time.sleep(0.01)
                 continue
             now = time.monotonic()
-            pan, tilt = gimbal.angles
+            pan = gimbal.pan
+            tilt = 0.0  # pan-only: the camera's tilt is fixed, so world tilt = in-frame offset
             # Gate on config, not gimbal.mock: mock is also true while a real Uno is (re)connecting,
             # and cropping the real camera frame then would corrupt every angle.
             if not cfg.motors.enabled and cfg.sim.enabled:
@@ -170,19 +171,18 @@ def main():
                 target_id = None
                 predictor.reset()
 
+            lead_aim = None  # the predictor's world (pan, tilt) aim point, auto mode only
             if mode == "manual":
-                aim_cmd = control.manual_aim
-                gimbal.aim(*aim_cmd)
+                aim_pan = control.manual_pan
+                gimbal.aim(aim_pan)
             elif mode == "stop":
                 gimbal.stop()
-                aim_cmd = (pan, tilt)
+                aim_pan = pan
             elif target is not None:
-                aim_cmd = predictor.predict(trk.lead_time_s)
-                gimbal.aim(*aim_cmd, trk.deadband_deg)
-            aim_cmd = (
-                _clamp(aim_cmd[0], mot.pan_limits_deg),
-                _clamp(aim_cmd[1], mot.tilt_limits_deg) if mot.tilt_enabled else 0.0,
-            )
+                lead_aim = predictor.predict(trk.lead_time_s)
+                aim_pan = lead_aim[0]
+                gimbal.aim(aim_pan, trk.deadband_deg)
+            aim_pan = _clamp(aim_pan, mot.pan_limits_deg)
 
             dt = now - last_frame_t
             last_frame_t = now
@@ -190,10 +190,10 @@ def main():
 
             if cfg.stream.annotate:
                 aim_px = None
-                if target is not None and mode == "auto":
+                if lead_aim is not None:
                     # Where the predictor is aiming, projected back into the current frame.
-                    ax = w / 2 + (w / 2) * math.tan(math.radians(aim_cmd[0] - pan)) / math.tan(math.radians(cam.hfov_deg / 2))
-                    ay = h / 2 - (h / 2) * math.tan(math.radians(aim_cmd[1] - tilt)) / math.tan(math.radians(cam.vfov_deg / 2))
+                    ax = w / 2 + (w / 2) * math.tan(math.radians(aim_pan - pan)) / math.tan(math.radians(cam.hfov_deg / 2))
+                    ay = h / 2 - (h / 2) * math.tan(math.radians(lead_aim[1] - tilt)) / math.tan(math.radians(cam.vfov_deg / 2))
                     aim_px = (int(ax), int(ay))
                 annotate(frame, detections, target, aim_px)
 
@@ -212,10 +212,11 @@ def main():
                         for d in detections if d.track_id is not None  # unconfirmed tracks can't be locked
                     ],
                     "gimbal": {
-                        "pan": round(pan, 1), "tilt": round(tilt, 1),
-                        "target_pan": round(aim_cmd[0], 1), "target_tilt": round(aim_cmd[1], 1),
-                        "pan_limits": list(mot.pan_limits_deg), "tilt_limits": list(mot.tilt_limits_deg),
-                        "tilt_enabled": mot.tilt_enabled,
+                        "pan": round(pan, 1), "tilt": 0.0,
+                        "target_pan": round(aim_pan, 1), "target_tilt": 0.0,
+                        # Pan-only build; the tilt fields stay for dashboards that read them.
+                        "pan_limits": list(mot.pan_limits_deg), "tilt_limits": [0, 0],
+                        "tilt_enabled": False,
                         "mock": gimbal.mock,
                     },
                     "velocity_deg_s": [round(v, 1) for v in predictor.velocity],

@@ -109,7 +109,7 @@ def test_aim_endpoint_clamps_within_configured_limits():
     control.set_mode("manual")
     resp = client.post("/api/aim", json={"pan": 999.0, "tilt": 0.0})
     assert resp.status_code == 200
-    assert control.manual_aim == (20.0, 0.0)
+    assert control.manual_pan == 20.0
 
 
 def test_aim_endpoint_rejects_non_numeric_body():
@@ -122,10 +122,26 @@ def test_aim_endpoint_rejects_non_numeric_body():
 def test_nudge_endpoint_accumulates_aim():
     _, control, client = make_client()
     control.set_mode("manual")
-    control.set_aim(5.0, 0.0)
+    control.set_aim(5.0)
     resp = client.post("/api/nudge", json={"dpan": 2.0, "dtilt": 0.0})
     assert resp.status_code == 200
-    assert control.manual_aim == (7.0, 0.0)
+    assert control.manual_pan == 7.0
+
+
+def test_aim_and_nudge_accept_a_body_without_tilt():
+    _, control, client = make_client()
+    control.set_mode("manual")
+    assert client.post("/api/aim", json={"pan": 12.0}).status_code == 200
+    assert control.manual_pan == 12.0
+    assert client.post("/api/nudge", json={"dpan": -2.0}).status_code == 200
+    assert control.manual_pan == 10.0
+
+
+def test_aim_rejects_a_non_numeric_tilt_even_though_it_is_ignored():
+    """Lenient about a missing tilt, but a malformed one is still a client bug worth a 400."""
+    _, control, client = make_client()
+    control.set_mode("manual")
+    assert client.post("/api/aim", json={"pan": 1.0, "tilt": "up"}).status_code == 400
 
 
 def test_home_endpoint_switches_to_manual_and_zeroes_aim():
@@ -133,7 +149,7 @@ def test_home_endpoint_switches_to_manual_and_zeroes_aim():
     resp = client.post("/api/home", json={})
     assert resp.status_code == 200
     assert control.mode == "manual"
-    assert control.manual_aim == (0.0, 0.0)
+    assert control.manual_pan == 0.0
 
 
 def test_events_endpoint_filters_by_since():
@@ -147,3 +163,14 @@ def test_events_endpoint_filters_by_since():
     last_seq = all_events[-1]["seq"]
     resp = client.get(f"/api/events?since={last_seq}")
     assert resp.get_json()["events"] == []
+
+
+def test_aim_rejects_nan_and_infinity():
+    """Python's JSON parser accepts NaN/Infinity; a NaN aim would crash the vision loop."""
+    _, control, client = make_client()
+    control.set_mode("manual")
+    for raw in ('{"pan": NaN}', '{"pan": Infinity}', '{"dpan": -Infinity}'):
+        route = "/api/nudge" if "dpan" in raw else "/api/aim"
+        resp = client.post(route, data=raw, content_type="application/json")
+        assert resp.status_code == 400, raw
+    assert control.manual_pan == 0.0
