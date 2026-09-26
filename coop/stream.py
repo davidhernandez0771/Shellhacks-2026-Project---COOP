@@ -84,6 +84,7 @@ def create_app(state, control):
         payload = dict(state.status)
         payload["server_time"] = time.time()
         payload["mode"] = control.mode  # authoritative even if the main loop hasn't published yet
+        payload["estop"] = control.estopped
         return jsonify(payload)
 
     @app.route("/api/events")
@@ -137,7 +138,25 @@ def create_app(state, control):
 
     @app.route("/api/home", methods=["POST"])
     def home():
-        control.home()
+        try:
+            control.home()
+        except ControlError as e:
+            return _error(str(e))
+        return _ok()
+
+    @app.route("/api/estop", methods=["POST"])
+    def estop():
+        control.estop()
+        return _ok()
+
+    @app.route("/api/arm", methods=["POST"])
+    def arm():
+        control.arm()
+        return _ok()
+
+    @app.route("/api/zero", methods=["POST"])
+    def zero():
+        control.zero()
         return _ok()
 
     return app

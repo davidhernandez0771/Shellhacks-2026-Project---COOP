@@ -88,6 +88,8 @@ def test_main_runs_one_iteration_and_publishes_status(run_main):
     assert status["gimbal"]["target_tilt"] == 0
     assert status["gimbal"]["tilt_enabled"] is False
     assert status["gimbal"]["tilt_limits"] == [0, 0]
+    assert status["gimbal"]["drivers_enabled"] is True
+    assert status["estop"] is False
 
     events = client.get("/api/events").get_json()["events"]
     assert [e["type"] for e in events] == ["target_acquired"]

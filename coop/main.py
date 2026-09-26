@@ -116,6 +116,7 @@ def main():
     detector = Detector(cfg.detector)
     control = Control(cfg.motors)
     gimbal = Gimbal(cfg.motors, on_event=control.log_event)
+    control.bind_gimbal(gimbal)
     virtual_gimbal = VirtualGimbal(cfg.camera, cfg.sim)
     predictor = KalmanPredictor()
     state = SharedState()
@@ -127,6 +128,7 @@ def main():
     prev_locked = None
     aim_pan = 0.0  # last commanded pan, reported as gimbal.target_pan
     fps, last_frame_t = 0.0, time.monotonic()
+    prev_epoch = gimbal.frame_epoch
 
     try:
         while True:
@@ -135,8 +137,14 @@ def main():
                 time.sleep(0.01)
                 continue
             now = time.monotonic()
+            epoch = gimbal.frame_epoch  # read before the angle: aims computed from it carry it
             pan = gimbal.pan
             tilt = 0.0  # pan-only: the camera's tilt is fixed, so world tilt = in-frame offset
+            if epoch != prev_epoch:
+                # "Zero here" or a pan_invert flip changed what every angle means, so the
+                # predictor's world-angle history is meaningless now.
+                predictor.reset()
+                target_id, prev_epoch = None, epoch
             # Gate on config, not gimbal.mock: mock is also true while a real Uno is (re)connecting,
             # and cropping the real camera frame then would corrupt every angle.
             if not cfg.motors.enabled and cfg.sim.enabled:
@@ -185,14 +193,14 @@ def main():
             lead_aim = None  # the predictor's world (pan, tilt) aim point, auto mode only
             if mode == "manual":
                 aim_pan = control.manual_pan
-                gimbal.aim(aim_pan)
+                gimbal.aim(aim_pan, epoch=epoch)
             elif mode == "stop":
                 gimbal.stop()
                 aim_pan = pan
             elif target is not None:
                 lead_aim = predictor.predict(trk.lead_time_s)
                 aim_pan = lead_aim[0]
-                gimbal.aim(aim_pan, trk.deadband_deg)
+                gimbal.aim(aim_pan, trk.deadband_deg, epoch=epoch)
             aim_pan = _clamp(aim_pan, mot.pan_limits_deg)
 
             dt = now - last_frame_t
@@ -229,6 +237,7 @@ def main():
                         "pan_limits": list(mot.pan_limits_deg), "tilt_limits": [0, 0],
                         "tilt_enabled": False,
                         "mock": gimbal.mock,
+                        "drivers_enabled": gimbal.drivers_enabled,
                     },
                     "velocity_deg_s": [round(v, 1) for v in predictor.velocity],
                 })

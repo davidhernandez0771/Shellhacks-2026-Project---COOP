@@ -174,3 +174,62 @@ def test_aim_rejects_nan_and_infinity():
         resp = client.post(route, data=raw, content_type="application/json")
         assert resp.status_code == 400, raw
     assert control.manual_pan == 0.0
+
+
+# ---- e-stop, arm, zero ----
+
+def test_estop_endpoint_engages_and_status_reports_it():
+    state, control, client = make_client()
+    state.publish(b"x", {"fps": 1.0})
+    assert client.get("/api/status").get_json()["estop"] is False
+    resp = client.post("/api/estop", json={})
+    assert resp.status_code == 200 and resp.get_json() == {"ok": True}
+    assert control.estopped and control.mode == "stop"
+    assert client.get("/api/status").get_json()["estop"] is True
+
+
+def test_estop_endpoint_needs_no_body():
+    _, control, client = make_client()
+    assert client.post("/api/estop").status_code == 200
+    assert control.estopped
+
+
+def test_moving_requests_fail_with_the_documented_error_while_estopped():
+    _, control, client = make_client()
+    client.post("/api/estop")
+    for route, body in [("/api/mode", {"mode": "auto"}), ("/api/mode", {"mode": "manual"}),
+                        ("/api/target", {"id": 3}), ("/api/home", {})]:
+        resp = client.post(route, json=body)
+        assert resp.status_code == 400, route
+        assert resp.get_json() == {"ok": False, "error": "e-stop engaged; POST /api/arm first"}
+    assert client.post("/api/mode", json={"mode": "stop"}).status_code == 200
+    assert client.post("/api/target", json={"id": None}).status_code == 200
+
+
+def test_arm_endpoint_releases_and_mode_stays_stop():
+    _, control, client = make_client()
+    client.post("/api/estop")
+    resp = client.post("/api/arm", json={})
+    assert resp.status_code == 200
+    assert not control.estopped and control.mode == "stop"
+    assert client.post("/api/mode", json={"mode": "auto"}).status_code == 200
+
+
+def test_arm_endpoint_is_ok_when_not_engaged():
+    _, control, client = make_client()
+    assert client.post("/api/arm").status_code == 200
+    assert not control.estopped
+
+
+def test_zero_endpoint():
+    _, control, client = make_client()
+    control.set_target(5)
+    resp = client.post("/api/zero", json={})
+    assert resp.status_code == 200
+    assert control.mode == "manual" and control.manual_pan == 0.0 and control.locked_id is None
+
+
+def test_status_before_the_first_frame_has_mode_and_estop():
+    _, _, client = make_client()
+    body = client.get("/api/status").get_json()
+    assert set(body) >= {"server_time", "mode", "estop"}

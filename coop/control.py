@@ -16,6 +16,7 @@ from collections import deque
 
 MODES = ("auto", "manual", "stop")
 EVENT_LOG_SIZE = 200
+ESTOP_ERROR = "e-stop engaged; POST /api/arm first"
 
 
 class ControlError(ValueError):
@@ -42,6 +43,17 @@ class Control:
         self._manual_pan = 0.0  # degrees, meaningful only in "manual" (the build is pan-only)
         self._events = deque(maxlen=EVENT_LOG_SIZE)
         self._next_seq = 1
+        self._estopped = False
+        self._gimbal = None
+        # Serializes estop/arm/zero end to end (motor command + state), so an e-stop can't
+        # land between an arm's check and its effect and be silently undone.
+        self._safety_lock = threading.Lock()
+
+    def bind_gimbal(self, gimbal):
+        """Give Control the Gimbal so e-stop/arm/zero reach the motors immediately, without
+        waiting for the vision loop's next frame (which may never come if the camera hung).
+        Control only calls the gimbal outside its own lock."""
+        self._gimbal = gimbal
 
     # ---- read (main.py's loop, and stream.py's /api/status and /api/events) ----
 
@@ -54,6 +66,11 @@ class Control:
     def locked_id(self):
         with self._lock:
             return self._locked_id
+
+    @property
+    def estopped(self):
+        with self._lock:
+            return self._estopped
 
     @property
     def manual_pan(self):
@@ -69,13 +86,22 @@ class Control:
     def set_mode(self, mode):
         if mode not in MODES:
             raise ControlError(f"mode must be one of {MODES}")
+        # Read outside our lock (Control never holds its lock while calling the gimbal).
+        pan_now = self._gimbal.pan if self._gimbal is not None and mode == "manual" else None
         with self._lock:
+            if mode != "stop":
+                self._check_not_estopped_locked()
+            if mode == "manual" and self._mode != "manual" and pan_now is not None:
+                # Hold where the camera is, rather than jumping to an old manual setpoint.
+                self._manual_pan = _clamp(pan_now, self._motors_cfg.pan_limits_deg)
             self._set_mode_locked(mode)
 
     def set_target(self, track_id):
-        if track_id is not None and not isinstance(track_id, int):
+        if track_id is not None and (not isinstance(track_id, int) or isinstance(track_id, bool)):
             raise ControlError("id must be an integer or null")
         with self._lock:
+            if track_id is not None:
+                self._check_not_estopped_locked()
             self._locked_id = track_id
             if track_id is not None:
                 self._set_mode_locked("auto")
@@ -96,8 +122,53 @@ class Control:
 
     def home(self):
         with self._lock:
+            self._check_not_estopped_locked()
             self._manual_pan = 0.0
             self._set_mode_locked("manual")
+
+    def estop(self):
+        """Emergency stop: the motors first, then mode -> stop and the lock cleared.
+        Stays engaged (moving requests fail) until arm()."""
+        with self._safety_lock:
+            if self._gimbal is not None:
+                self._gimbal.estop()
+            with self._lock:
+                first = not self._estopped
+                self._estopped = True
+                self._locked_id = None
+                self._set_mode_locked("stop")
+                if first:
+                    self._log_locked("estop")
+
+    def arm(self):
+        """Release the e-stop. The mode stays "stop"; the operator picks the next one."""
+        with self._safety_lock:
+            with self._lock:
+                if not self._estopped:
+                    return False
+            if self._gimbal is not None:
+                self._gimbal.arm()
+            with self._lock:
+                self._estopped = False
+                self._log_locked("armed")
+            return True
+
+    def zero(self):
+        """"Set zero here": the current position becomes pan 0. Outside an e-stop this also
+        switches to manual aimed at 0, so nothing moves."""
+        with self._safety_lock:
+            if self._gimbal is not None:
+                self._gimbal.zero()
+            with self._lock:
+                self._manual_pan = 0.0
+                self._locked_id = None
+                if not self._estopped:
+                    self._set_mode_locked("manual")
+                self._log_locked("zeroed")
+
+    def _check_not_estopped_locked(self):
+        if self._estopped:
+            raise ControlError(ESTOP_ERROR)
 
     def _set_mode_locked(self, mode):
         if mode == self._mode:
