@@ -3,14 +3,24 @@
 On real hardware, the narrow-FOV camera physically rotates on the pan/tilt steppers, so
 what the sensor sees changes as the gimbal moves. With motors mocked (see coop/motors.py
 Gimbal.mock) there's nothing to rotate, so we fake it: the webcam's wider FOV stands in
-for the world the real camera would be able to scan, and we crop a sub-window sized to
-the configured camera FOV, centered wherever the mock gimbal currently thinks it's
-pointed. Panning that crop is a visible stand-in for physically panning the camera, and
-it feeds detection a frame consistent with CameraConfig.hfov_deg/vfov_deg, matching the
-pinhole convention pixel_to_offset_deg uses in the world-angle math.
+for the world the real camera could scan, and we cut out the view of a camera with the
+configured FOV and resolution, pointed wherever the mock gimbal points. It hands detection
+the same frame geometry the Pi camera would, so pixel_to_offset_deg's world-angle math
+holds unchanged.
+
+The window is never clamped to the webcam frame: past the edge of the "world" the view
+fills with blank. Clamping would freeze the image while the pan angle kept moving, and
+the tracker (world = pan + offset) would chase its target off to the pan limit.
+
+Pinhole model throughout: image-plane distance scales with tan(angle). A pure crop ignores
+the perspective change of a real rotation, which is fine within ~+-30 deg.
 """
+import math
+
 import cv2
 import numpy as np
+
+BLANK = 40  # grey level for the part of the view outside the webcam's world
 
 
 class VirtualGimbal:
@@ -19,16 +29,21 @@ class VirtualGimbal:
         self.sim_cfg = sim_cfg
 
     def crop(self, frame, pan_deg, tilt_deg):
-        """Return a window of `frame` as seen by a camera pointed at (pan_deg, tilt_deg)."""
+        """Return the view of a camera pointed at (pan_deg, tilt_deg), at the configured size."""
+        cam = self.camera_cfg
+        out_w, out_h = cam.width, cam.height
+        if abs(pan_deg) >= 89 or abs(tilt_deg) >= 89:  # facing away from the webcam's world
+            return np.full((out_h, out_w, 3), BLANK, np.uint8)
+
         h, w = frame.shape[:2]
-        frac_x = min(self.camera_cfg.hfov_deg / self.sim_cfg.world_hfov_deg, 1.0)
-        frac_y = min(self.camera_cfg.vfov_deg / self.sim_cfg.world_vfov_deg, 1.0)
-        cw, ch = frac_x * w, frac_y * h
+        # Focal length in webcam pixels; the world's vertical FOV follows from the aspect ratio.
+        f = (w / 2) / math.tan(math.radians(self.sim_cfg.world_hfov_deg / 2))
+        cw = 2 * f * math.tan(math.radians(cam.hfov_deg / 2))
+        ch = 2 * f * math.tan(math.radians(cam.vfov_deg / 2))
+        x0 = w / 2 + f * math.tan(math.radians(pan_deg)) - cw / 2
+        y0 = h / 2 - f * math.tan(math.radians(tilt_deg)) - ch / 2
 
-        cx = w / 2 + pan_deg / (self.sim_cfg.world_hfov_deg / 2) * (w / 2)
-        cy = h / 2 - tilt_deg / (self.sim_cfg.world_vfov_deg / 2) * (h / 2)
-        x1 = int(np.clip(cx - cw / 2, 0, w - cw))
-        y1 = int(np.clip(cy - ch / 2, 0, h - ch))
-
-        window = frame[y1:y1 + int(ch), x1:x1 + int(cw)]
-        return window if window.shape[:2] == (h, w) else cv2.resize(window, (w, h))
+        sx, sy = out_w / cw, out_h / ch
+        m = np.float32([[sx, 0, -x0 * sx], [0, sy, -y0 * sy]])
+        return cv2.warpAffine(frame, m, (out_w, out_h), flags=cv2.INTER_LINEAR,
+                              borderMode=cv2.BORDER_CONSTANT, borderValue=(BLANK, BLANK, BLANK))

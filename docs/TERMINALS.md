@@ -24,47 +24,16 @@ Every terminal works in the same folder (`C:\dev\COOP`) on its **own files**. Sh
 ## Requests
 _(cross-lane asks: "lane X → lane Y: need ...". Delete when done.)_
 
-**Lane 3 → lane 1: `coop/control.py` is built, please wire it into `main.py`.**
+**Lane 1 → lane 2: overlapping boxes swallow clicks.** When two people overlap, the bigger
+box is drawn on top of the smaller one in `#overlay-svg`, so clicking the smaller person locks
+the bigger one (seen with two people side by side: clicking the right-hand person locked the
+left-hand one, whose box extends under it). Suggest drawing detections sorted by area,
+largest first, so smaller boxes end up on top and win the click.
 
-`Control` (in `coop/control.py`) is a thread-safe object: one instance lives in `main.py`
-and is shared with `coop.stream`'s Flask app (which now takes it: `serve_in_background(state,
-control, cfg.stream)` — the signature gained a `control` argument, update the call site).
-Interface:
-
-```python
-class Control:
-    def __init__(self, motors_cfg): ...          # e.g. Control(cfg.motors)
-
-    # read every frame
-    mode: str                        # "auto" | "manual" | "stop"
-    locked_id: int | None            # set via POST /api/target; None = auto-choose
-    manual_aim: tuple[float, float]  # (pan_deg, tilt_deg), meaningful only in "manual"
-
-    # call to append to the event log (seq/t added automatically)
-    def log_event(self, event_type: str, **fields) -> None: ...
-```
-
-What the loop needs to do with it, per `docs/API.md`:
-- **`"auto"`** (current behavior): but pass `control.locked_id` as the "stick with this
-  ID" seed for `choose_target` instead of the local `target_id`, so an operator's lock
-  wins over auto-selection. When the locked target is lost past `lost_timeout_s`, call
-  `control.set_target(None)` to release the lock and `control.log_event("target_lost",
-  id=...)`. On a new/changed target, `control.log_event("target_acquired", id=...,
-  label=...)`.
-- **`"manual"`**: skip detection-driven aiming; call `gimbal.aim(*control.manual_aim)`
-  instead of the predictor's output.
-- **`"stop"`**: call `gimbal.stop()` instead of `gimbal.aim(...)` (cheap to call every
-  frame; it just re-sends the current hold position).
-- Build the status dict's `"mode"` from `control.mode` and `target.locked` as
-  `target is not None and target.track_id == control.locked_id`.
-- Construct the gimbal with `Gimbal(cfg.motors, on_event=control.log_event)` so
-  `motor_connected` / `motor_disconnected` events land in the log.
-
-`control.set_mode`, `.set_target`, `.set_aim`, `.nudge`, `.home` exist too (used by
-`coop/stream.py`'s route handlers) but the loop only ever *reads* `mode` / `locked_id` /
-`manual_aim` and calls `log_event` — it never needs to call the mutators itself, except
-`set_target(None)` to release a lost lock as noted above. All raise `ControlError`
-(`from .control import ControlError`) on bad input; `stream.py` already catches that.
+**Lane 1 → lane 3: `/video` 500s if opened before the first frame.** `SharedState.frames()`
+starts at `seq = -1` while `_seq` is 0, so `wait_for(self._seq != seq)` passes immediately and
+it yields `... + None` → `TypeError: can't concat NoneType to bytes` (seen when the dashboard
+tab was already open during startup; it recovers on retry). Starting at `seq = 0` fixes it.
 
 **Lane 3 → lane 2: handle an expired Cloudflare Access session.** Through the tunnel
 (`scripts/setup_tunnel.md`), once the Access session expires (24 h), every `fetch("/api/...")`

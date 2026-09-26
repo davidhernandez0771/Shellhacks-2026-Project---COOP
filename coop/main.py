@@ -11,6 +11,7 @@ import cv2
 
 from .camera import Camera
 from .config import Config
+from .control import Control
 from .detector import Detector
 from .motors import Gimbal
 from .predictor import KalmanPredictor
@@ -44,6 +45,28 @@ def choose_target(detections, current_id, priority):
     return min(candidates, key=rank) if candidates else None
 
 
+def reassociate(detections, label, predicted, gimbal_angles, frame_size, fov, max_deg):
+    """Closest same-label tracked detection to `predicted` (world pan, tilt), within max_deg."""
+    best, best_dist = None, max_deg
+    for d in detections:
+        if d.track_id is None or d.label != label:
+            continue
+        off_pan, off_tilt = pixel_to_offset_deg(*d.center, *frame_size, *fov)
+        dist = math.hypot(gimbal_angles[0] + off_pan - predicted[0], gimbal_angles[1] + off_tilt - predicted[1])
+        if dist < best_dist:
+            best, best_dist = d, dist
+    return best
+
+
+def _find(detections, track_id):
+    return next((d for d in detections if d.track_id == track_id), None) if track_id is not None else None
+
+
+def _clamp(value, limits):
+    lo, hi = limits
+    return min(max(value, lo), hi)
+
+
 def annotate(frame, detections, target, aim_px):
     for d in detections:
         x1, y1, x2, y2 = d.box
@@ -63,6 +86,7 @@ def main():
     parser.add_argument("--source", choices=["auto", "picamera", "webcam"])
     parser.add_argument("--no-motors", action="store_true", help="run steppers in mock mode")
     parser.add_argument("--port", type=int)
+    parser.add_argument("--annotate", action="store_true", help="draw boxes into the /video stream")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -74,18 +98,23 @@ def main():
         cfg.motors.enabled = False
     if args.port:
         cfg.stream.port = args.port
+    if args.annotate:
+        cfg.stream.annotate = True
 
     camera = Camera(cfg.camera)
     detector = Detector(cfg.detector)
-    gimbal = Gimbal(cfg.motors)
+    control = Control(cfg.motors)
+    gimbal = Gimbal(cfg.motors, on_event=control.log_event)
     virtual_gimbal = VirtualGimbal(cfg.camera, cfg.sim)
     predictor = KalmanPredictor()
     state = SharedState()
-    serve_in_background(state, cfg.stream)
-    log.info("Dashboard at http://<pi-address>:%d", cfg.stream.port)
+    serve_in_background(state, control, cfg.stream)
+    log.info("Dashboard at http://localhost:%d", cfg.stream.port)
 
-    cam, trk = cfg.camera, cfg.tracking
-    target_id, last_seen = None, 0.0
+    cam, trk, mot = cfg.camera, cfg.tracking, cfg.motors
+    target_id, target_label, last_seen = None, None, 0.0
+    prev_locked = None
+    aim_cmd = (0.0, 0.0)  # last commanded (pan, tilt), reported as gimbal.target_*
     fps, last_frame_t = 0.0, time.monotonic()
 
     try:
@@ -100,38 +129,93 @@ def main():
                 frame = virtual_gimbal.crop(frame, pan, tilt)
             h, w = frame.shape[:2]
 
+            mode, locked = control.mode, control.locked_id
+            if locked != prev_locked:
+                last_seen = now  # a fresh lock gets the full lost_timeout_s grace period
+                prev_locked = locked
+
             detections = detector.detect(frame)
-            target = choose_target(detections, target_id, trk.priority)
-            aim_px = None
+            # An operator lock beats auto-selection: follow only that ID, coasting while it's occluded.
+            target = _find(detections, locked if locked is not None else target_id)
+            reassociated = False
+            if (target is None and target_id is not None and predictor.active
+                    and locked in (None, target_id)):
+                target = reassociate(detections, target_label, predictor.predict(now - last_seen),
+                                     (pan, tilt), (w, h), (cam.hfov_deg, cam.vfov_deg), trk.reassociate_deg)
+                if target is not None:
+                    reassociated = True
+                    log.info("Target #%s re-identified as #%s", target_id, target.track_id)
+                    if locked is not None:
+                        control.set_target(target.track_id)
+                        locked = prev_locked = target.track_id
+            if target is None and locked is None:
+                target = choose_target(detections, None, trk.priority)
 
             if target is not None:
-                target_id, last_seen = target.track_id, now
+                if target.track_id != target_id:
+                    control.log_event("target_acquired", id=target.track_id, label=target.label)
+                    if not reassociated:
+                        predictor.reset()  # don't blend the old target's motion into the new one
+                target_id, target_label, last_seen = target.track_id, target.label, now
                 off_pan, off_tilt = pixel_to_offset_deg(*target.center, w, h, cam.hfov_deg, cam.vfov_deg)
                 predictor.update((pan + off_pan, tilt + off_tilt), now)
-                aim_pan, aim_tilt = predictor.predict(trk.lead_time_s)
-                gimbal.aim(aim_pan, aim_tilt, trk.deadband_deg)
-
-                # Show where the predictor is aiming, projected back into the current frame.
-                ax = w / 2 + (w / 2) * math.tan(math.radians(aim_pan - pan)) / math.tan(math.radians(cam.hfov_deg / 2))
-                ay = h / 2 - (h / 2) * math.tan(math.radians(aim_tilt - tilt)) / math.tan(math.radians(cam.vfov_deg / 2))
-                aim_px = (int(ax), int(ay))
-            elif target_id is not None and now - last_seen > trk.lost_timeout_s:
-                log.info("Lost target #%s", target_id)
+            elif (target_id is not None or locked is not None) and now - last_seen > trk.lost_timeout_s:
+                lost_id = locked if locked is not None else target_id
+                log.info("Lost target #%s", lost_id)
+                control.log_event("target_lost", id=lost_id)
+                if locked is not None:
+                    control.set_target(None)
                 target_id = None
                 predictor.reset()
+
+            if mode == "manual":
+                aim_cmd = control.manual_aim
+                gimbal.aim(*aim_cmd)
+            elif mode == "stop":
+                gimbal.stop()
+                aim_cmd = (pan, tilt)
+            elif target is not None:
+                aim_cmd = predictor.predict(trk.lead_time_s)
+                gimbal.aim(*aim_cmd, trk.deadband_deg)
+            aim_cmd = (
+                _clamp(aim_cmd[0], mot.pan_limits_deg),
+                _clamp(aim_cmd[1], mot.tilt_limits_deg) if mot.tilt_enabled else 0.0,
+            )
 
             dt = now - last_frame_t
             last_frame_t = now
             fps = 0.9 * fps + 0.1 * (1.0 / dt if dt > 0 else 0.0)
 
-            annotate(frame, detections, target, aim_px)
+            if cfg.stream.annotate:
+                aim_px = None
+                if target is not None and mode == "auto":
+                    # Where the predictor is aiming, projected back into the current frame.
+                    ax = w / 2 + (w / 2) * math.tan(math.radians(aim_cmd[0] - pan)) / math.tan(math.radians(cam.hfov_deg / 2))
+                    ay = h / 2 - (h / 2) * math.tan(math.radians(aim_cmd[1] - tilt)) / math.tan(math.radians(cam.vfov_deg / 2))
+                    aim_px = (int(ax), int(ay))
+                annotate(frame, detections, target, aim_px)
+
             ok, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, cfg.stream.jpeg_quality])
             if ok:
                 state.publish(jpeg.tobytes(), {
                     "fps": round(fps, 1),
-                    "detections": [{"id": d.track_id, "label": d.label, "conf": round(d.conf, 2)} for d in detections],
-                    "target": None if target is None else {"id": target.track_id, "label": target.label},
-                    "gimbal": {"pan": round(pan, 1), "tilt": round(tilt, 1), "mock": gimbal.mock},
+                    "mode": mode,
+                    "frame": {"w": w, "h": h, "hfov_deg": cam.hfov_deg, "vfov_deg": cam.vfov_deg},
+                    "target": None if target is None else {
+                        "id": target.track_id, "label": target.label, "conf": round(target.conf, 2),
+                        "box": list(target.box), "locked": target.track_id == locked,
+                    },
+                    "detections": [
+                        {"id": d.track_id, "label": d.label, "conf": round(d.conf, 2), "box": list(d.box)}
+                        for d in detections if d.track_id is not None  # unconfirmed tracks can't be locked
+                    ],
+                    "gimbal": {
+                        "pan": round(pan, 1), "tilt": round(tilt, 1),
+                        "target_pan": round(aim_cmd[0], 1), "target_tilt": round(aim_cmd[1], 1),
+                        "pan_limits": list(mot.pan_limits_deg), "tilt_limits": list(mot.tilt_limits_deg),
+                        "tilt_enabled": mot.tilt_enabled,
+                        "mock": gimbal.mock,
+                    },
                     "velocity_deg_s": [round(v, 1) for v in predictor.velocity],
                 })
     except KeyboardInterrupt:

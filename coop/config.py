@@ -46,17 +46,20 @@ class TrackingConfig:
     lead_time_s: float = 0.15  # how far ahead the predictor aims (covers pipeline latency)
     lost_timeout_s: float = 1.0  # drop the target after this long unseen
     deadband_deg: float = 1.0  # ignore aim changes smaller than this to avoid jitter
+    # When the tracked ID vanishes (ByteTrack re-IDs boxes that jump while the gimbal slews),
+    # adopt a same-class detection within this many degrees of the predicted world position.
+    reassociate_deg: float = 5.0
 
 
 @dataclass
 class SimConfig:
     """Virtual gimbal (coop/sim.py): only used when the motors are in mock mode."""
     enabled: bool = True
-    # Assumed FOV of the dev webcam, standing in for the world the real (narrower) camera
-    # would be able to scan by rotating. Must exceed CameraConfig.hfov_deg/vfov_deg or there's
-    # no room to crop and the pan won't be visible. Tune to your actual webcam if it differs.
+    # Assumed horizontal FOV of the dev webcam, standing in for the world the real (narrower)
+    # camera could scan by rotating; vertical FOV is derived from the webcam's aspect ratio.
+    # Must exceed CameraConfig.hfov_deg or there's no room to pan. At 100 deg on a 16:9 webcam
+    # the crop is ~half the width, giving about +-30 deg of visible pan.
     world_hfov_deg: float = 100.0
-    world_vfov_deg: float = 75.0
 
 
 @dataclass
@@ -64,6 +67,8 @@ class StreamConfig:
     host: str = "0.0.0.0"
     port: int = 8000
     jpeg_quality: int = 70
+    # Burn boxes/aim marker into /video. Off by default: the dashboard draws its own overlay.
+    annotate: bool = False
 
 
 @dataclass
