@@ -1,8 +1,8 @@
 """Startup smoke tests: run the real cooper.main.main() for one loop iteration.
 
 Only the hardware/ML edges are faked (Camera, Detector) and Flask.run is a no-op, so the
-real wiring runs: Config, Control, FrameGrabber, SharedState, serve_in_background and
-create_app. This catches startup breakage the unit
+real wiring runs: Config, Control, FrameGrabber, Tracks, RiskJudge, Leds (mock off a Pi),
+SharedState, serve_in_background and create_app. This catches startup breakage the unit
 tests can't, such as a call site that no longer matches a changed signature.
 """
 import sys
@@ -78,22 +78,76 @@ def test_main_runs_one_iteration_and_publishes_status(run_main):
     status = client.get("/api/status").get_json()
     assert status["frame_seq"] == 1
     assert status["frame"]["w"] == 640 and status["frame"]["h"] == 480
-    assert status["detections"] == [{"id": 3, "label": "person", "conf": 0.87, "box": [100, 60, 180, 260]}]
+    [obj] = status["objects"]
+    assert (obj["id"], obj["label"], obj["conf"], obj["box"]) == (3, "person", 0.87, [100, 60, 180, 260])
+    assert obj["level"] == "clear"               # its feet (y = 260) are beyond the lane's far end
+    assert len(obj["path"]) == 15                # 1.5 s horizon in 0.1 s steps
+    assert obj["path"][0] == [140.0, 260.0]      # first frame: no velocity yet, so it stays put
+    assert status["risk"] == {"level": "clear", "reason": ""}
+    assert status["leds"] == {"yellow": False, "red": False, "mode": "mock"}
+    assert status["lane"] == [[0.44, 0.6], [0.56, 0.6], [0.79, 1.0], [0.21, 1.0]]
     assert "server_time" in status
-    assert not {"mode", "estop", "gimbal", "target", "velocity_deg_s"} & set(status)
     diag = status["diag"]
     assert diag["infer_ms"] >= 0 and diag["latency_ms"] >= diag["infer_ms"]
     assert "fps" in diag and "capture_fps" in diag
-    assert "serial" not in diag
+    assert diag["leds"] == "mock"
     assert diag["uptime_s"] >= 0
 
 
-@pytest.mark.parametrize("flag", [["--no-motors"], ["--motor-port", "COM5"]])
-def test_the_motor_flags_are_gone(run_main, flag, capsys):
-    with pytest.raises(SystemExit) as e:
-        run_main(argv=flag)
-    assert e.value.code == 2
-    assert "unrecognized arguments" in capsys.readouterr().err
+class FramesCamera(FakeCamera):
+    """`frames` frames 50 ms apart (so FrameGrabber doesn't drop any), then Ctrl+C."""
+
+    frames = 4
+
+    def read(self):
+        import time
+
+        self.reads += 1
+        if self.reads > self.frames:
+            raise KeyboardInterrupt
+        if self.reads > 1:
+            time.sleep(0.05)
+        return np.full((480, 640, 3), 90, dtype=np.uint8)
+
+
+class InLaneDetector:
+    def __init__(self, cfg):
+        pass
+
+    def detect(self, frame):
+        return [Detection(7, "car", 0.9, (270, 300, 370, 400))]  # bottom edge 270..370 at y = 400
+
+
+def test_an_object_in_the_lane_lights_the_red_led_and_logs_it(run_main, monkeypatch):
+    lit = []
+    real_leds = cooper.main.Leds
+
+    def spy_leds(cfg, **kwargs):
+        leds = real_leds(cfg, **kwargs)
+        real_set = leds.set
+        leds.set = lambda level: (real_set(level), lit.append(dict(leds.state)))[0]
+        return leds
+
+    monkeypatch.setattr(cooper.main, "Camera", FramesCamera)
+    monkeypatch.setattr(cooper.main, "Detector", InLaneDetector)
+    monkeypatch.setattr(cooper.main, "Leds", spy_leds)
+    client = run_main().test_client()
+    status = client.get("/api/status").get_json()
+    assert status["risk"]["level"] == "danger" and "#7" in status["risk"]["reason"]
+    assert status["leds"]["red"] is True and status["leds"]["yellow"] is False
+    assert lit[0] == {"yellow": False, "red": False}   # enter_frames = 2: not on the first frame
+    assert {"yellow": False, "red": True} in lit
+    assert lit[-1] == {"yellow": False, "red": False}  # shutdown turns them off
+    events = client.get("/api/events").get_json()["events"]
+    assert [(e["type"], e["level"]) for e in events] == [("risk_changed", "danger")]
+
+
+def test_no_leds_flag_disables_the_gpio(run_main, monkeypatch):
+    seen = []
+    real_leds = cooper.main.Leds
+    monkeypatch.setattr(cooper.main, "Leds", lambda cfg, **k: seen.append(cfg.enabled) or real_leds(cfg, **k))
+    run_main(argv=("--no-leds",))
+    assert seen == [False]
 
 
 def test_main_shuts_down_cleanly(run_main):

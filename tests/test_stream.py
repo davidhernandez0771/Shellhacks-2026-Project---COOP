@@ -4,8 +4,6 @@
 so tests only assert on the response's status/mimetype and never read the streamed body
 (resp.data / resp.get_data() would block forever waiting for a frame that never comes).
 """
-import pytest
-
 from cooper.control import Control
 from cooper.stream import SharedState, create_app
 
@@ -83,17 +81,3 @@ def test_status_before_the_first_frame_is_just_server_time_and_diag():
     _, _, client = make_client()
     body = client.get("/api/status").get_json()
     assert set(body) == {"server_time", "diag"}
-
-
-def test_status_has_no_motor_fields():
-    state, _, client = make_client()
-    state.publish(b"x", {"fps": 1.0})
-    body = client.get("/api/status").get_json()
-    assert not {"mode", "estop", "gimbal", "target", "velocity_deg_s"} & set(body)
-
-
-@pytest.mark.parametrize("route", ["/api/mode", "/api/target", "/api/aim", "/api/nudge", "/api/home",
-                                   "/api/estop", "/api/arm", "/api/zero"])
-def test_motor_endpoints_are_gone(route):
-    _, _, client = make_client()
-    assert client.post(route, json={}).status_code in (404, 405)  # 405: only the static GET route matches

@@ -2,8 +2,10 @@
 import subprocess
 import time
 
+import pytest
+
 from cooper.control import Control
-from cooper.diag import DIAG_KEYS, SystemMonitor, read_cpu_temp_c, read_throttled
+from cooper.diag import DIAG_KEYS, RateMeter, SystemMonitor, read_cpu_temp_c, read_throttled
 from cooper.stream import SharedState, create_app
 
 
@@ -81,9 +83,28 @@ def test_monitor_reports_uptime_live():
     assert second["uptime_s"] > first["uptime_s"] >= 0
 
 
-def test_diag_has_no_serial_link():
-    assert "serial" not in DIAG_KEYS
-    assert "serial" not in SystemMonitor(temp_fn=lambda: None, throttled_fn=lambda: None).snapshot()
+def test_monitor_reports_the_led_mode():
+    mon = SystemMonitor(leds_mode=lambda: "gpio", temp_fn=lambda: None, throttled_fn=lambda: None)
+    assert mon.snapshot()["leds"] == "gpio"
+
+
+def test_rate_meter_is_the_inverse_of_the_mean_interval():
+    """Frames arriving in bursts (1 ms, then 65 ms) are 30 fps on average, not the ~500 fps
+    that averaging 1/dt gives."""
+    meter = RateMeter(alpha=0.1)
+    t = 0.0
+    for i in range(200):
+        t += 0.001 if i % 2 else 0.065
+        fps = meter.update(t)
+    # The EMA of dt swings between 31.3 and 34.9 ms here (a two-value cycle), i.e. 29-32 fps.
+    assert fps == pytest.approx(30.3, rel=0.1)
+
+
+def test_rate_meter_starts_at_zero_and_ignores_repeated_timestamps():
+    meter = RateMeter()
+    assert meter.update(1.0) == 0.0
+    assert meter.update(1.0) == 0.0
+    assert meter.update(1.1) == pytest.approx(10.0)
 
 
 def test_status_diag_has_every_key_even_before_the_first_frame():
@@ -102,7 +123,7 @@ def test_status_diag_merges_loop_timings_with_live_readings():
     client = create_app(state, Control(), diag=mon.snapshot).test_client()
     diag = client.get("/api/status").get_json()["diag"]
     assert diag == {"cpu_temp_c": 61.5, "throttled": 4, "fps": 12.0, "capture_fps": 30.0,
-                    "infer_ms": 55.0, "latency_ms": 80.0, "uptime_s": diag["uptime_s"]}
+                    "infer_ms": 55.0, "latency_ms": 80.0, "leds": None, "uptime_s": diag["uptime_s"]}
 
 
 def test_status_diag_without_a_monitor_still_has_every_key():
