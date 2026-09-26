@@ -17,6 +17,7 @@ import math
 import os
 import re
 import tempfile
+import threading
 import tomllib
 from pathlib import Path
 
@@ -244,3 +245,113 @@ def _parse_text(text, path, saving=False):
     except tomllib.TOMLDecodeError as e:
         what = "couldn't update" if saving else "can't parse"
         raise SettingsError(f"{what} {path}: {e}; fix or delete the file") from None
+
+
+# ---- live tuning (GET/POST /api/settings) ----
+
+# Setting name -> Config section. Names are unique across sections, so the API is flat.
+LIVE_KEYS = {
+    "lead_time_s": "tracking",
+    "deadband_deg": "tracking",
+    "conf": "detector",
+    "max_steps_per_sec": "motors",
+    "accel_steps_per_sec2": "motors",
+    "pan_invert": "motors",
+}
+
+
+class LiveSettings:
+    """Validates, applies and optionally saves the live-tunable settings.
+
+    The vision loop reads cfg.tracking / cfg.detector every frame, so plain attribute
+    writes take effect on the next frame. Motor settings go through the Gimbal, which
+    re-sends C to the Uno and moves frame_epoch on for pan_invert.
+    """
+
+    def __init__(self, cfg, path=None, gimbal=None, control=None):
+        self.cfg = cfg
+        self.path = Path(path) if path is not None else DEFAULT_PATH
+        self._gimbal = gimbal
+        self._control = control
+        self._lock = threading.Lock()
+
+    def current(self):
+        return {key: getattr(getattr(self.cfg, section), key) for key, section in LIVE_KEYS.items()}
+
+    def snapshot(self):
+        mot = self.cfg.motors
+        steps_per_deg = (self._gimbal.steps_per_deg if self._gimbal is not None
+                         else mot.steps_per_rev * mot.microsteps / 360.0 * mot.pan_gear_ratio)
+        return {
+            "settings": self.current(),
+            "ranges": {key: list(RANGES[(section, key)]) for key, section in LIVE_KEYS.items()
+                       if (section, key) in RANGES},
+            "steps_per_deg": round(steps_per_deg, 4),
+            "file": str(self.path),
+        }
+
+    def _validate(self, body):
+        if not isinstance(body, dict):
+            raise SettingsError("body must be a JSON object")
+        save = body.get("save", False)
+        if not isinstance(save, bool):
+            raise SettingsError("save must be true or false")
+        changes = {}
+        for key, value in body.items():
+            if key == "save":
+                continue
+            if key not in LIVE_KEYS:
+                raise SettingsError(f"unknown setting '{key}'; live settings are "
+                                    f"{', '.join(LIVE_KEYS)} (others need coop.toml and a restart)."
+                                    f"{_suggest(key, LIVE_KEYS)}")
+            section = LIVE_KEYS[key]
+            if key == "pan_invert":
+                if not isinstance(value, bool):
+                    raise SettingsError("pan_invert must be true or false")
+            else:
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                    raise SettingsError(f"{key} must be a number")
+                value = float(value)
+                lo, hi = RANGES[(section, key)]
+                if not lo <= value <= hi:
+                    raise SettingsError(f"{key}: {value} is outside {lo}..{hi}")
+            changes[key] = value
+        return changes, save
+
+    def update(self, body):
+        """Apply a POST /api/settings body. Returns {"settings", "saved"}; raises
+        SettingsError (and changes nothing) if any part is invalid or the save fails."""
+        changes, save = self._validate(body)
+        with self._lock:
+            mot = self.cfg.motors
+            if "pan_invert" in changes and changes["pan_invert"] != mot.pan_invert:
+                if self._control is not None and self._control.mode != "stop":
+                    raise SettingsError("pan_invert can only change in stop mode "
+                                        "(it reverses what every angle means)")
+            saved = False
+            if save and changes:
+                grouped = {}
+                for key, value in changes.items():
+                    grouped.setdefault(LIVE_KEYS[key], {})[key] = value
+                save_settings(self.path, grouped)  # raises before anything is applied
+                saved = True
+
+            speed = changes.get("max_steps_per_sec", mot.max_steps_per_sec)
+            accel = changes.get("accel_steps_per_sec2", mot.accel_steps_per_sec2)
+            if (speed, accel) != (mot.max_steps_per_sec, mot.accel_steps_per_sec2):
+                if self._gimbal is not None:
+                    self._gimbal.set_motion_limits(speed, accel)
+                else:
+                    mot.max_steps_per_sec, mot.accel_steps_per_sec2 = speed, accel
+            if "pan_invert" in changes and changes["pan_invert"] != mot.pan_invert:
+                if self._gimbal is not None:
+                    self._gimbal.set_pan_invert(changes["pan_invert"])
+                else:
+                    mot.pan_invert = changes["pan_invert"]
+            for key in ("lead_time_s", "deadband_deg", "conf"):
+                if key in changes:
+                    setattr(getattr(self.cfg, LIVE_KEYS[key]), key, changes[key])
+            current = self.current()
+        if changes and self._control is not None:
+            self._control.log_event("settings_changed", changed=changes, saved=saved)
+        return {"settings": current, "saved": saved}

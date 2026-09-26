@@ -13,6 +13,7 @@ from flask import Flask, Response, jsonify, request
 
 from .control import ControlError
 from .diag import DIAG_KEYS
+from .settings import SettingsError
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
@@ -69,8 +70,9 @@ def _pan_arg(body, pan_key, tilt_key):
     return pan
 
 
-def create_app(state, control, diag=None):
-    """`diag`: optional callable returning live health readings (coop.diag.SystemMonitor.snapshot)."""
+def create_app(state, control, diag=None, settings=None):
+    """`diag`: optional callable returning live health readings (coop.diag.SystemMonitor.snapshot).
+    `settings`: optional coop.settings.LiveSettings behind /api/settings (404 without one)."""
     app = Flask(__name__, static_folder=str(WEB_DIR), static_url_path="")
 
     @app.route("/")
@@ -151,6 +153,23 @@ def create_app(state, control, diag=None):
             return _error(str(e))
         return _ok()
 
+    @app.route("/api/settings", methods=["GET"])
+    def get_settings():
+        if settings is None:
+            return _error("live settings not available", 404)
+        return jsonify(settings.snapshot())
+
+    @app.route("/api/settings", methods=["POST"])
+    def post_settings():
+        if settings is None:
+            return _error("live settings not available", 404)
+        body = request.get_json(silent=True)
+        try:
+            result = settings.update(body)
+        except SettingsError as e:
+            return _error(str(e))
+        return _ok(**result)
+
     @app.route("/api/estop", methods=["POST"])
     def estop():
         control.estop()
@@ -169,8 +188,8 @@ def create_app(state, control, diag=None):
     return app
 
 
-def serve_in_background(state, control, cfg, diag=None):
-    app = create_app(state, control, diag=diag)
+def serve_in_background(state, control, cfg, diag=None, settings=None):
+    app = create_app(state, control, diag=diag, settings=settings)
     thread = threading.Thread(
         target=lambda: app.run(host=cfg.host, port=cfg.port, threaded=True, use_reloader=False),
         name="web",

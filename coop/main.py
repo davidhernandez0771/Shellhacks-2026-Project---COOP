@@ -16,7 +16,7 @@ from .detector import Detector
 from .diag import SystemMonitor
 from .motors import Gimbal
 from .predictor import KalmanPredictor
-from .settings import SettingsError, load_config
+from .settings import LiveSettings, SettingsError, load_config
 from .sim import VirtualGimbal
 from .stream import SharedState, serve_in_background
 
@@ -128,7 +128,8 @@ def main():
     predictor = KalmanPredictor()
     state = SharedState()
     monitor = SystemMonitor(link_state=lambda: gimbal.link_state)
-    serve_in_background(state, control, cfg.stream, diag=monitor.snapshot)
+    live_settings = LiveSettings(cfg, path=args.config or settings.DEFAULT_PATH, gimbal=gimbal, control=control)
+    serve_in_background(state, control, cfg.stream, diag=monitor.snapshot, settings=live_settings)
     log.info("Dashboard at http://localhost:%d", cfg.stream.port)
 
     cam, trk, mot = cfg.camera, cfg.tracking, cfg.motors

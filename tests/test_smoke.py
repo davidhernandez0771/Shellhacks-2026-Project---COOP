@@ -164,3 +164,12 @@ def test_missing_explicit_config_exits(run_main, tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["coop.main", "--config", str(tmp_path / "nope.toml")])
     with pytest.raises(SystemExit):
         run_main(argv=None)
+
+
+def test_main_serves_live_settings(run_main, tmp_path):
+    client = run_main().test_client()
+    body = client.get("/api/settings").get_json()
+    assert body["settings"]["lead_time_s"] == 0.15
+    assert body["file"].endswith("coop.toml")
+    resp = client.post("/api/settings", json={"lead_time_s": 0.3})
+    assert resp.status_code == 200
