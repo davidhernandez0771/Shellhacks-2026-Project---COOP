@@ -33,14 +33,19 @@ coop/
   camera.py     Picamera2 on the Pi, webcam fallback for laptop dev
   detector.py   YOLO11n + ByteTrack (person, car, motorcycle, bus, truck)
   predictor.py  constant-velocity Kalman filter in world-angle space
-  motors.py     sends target angles to the Arduino over serial; mock mode without it
-  stream.py     Flask MJPEG stream + /api/status
+  motors.py     sends target angles to the Arduino over serial; e-stop, zero, idle power-down; mock mode without it
+  control.py    operator state behind the API: mode, lock, manual aim, e-stop, event log
+  settings.py   coop.toml loading/validation/saving, and live tuning (/api/settings)
+  diag.py       CPU temperature, throttling, serial link state for /api/status.diag
+  stream.py     Flask MJPEG stream + the JSON API (docs/API.md)
 firmware/       Arduino Uno sketch (AccelStepper → TMC2209)
+tools/          bench tools: fake_uno (firmware emulator), jog, camera_check, bench_fps, rehearsal
+coop.example.toml  every setting at its default; copy to coop.toml (gitignored) to override
 web/            dashboard (served by the Pi)
 hardware/       wiring, BOM, CAD / 3D-print files
 scripts/        Pi setup, systemd services, Cloudflare Tunnel
 site/           public one-page project showcase (static; see site/README.md)
-tests/          pytest suite (pixel math, Kalman, control, serial protocol, Flask API)
+tests/          pytest suite (pixel math, Kalman, control, serial protocol, emulator e2e, Flask API)
 ```
 
 ## Run it
@@ -76,16 +81,40 @@ Open `http://localhost:8000`.
 
 The laptop can drive the real motors too: plug the Uno into the laptop and it's found automatically.
 
+## Settings
+Every tunable lives in `coop/config.py`. To change one without editing code, copy `coop.example.toml` to `coop.toml` in the repo root and edit it (it's gitignored, so the Pi and each laptop keep their own). Unknown keys and wrong types stop COOP at startup with the key named. `--config other.toml` picks another file.
+
+The values you tune with the hardware in front of you (`lead_time_s`, `deadband_deg`, `conf`, `max_steps_per_sec`, `accel_steps_per_sec2`, `pan_invert`) can also be changed live with `GET/POST /api/settings`, and saved back to `coop.toml` with `"save": true` (comments are kept). See [docs/API.md](docs/API.md).
+
+## Safety
+- **E-STOP** (`POST /api/estop`): brakes, then powers the driver down once the shaft is still (cutting power mid-ramp would make the Uno lose count). Everything that would move the camera is refused until `POST /api/arm`.
+- **Zero** (`POST /api/zero`): the current direction becomes 0°. There's no homing switch, and opening the serial port resets the Uno, so **each start of COOP (or `tools.jog`) makes the current direction 0°**: point the camera forward first.
+- **Idle power-down:** in Stop mode the driver is switched off after `idle_disable_s` (20 s) so the motor doesn't heat up; it comes back on when motion resumes.
+- **Watchdog:** the Uno stops the motor if the Pi goes quiet for 2 s.
+
+## Bench tools (no vision needed)
+Run from the repo root. Each also works as `python tools/<name>.py`.
+
+| Tool | What it's for |
+|---|---|
+| `python -m tools.fake_uno --port 5555` | Emulates the Uno firmware on a TCP port. Point anything at it with `--motor-port socket://localhost:5555` (or `port = "socket://localhost:5555"` in `coop.toml`). |
+| `python -m tools.rehearsal` | The whole app with no hardware: a synthetic walker seen by a camera that turns with the emulated motor. Open `http://localhost:8000`. `--invert` shows what a wrong motor direction looks like. |
+| `python -m tools.jog [--port P]` | Jog the pan motor from the keyboard (arrows, `[` `]` step, `0` home, `z` zero, `e` e-stop, `q` quit), or `--goto 90` / `--by -10` / `--zero`. Uses `coop.toml`. |
+| `python -m tools.camera_check [--source picamera]` | Delivered resolution and FPS, plus a saved still for the colour and orientation check. |
+| `python -m tools.bench_fps [--export]` | YOLO speed, PyTorch vs NCNN at imgsz 256/320/416, timing the same `track()` call COOP makes; `--export` builds the NCNN models. Prints a Markdown table. |
+
+The first-hardware checklist in [docs/HARDWARE_TEST.md](docs/HARDWARE_TEST.md) uses them in order: emulator → jog → camera check → FPS bench → full run.
+
 ## Testing
 ```bash
 pip install -r requirements-dev.txt
 pytest
 ```
-Covers the pixel-to-angle math, the Kalman predictor, target selection, the control state machine, the Arduino serial protocol (against a fake serial port, no hardware needed), and the Flask API (via Flask's test client). Runs anywhere `requirements.txt` does — no Pi, camera, or Arduino required.
+Covers the pixel-to-angle math, the Kalman predictor, target selection, the control state machine, the settings file, the Arduino serial protocol (against a fake serial port), the real `Gimbal` and then the whole app against `tools/fake_uno.py` (e-stop, zero, reconnects, closed-loop tracking of a synthetic walker), and the Flask API. Runs anywhere `requirements.txt` does — no Pi, camera, or Arduino required.
 
 ## Performance tips (Pi 5)
-- Export the model to NCNN for a big CPU speed-up:
-  `yolo export model=yolo11n.pt format=ncnn imgsz=320`, then set `DetectorConfig.model = "yolo11n_ncnn_model"`.
+- Export the model to NCNN for a big CPU speed-up: `python -m tools.bench_fps --export` (then `python -m tools.bench_fps` to compare), and set `model = "yolo11n_imgsz320_ncnn_model"` and `imgsz = 320` under `[detector]` in `coop.toml`. An NCNN model must run at the size it was exported at.
+- `/api/status` → `diag` shows `fps`, `capture_fps`, `infer_ms`, `latency_ms`, the CPU temperature and throttle flags. Set `lead_time_s` to roughly the latency plus the motor's lag.
 - Keep `imgsz` at 320 and the capture resolution at 640×480 unless you have headroom.
 
 ## Troubleshooting
