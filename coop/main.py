@@ -125,7 +125,9 @@ def main():
                 continue
             now = time.monotonic()
             pan, tilt = gimbal.angles
-            if gimbal.mock and cfg.sim.enabled:
+            # Gate on config, not gimbal.mock: mock is also true while a real Uno is (re)connecting,
+            # and cropping the real camera frame then would corrupt every angle.
+            if not cfg.motors.enabled and cfg.sim.enabled:
                 frame = virtual_gimbal.crop(frame, pan, tilt)
             h, w = frame.shape[:2]
 

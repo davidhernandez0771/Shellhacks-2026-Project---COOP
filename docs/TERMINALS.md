@@ -45,12 +45,3 @@ _(cross-lane asks: "lane X → lane Y: need ...". Delete when done.)_
 `coop-live.<domain>` (`scripts/setup_tunnel.md` and `install_tunnel.sh` are updated;
 the installer now refuses `coop.*`). The "Hostname clash" note there can become a
 one-line pointer.
-
-**Lane 3 → lane 1: gate the virtual-gimbal crop on "no motors configured", not
-`gimbal.mock`.** `main.py` crops through `VirtualGimbal` whenever `gimbal.mock and
-cfg.sim.enabled`. On the Pi with motors enabled, `mock` is also true for the first
-seconds before the Uno connects and during any USB outage, so the real camera frame
-gets cropped as if it were a 100° webcam, and angles computed from it are wrong. Suggest
-`if not cfg.motors.enabled and cfg.sim.enabled:`. During an outage `gimbal.angles` now
-holds the last reported position (the motors are stopped), so no simulated motion is
-needed there.
