@@ -12,6 +12,7 @@ from pathlib import Path
 from flask import Flask, Response, jsonify, request
 
 from .control import ControlError
+from .diag import DIAG_KEYS
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
@@ -68,7 +69,8 @@ def _pan_arg(body, pan_key, tilt_key):
     return pan
 
 
-def create_app(state, control):
+def create_app(state, control, diag=None):
+    """`diag`: optional callable returning live health readings (coop.diag.SystemMonitor.snapshot)."""
     app = Flask(__name__, static_folder=str(WEB_DIR), static_url_path="")
 
     @app.route("/")
@@ -85,6 +87,11 @@ def create_app(state, control):
         payload["server_time"] = time.time()
         payload["mode"] = control.mode  # authoritative even if the main loop hasn't published yet
         payload["estop"] = control.estopped
+        merged = dict.fromkeys(DIAG_KEYS)
+        merged.update(payload.get("diag") or {})  # the vision loop's per-frame timings
+        if diag is not None:
+            merged.update(diag())
+        payload["diag"] = merged
         return jsonify(payload)
 
     @app.route("/api/events")
@@ -162,8 +169,8 @@ def create_app(state, control):
     return app
 
 
-def serve_in_background(state, control, cfg):
-    app = create_app(state, control)
+def serve_in_background(state, control, cfg, diag=None):
+    app = create_app(state, control, diag=diag)
     thread = threading.Thread(
         target=lambda: app.run(host=cfg.host, port=cfg.port, threaded=True, use_reloader=False),
         name="web",

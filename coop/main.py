@@ -13,6 +13,7 @@ from .camera import Camera, FrameGrabber
 from . import settings
 from .control import Control
 from .detector import Detector
+from .diag import SystemMonitor
 from .motors import Gimbal
 from .predictor import KalmanPredictor
 from .settings import SettingsError, load_config
@@ -126,7 +127,8 @@ def main():
     virtual_gimbal = VirtualGimbal(cfg.camera, cfg.sim)
     predictor = KalmanPredictor()
     state = SharedState()
-    serve_in_background(state, control, cfg.stream)
+    monitor = SystemMonitor(link_state=lambda: gimbal.link_state)
+    serve_in_background(state, control, cfg.stream, diag=monitor.snapshot)
     log.info("Dashboard at http://localhost:%d", cfg.stream.port)
 
     cam, trk, mot = cfg.camera, cfg.tracking, cfg.motors
