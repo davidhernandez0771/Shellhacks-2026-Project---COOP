@@ -4,6 +4,18 @@ The overnight showcase works, but its particle-cloud scenes read as AI-made (the
 
 David is present in VS Code for this work. **Show him each step in the browser and get his OK before moving on.** Use the `frontend-design` and `brainstorming` skills (`.claude/skills/`), interactively.
 
+## Lanes (parallel terminals, each in its own folder and branch)
+| Lane | Folder → branch | Steps | Owns (only edit these) | Preview |
+|---|---|---|---|---|
+| **A: Type & wordmark** (integration lane) | `C:\dev\COOP-site` → `design/showcase-v2` | 1, 2, 3, 7 | `index.html` copy/markup, `tokens.css`, `styles.css`, `fonts/`, new `js/wordmark.js`, `README.md`, `CREDITS.md`, `docs/DEVPOST.md` | `design-showcase-v2.coop-224.pages.dev` |
+| **B: Cursor & extras** | `C:\dev\COOP-fx` → `design/fx` | 4, 6 | `js/cursor.js`, new `js/fx/*.js`, new `fx.css`, `vendor/` (new libs only) | `design-fx.coop-224.pages.dev` |
+| **C: Simulations** | `C:\dev\COOP-sims` → `design/sims` | 5 | `js/stage/*` **except `carousel.js` (don't touch, David loves it)**, `js/chapters.js`, new `sims.css` | `design-sims.coop-224.pages.dev` |
+
+- Lanes B and C put their styles in their own CSS file and only **add** `<link>`/`<script>` tags or small hooks to `index.html` (a `data-` attribute, a container element). Lane A owns the rest of the markup.
+- Everything reads colors and fonts from `tokens.css` variables, so lane A's font change flows into B and C automatically. Never hard-code a font or color.
+- Need something in another lane's files? Write it in a **Requests** section at the bottom of this plan instead of editing.
+- Each lane commits only its own paths and pushes to its own branch. **Merging B and C into `design/showcase-v2` is done by the coordinator** (David's main Claude session) after David approves each lane's preview.
+
 ## Rules
 - Work only in `site/` (plus `docs/DEVPOST.md` and `README.md` when relevant) on branch `design/showcase-v2`, in the folder `C:\dev\COOP-site`. Commit small and push often; each push gets a Cloudflare Pages preview at `https://design-showcase-v2.coop-224.pages.dev`. **Never push to `dev` or `main`.**
 - No build step: native ES modules, vendored libraries in `site/vendor/`, self-hosted fonts in `site/fonts/`. Every library and font must allow commercial use and self-hosting. Record each one in `site/CREDITS.md` with its license file.
