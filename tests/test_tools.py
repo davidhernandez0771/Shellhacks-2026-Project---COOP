@@ -198,3 +198,52 @@ def test_format_table_marks_the_fastest():
     table = bench_fps.format_table(rows)
     assert "| ncnn | 320 |" in table and "10.0" in table
     assert table.splitlines()[-1].startswith("Fastest: ncnn @ 320")
+
+
+@pytest.fixture
+def fake_ultralytics(monkeypatch):
+    """A stand-in `ultralytics` package: CI never installs the real one (multi-GB)."""
+    import sys
+    import types
+    from pathlib import Path
+
+    loaded = []
+
+    class YOLO:
+        def __init__(self, path, task=None):
+            self.path = path
+            loaded.append(path)
+
+        def export(self, format, imgsz):
+            out = Path(self.path).with_name(Path(self.path).stem + "_ncnn_model")  # ultralytics' naming
+            out.mkdir()
+            return str(out)
+
+        def track(self, frame, **kwargs):
+            assert kwargs["persist"] and kwargs["tracker"] == "bytetrack.yaml"  # same call as COOP
+            return []
+
+    module = types.ModuleType("ultralytics")
+    module.YOLO = YOLO
+    monkeypatch.setitem(sys.modules, "ultralytics", module)
+    return loaded
+
+
+def test_bench_fps_export_renames_per_size_and_skips_existing(fake_ultralytics, tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    assert bench_fps.main(["--export", "--imgsz", "256", "320"]) == 0
+    assert (tmp_path / "yolo11n_imgsz256_ncnn_model").is_dir()
+    assert (tmp_path / "yolo11n_imgsz320_ncnn_model").is_dir()
+    assert not (tmp_path / "yolo11n_ncnn_model").exists()
+    assert bench_fps.main(["--export", "--imgsz", "320"]) == 0
+    assert "exists, skipping" in capsys.readouterr().out
+
+
+def test_bench_fps_runs_both_backends_and_skips_missing_ncnn(fake_ultralytics, tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "yolo11n_imgsz320_ncnn_model").mkdir()
+    assert bench_fps.main(["--imgsz", "256", "320", "--frames", "3", "--warmup", "1"]) == 0
+    out = capsys.readouterr().out
+    assert "skip ncnn @ 256" in out
+    assert "| torch | 256 |" in out and "| torch | 320 |" in out and "| ncnn | 320 |" in out
+    assert "yolo11n_imgsz320_ncnn_model" in fake_ultralytics

@@ -173,3 +173,59 @@ def test_main_serves_live_settings(run_main, tmp_path):
     assert body["file"].endswith("coop.toml")
     resp = client.post("/api/settings", json={"lead_time_s": 0.3})
     assert resp.status_code == 200
+
+
+def test_annotate_path_draws_the_lead_aim(run_main):
+    """--annotate projects the predictor's aim point into the frame (auto mode, a target)."""
+    client = run_main(argv=("--no-motors", "--annotate")).test_client()
+    assert client.get("/api/status").get_json()["target"]["id"] == 3
+
+
+class TimedCamera:
+    """Frames `period_s` apart; ends the run after `frames` frames."""
+
+    def __init__(self, frames, period_s):
+        self.frames, self.period_s, self.reads = frames, period_s, 0
+
+    def read(self):
+        import time
+
+        self.reads += 1
+        if self.reads > self.frames:
+            raise KeyboardInterrupt
+        if self.reads > 1:
+            time.sleep(self.period_s)
+        return np.full((480, 640, 3), 90, dtype=np.uint8)
+
+    def close(self):
+        pass
+
+
+def test_a_locked_target_that_disappears_is_lost_and_unlocked(run_main, monkeypatch):
+    """Lock #3, then it vanishes: after lost_timeout_s (1 s) of capture time, target_lost
+    fires and the lock clears. Exercises the loop's timing on FrameGrabber timestamps."""
+    controls = []
+    real_control = coop.main.Control
+
+    def capture_control(*a, **k):
+        controls.append(real_control(*a, **k))
+        return controls[-1]
+
+    class LockThenVanish:
+        def __init__(self, cfg):
+            self.calls = 0
+
+        def detect(self, frame):
+            self.calls += 1
+            if self.calls == 1:
+                controls[0].set_target(3)
+            return [Detection(3, "person", 0.9, (100, 60, 180, 260))] if self.calls <= 2 else []
+
+    monkeypatch.setattr(coop.main, "Control", capture_control)
+    monkeypatch.setattr(coop.main, "Camera", lambda cfg: TimedCamera(frames=8, period_s=0.25))
+    monkeypatch.setattr(coop.main, "Detector", LockThenVanish)
+    client = run_main().test_client()
+    types = [e["type"] for e in client.get("/api/events").get_json()["events"]]
+    assert "target_acquired" in types and "target_lost" in types
+    assert controls[0].locked_id is None
+    assert client.get("/api/status").get_json()["target"] is None

@@ -217,3 +217,13 @@ def test_load_reports_an_undecodable_file(tmp_path):
     path.write_bytes(b"[tracking]\nlead_time_s = 0.2 # \xff\n")
     with pytest.raises(SettingsError):
         load_config(path)
+
+
+def test_save_refuses_an_edit_that_would_change_something_else(tmp_path):
+    """A key-like line inside a multi-line string would be rewritten too; the re-parse
+    check notices the string changed and refuses, leaving the file untouched."""
+    text = '[tracking]\npriority = ["""\nlead_time_s = 0.15\n""", "person"]\nlead_time_s = 0.15\n'
+    path = write(tmp_path, text)
+    with pytest.raises(SettingsError, match="safely"):
+        save_settings(path, {"tracking": {"lead_time_s": 0.3}})
+    assert path.read_text(encoding="utf-8") == text
