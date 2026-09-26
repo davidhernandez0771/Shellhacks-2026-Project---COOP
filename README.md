@@ -38,6 +38,7 @@ firmware/       Arduino Uno sketch (AccelStepper → TMC2209)
 web/            dashboard (served by the Pi)
 hardware/       wiring, BOM, CAD / 3D-print files
 scripts/        Pi setup
+tests/          pytest suite (pixel math, Kalman, control, serial protocol, Flask API)
 ```
 
 ## Run it
@@ -69,6 +70,13 @@ Open `http://localhost:8000`.
 5. **Move:** the Pi sends target positions to the Arduino over USB serial. The Arduino runs AccelStepper, which smoothly accelerates each motor toward its target. If the Pi stops talking, the Arduino stops the motors after 2 seconds.
 
 The laptop can drive the real motors too: plug the Uno into the laptop and it's found automatically.
+
+## Testing
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+Covers the pixel-to-angle math, the Kalman predictor, target selection, the control state machine, the Arduino serial protocol (against a fake serial port, no hardware needed), and the Flask API (via Flask's test client). Runs anywhere `requirements.txt` does — no Pi, camera, or Arduino required.
 
 ## Performance tips (Pi 5)
 - Export the model to NCNN for a big CPU speed-up:

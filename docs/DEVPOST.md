@@ -29,7 +29,7 @@ _(paste everything inside the box. Devpost supports Markdown and LaTeX)_
 ## What it does
 COOP is a self-aiming camera. A Raspberry Pi 5 watches the scene, detects **people and vehicles** in real time, locks onto a target, and physically rotates the camera on stepper motors to keep that target centered, even as it moves. Instead of chasing where the target *was*, COOP **predicts where it's going** and aims ahead of it.
 
-Everything streams live to a web dashboard: the annotated video feed with bounding boxes and track IDs, the current target, the camera's pan/tilt angle, and the target's estimated velocity. An operator can also take over: switch to manual and drive the gimbal directly, lock onto a specific track, or hit stop — every mode change and target lock/loss is written to an event log the dashboard can page through.
+Everything streams live to a web dashboard: the annotated video feed with clickable bounding boxes (click a detection to lock onto it), the current target's confidence and velocity, a pan dial showing the gimbal's live and predicted angle against its physical limits, and a scrolling event log. An operator can also take over: flip the Auto/Manual/Stop switch, drive the gimbal with a D-pad in manual mode, or lock onto a specific track — every mode change and target lock/loss is written to that event log. It's a glassy, dark control-room look that works down to phone width, since judges open it on their own devices.
 
 ## How we built it
 **Vision (Raspberry Pi 5).** Frames come from a 5 MP OV5647 camera through Picamera2. A YOLO11n model (Ultralytics) detects people, cars, motorcycles, buses and trucks, and ByteTrack gives each object a persistent ID so COOP doesn't jump between targets.
@@ -46,6 +46,8 @@ Working in world angles means the camera's own rotation doesn't look like target
 
 **Streaming.** A Flask server on the Pi serves an MJPEG video stream and a JSON status API to a lightweight HTML/JS dashboard that any device on the network can open.
 
+**Dashboard.** No build step: plain HTML, CSS and JS, with every color/radius/spacing value in one `tokens.css` file so the look stays consistent. Detection boxes are drawn client-side as an SVG overlay sized to the video's own coordinate space, so they line up with the stream and stay clickable. Since the vision and control-API work happened in parallel on separate machines, the dashboard ships with a client-side mock data source that mimics the real `/api/*` responses; it auto-detects a live backend and falls back to the mock seamlessly, so the UI was fully buildable and demoable before the endpoints existed.
+
 **Dev without hardware.** With motors mocked, a virtual gimbal (`coop/sim.py`) crops a panning window out of the laptop webcam's frame, centered wherever the simulated pan/tilt currently points, so tracking is visibly following a person on a laptop with no motors or Pi camera attached.
 
 **Control API.** A thread-safe `Control` object (`coop/control.py`) holds the operating mode (auto/manual/stop), an operator's target lock, the manual-aim setpoint, and a rolling event log, shared between the tracking loop and the Flask routes it drives (`/api/mode`, `/api/target`, `/api/aim`, `/api/nudge`, `/api/home`, `/api/events`). The Arduino serial link runs its own supervisor thread: if the connection drops it falls back to mock motion and keeps retrying in the background, logging `motor_connected`/`motor_disconnected` events, so a loose USB cable degrades the demo instead of crashing it.
@@ -53,6 +55,8 @@ Working in world angles means the camera's own rotation doesn't look like target
 **Hardware.** One 12 V supply powers everything: the motors directly, and the Pi through a 5.1 V buck converter. The mount and enclosure were designed and built by our hardware lead.
 
 **Deployment.** A systemd unit (`scripts/coop.service`, installed by `scripts/install_service.sh`) runs COOP on boot and restarts it automatically if it crashes.
+
+**Testing.** A pytest suite covers the pixel-to-angle math, the Kalman predictor, target selection, the `Control` state machine, and the Flask API (via Flask's test client) — plus the Arduino serial protocol against a fake serial port that plays the Uno's side of the handshake, including simulated link drops. None of it needs a Pi, camera, or Arduino attached.
 
 ## Challenges we ran into
 - **Running AI with no accelerator.** All inference runs on the Pi 5's CPU, so we used the smallest YOLO model at a reduced input size and kept the rest of the pipeline lightweight.
@@ -74,7 +78,6 @@ Working in world angles means the camera's own rotation doesn't look like target
 ## What's next for COOP
 - Night vision with an IR camera module
 - Homing with limit switches, and a slip ring for continuous 360° pan
-- Manual control and target selection are wired up end to end (mode/aim/target API + event log); next is a dashboard UI to drive them
 - Alerts on top of the event log (e.g. a person detected in a zone after hours)
 - Faster inference with an NCNN export or an AI accelerator HAT
 ````
@@ -82,7 +85,7 @@ Working in world angles means the camera's own rotation doesn't look like target
 ---
 
 ## Built with
-_(up to 25 tags, currently 24. Type each one into the tag box)_
+_(up to 25 tags, currently 25. Type each one into the tag box)_
 ```
 python
 raspberry-pi
@@ -108,6 +111,7 @@ html
 css
 javascript
 systemd
+pytest
 ```
 
 ---
