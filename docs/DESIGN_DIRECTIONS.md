@@ -1,3 +1,5 @@
+> **Outdated: from the motorized-gimbal era.** COOPER is now a fixed dashcam; see README.md and docs/MATH.md.
+
 # Showcase design directions (2026-09-26, unattended brainstorm)
 
 Written by the overnight cloud session following the `brainstorming` skill in **unattended mode**: the questions were answered from `docs/CLOUD_PLAN.md`, three directions were written down, and one was picked. David can overrule the pick in the morning; everything below the decision is implementation detail.

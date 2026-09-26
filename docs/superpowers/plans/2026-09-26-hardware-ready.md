@@ -1,3 +1,5 @@
+> **Outdated: from the motorized-gimbal era.** COOPER is now a fixed dashcam; see README.md and docs/MATH.md.
+
 # Hardware-ready backend implementation plan
 
 > Written with the `writing-plans` skill for the unattended overnight session (Part A of
