@@ -13,31 +13,51 @@
     <div class="topbar-status">
       <span class="pill" id="live-pill"><span class="dot"></span><span class="label">CONNECTING</span></span>
       <div class="mode-switch" role="group" aria-label="Mode">
-        <button type="button" data-mode="auto" class="active">Auto</button>
-        <button type="button" data-mode="manual">Manual</button>
-        <button type="button" data-mode="stop">Stop</button>
+        <button type="button" data-mode="auto" class="active" title="Auto (1)" aria-pressed="true">Auto</button>
+        <button type="button" data-mode="manual" title="Manual (2)" aria-pressed="false">Manual</button>
+        <button type="button" data-mode="stop" title="Stop (3)" aria-pressed="false">Stop</button>
       </div>
     </div>
   </header>
 
+  <div class="conn-banner danger" id="conn-banner" role="status" hidden>
+    <span class="dot"></span>
+    <div class="conn-text">
+      <strong id="conn-title"></strong>
+      <span id="conn-detail"></span>
+    </div>
+    <button type="button" class="conn-action" id="conn-action" hidden>Reload</button>
+  </div>
+
   <main class="layout">
     <section class="card hero">
       <div class="hero-frame" id="hero-frame">
-        <img class="feed" id="feed-img" src="/video" alt="Live camera feed" hidden>
+        <img class="feed" id="feed-img" alt="Live camera feed" hidden>
         <canvas class="feed-mock" id="feed-mock-canvas" hidden></canvas>
         <div class="no-signal" id="no-signal" hidden>No signal</div>
-        <svg class="overlay" id="overlay-svg" viewBox="0 0 640 480" preserveAspectRatio="none"></svg>
+        <svg class="overlay" id="overlay-svg" viewBox="0 0 640 480" preserveAspectRatio="xMidYMid meet"></svg>
         <span class="pill state-mock mock-badge" id="mock-badge" hidden><span class="dot"></span><span class="label">MOCK FEED</span></span>
+        <button type="button" class="fs-btn" id="fs-btn" aria-label="Fullscreen (F)" title="Fullscreen (F)">
+          <svg id="fs-icon-enter" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+          <svg id="fs-icon-exit" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="display:none"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+        </button>
+      </div>
+
+      <div class="legend" id="legend" hidden>
+        <span class="legend-item"><svg viewBox="0 0 24 12" width="24" height="12" aria-hidden="true"><line class="lg-velocity" x1="1" y1="6" x2="17" y2="6"/><path class="lg-arrowhead" d="M15 1 L23 6 L15 11 z"/></svg>Velocity</span>
+        <span class="legend-item"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle class="lg-aim" cx="8" cy="8" r="5"/></svg>Predicted aim</span>
+        <span class="legend-item"><svg viewBox="0 0 24 8" width="24" height="8" aria-hidden="true"><circle class="lg-trail" cx="3" cy="4" r="1.5" fill-opacity="0.25"/><circle class="lg-trail" cx="11" cy="4" r="2.2" fill-opacity="0.5"/><circle class="lg-trail" cx="19" cy="4" r="3" fill-opacity="0.8"/></svg>Aim trail</span>
       </div>
 
       <div class="dpad-wrap" id="dpad-wrap" hidden>
         <div class="dpad">
           <button type="button" class="up" id="dpad-up" aria-label="Tilt up">&#9650;</button>
           <button type="button" class="left" id="dpad-left" aria-label="Pan left">&#9664;</button>
-          <button type="button" class="home" id="dpad-home" aria-label="Home">&#8982;</button>
+          <button type="button" class="home" id="dpad-home" aria-label="Home (H)">&#8982;</button>
           <button type="button" class="right" id="dpad-right" aria-label="Pan right">&#9654;</button>
           <button type="button" class="down" id="dpad-down" aria-label="Tilt down">&#9660;</button>
         </div>
+        <p class="kbd-hint"><kbd>←</kbd><kbd>→</kbd> nudge 5° · <kbd>Shift</kbd> for 1° · <kbd>H</kbd> home</p>
       </div>
     </section>
 
@@ -57,6 +77,10 @@
           <div class="stat-row">
             <span class="k">Velocity</span>
             <span class="v tabular" id="vel-num">–</span>
+          </div>
+          <div class="stat-row" id="lead-row" hidden>
+            <span class="k" title="How far the predicted aim sits ahead of the target">Lead</span>
+            <span class="v tabular lead" id="lead-num">–</span>
           </div>
         </div>
         <button type="button" class="btn" id="lock-btn" disabled>No target</button>

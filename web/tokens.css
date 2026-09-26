@@ -18,7 +18,21 @@
   --warm-wash: rgba(255, 154, 46, 0.14);
   --danger: #FF5A5F;
   --danger-wash: rgba(255, 90, 95, 0.14);
+  --warm-line: rgba(255, 154, 46, 0.35);
+  --danger-line: rgba(255, 90, 95, 0.35);
+  --accent-faint: rgba(53, 240, 208, 0.18);
   --muted-line: rgba(244, 240, 236, 0.35);
+  --box-line: rgba(244, 240, 236, 0.55);
+
+  /* live feed */
+  --feed-bg: #000000;
+  --feed-glow: #1C1613;
+  --feed-edge: #070504;
+  --feed-grid: rgba(255, 255, 255, 0.05);
+  --feed-grid-strong: rgba(255, 255, 255, 0.14);
+  --feed-grid-label: rgba(255, 255, 255, 0.18);
+  --halo: rgba(0, 0, 0, 0.65);
+  --scrim: rgba(11, 8, 7, 0.55);
 
   /* shape */
   --radius-card: 26px;

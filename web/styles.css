@@ -72,9 +72,9 @@ body {
 }
 .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
 .pill.state-live { color: var(--accent); border-color: var(--accent-soft); background: var(--accent-wash); }
-.pill.state-stale { color: var(--warm); border-color: rgba(255, 154, 46, 0.35); background: var(--warm-wash); }
-.pill.state-offline { color: var(--danger); border-color: rgba(255, 90, 95, 0.35); background: var(--danger-wash); }
-.pill.state-mock { color: var(--warm); border-color: rgba(255, 154, 46, 0.35); background: var(--warm-wash); }
+.pill.state-stale { color: var(--warm); border-color: var(--warm-line); background: var(--warm-wash); }
+.pill.state-offline { color: var(--danger); border-color: var(--danger-line); background: var(--danger-wash); }
+.pill.state-mock { color: var(--warm); border-color: var(--warm-line); background: var(--warm-wash); }
 
 .pill.live-pulse .dot { animation: pulse 1.6s var(--ease-out) infinite; }
 @keyframes pulse {
@@ -165,15 +165,18 @@ body {
   aspect-ratio: 4 / 3;
   border-radius: var(--radius-sm);
   overflow: hidden;
-  background: #000;
+  background: var(--feed-bg);
 }
 .hero-frame img.feed {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* contain + the overlay's xMidYMid meet letterbox identically, so boxes stay aligned
+     at any container aspect (fullscreen, rotated phones). */
+  object-fit: contain;
   display: block;
+  transition: filter var(--dur-slow) var(--ease-out);
 }
 .hero-frame canvas.feed-mock {
   position: absolute;
@@ -187,26 +190,97 @@ body {
   inset: 0;
   width: 100%;
   height: 100%;
+  --k: 1; /* viewBox units per CSS px, set from JS */
+  transition: opacity var(--dur-slow) var(--ease-out);
 }
+.overlay rect, .overlay path, .overlay line { vector-effect: non-scaling-stroke; }
 .overlay rect.box {
   fill: transparent;
   cursor: pointer;
-  transition: stroke var(--dur-fast) var(--ease-out), stroke-width var(--dur-fast) var(--ease-out);
+  transition: stroke var(--dur-fast) var(--ease-out);
 }
-.overlay rect.box.det { stroke: rgba(244, 240, 236, 0.55); stroke-width: 1.5; }
+.overlay rect.box.det { stroke: var(--box-line); stroke-width: 1.5; }
 .overlay rect.box.det:hover { stroke: var(--text); }
 .overlay rect.box.auto { stroke: var(--accent-soft); stroke-width: 2; stroke-dasharray: 6 5; }
-.overlay g.locked path { stroke: var(--accent); stroke-width: 3; fill: none; stroke-linecap: round; }
+.overlay rect.box.hit { stroke: none; }
+.overlay path.reticle { stroke: var(--accent); stroke-width: 3; fill: none; stroke-linecap: round; pointer-events: none; }
 .overlay .box-label {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: calc(12px * var(--k));
   fill: var(--text);
   paint-order: stroke;
-  stroke: rgba(0, 0, 0, 0.65);
-  stroke-width: 3px;
+  stroke: var(--halo);
+  stroke-width: calc(3px * var(--k));
   pointer-events: none;
 }
 .overlay .box-label.locked { fill: var(--accent); }
+
+/* prediction layer: accent = the target's own motion, warm = where the gimbal is headed
+   (matches the warm target tick on the pan dial) */
+.overlay .prediction { pointer-events: none; }
+.overlay line.velocity { stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; }
+.overlay path.arrowhead { fill: var(--accent); }
+.overlay line.lead-line { stroke: var(--warm); stroke-width: 1.25; stroke-dasharray: 3 4; opacity: 0.7; }
+.overlay circle.aim-ring { fill: none; stroke: var(--warm); stroke-width: calc(2px * var(--k)); }
+.overlay path.aim-ticks { stroke: var(--warm); stroke-width: 2; stroke-linecap: round; }
+.overlay circle.trail { fill: var(--warm); }
+
+.hero-frame.is-stale svg.overlay { opacity: 0.45; }
+.hero-frame.is-stale img.feed { filter: grayscale(1) brightness(0.6); }
+
+/* fullscreen */
+.fs-btn {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  z-index: 3;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: var(--border-width) solid var(--surface-border);
+  background: var(--scrim);
+  backdrop-filter: blur(var(--blur-card));
+  -webkit-backdrop-filter: blur(var(--blur-card));
+  color: var(--text);
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.fs-btn:hover, .fs-btn:focus-visible { opacity: 1; background: var(--surface-strong); }
+.fs-btn svg path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.hero-frame:fullscreen { aspect-ratio: auto; width: 100%; height: 100%; border-radius: 0; }
+.hero-frame:-webkit-full-screen { aspect-ratio: auto; width: 100%; height: 100%; border-radius: 0; }
+.hero-frame.pseudo-fs {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  aspect-ratio: auto;
+  border-radius: 0;
+}
+body.no-scroll { overflow: hidden; }
+/* backdrop-filter makes an element the containing block for position:fixed children,
+   which would pin the pseudo-fullscreen frame inside the card instead of the viewport. */
+body.no-scroll .card.hero { backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+/* legend under the feed */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-2) 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.legend-item { display: inline-flex; align-items: center; gap: var(--space-2); }
+.legend .lg-velocity { stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; }
+.legend .lg-arrowhead { fill: var(--accent); }
+.legend .lg-aim { fill: none; stroke: var(--warm); stroke-width: 2; }
+.legend .lg-trail { fill: var(--warm); }
 
 .mock-badge {
   position: absolute;
@@ -314,7 +388,7 @@ body {
 .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .btn.accent { color: var(--bg-0); background: var(--accent); border-color: var(--accent); }
 .btn.accent:hover { background: var(--accent); filter: brightness(1.05); }
-.btn.danger-outline { color: var(--danger); border-color: rgba(255, 90, 95, 0.35); }
+.btn.danger-outline { color: var(--danger); border-color: var(--danger-line); }
 
 /* ---------- gimbal card ---------- */
 .dial-wrap { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
@@ -336,6 +410,12 @@ body {
 /* ---------- detections list ---------- */
 .det-list { display: flex; flex-direction: column; gap: 2px; }
 .det-row {
+  appearance: none;
+  width: 100%;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -345,9 +425,10 @@ body {
   border: 1px solid transparent;
   transition: background var(--dur-fast) var(--ease-out);
 }
+.det-row:disabled { cursor: default; }
 .det-row:hover { background: var(--surface-strong); }
 .det-row.is-locked { border-color: var(--accent-soft); background: var(--accent-wash); }
-.det-row.is-auto { border-color: rgba(53, 240, 208, 0.18); }
+.det-row.is-auto { border-color: var(--accent-faint); }
 .det-row .swatch { width: 8px; height: 8px; border-radius: 50%; background: var(--muted-line); flex: none; }
 .det-row.is-locked .swatch { background: var(--accent); }
 .det-row.is-auto .swatch { background: var(--accent-soft); }
@@ -378,6 +459,76 @@ body {
 /* ---------- scrollbar ---------- */
 .event-list::-webkit-scrollbar { width: 6px; }
 .event-list::-webkit-scrollbar-thumb { background: var(--surface-border); border-radius: 3px; }
+
+/* ---------- connection banner ---------- */
+.conn-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 1400px;
+  margin: 0 auto var(--space-4);
+  width: calc(100% - 2 * var(--space-5));
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  border: var(--border-width) solid var(--danger-line);
+  background: var(--danger-wash);
+  backdrop-filter: blur(var(--blur-card));
+  -webkit-backdrop-filter: blur(var(--blur-card));
+  animation: banner-in var(--dur-med) var(--ease-out);
+}
+.conn-banner.warm { border-color: var(--warm-line); background: var(--warm-wash); }
+.conn-banner .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--danger); }
+.conn-banner.warm .dot { background: var(--warm); }
+.conn-banner.danger .dot { animation: pulse 1.2s var(--ease-out) infinite; }
+.conn-text { flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: 13px; min-width: 0; }
+.conn-text strong { color: var(--danger); font-weight: 600; }
+.conn-banner.warm .conn-text strong { color: var(--warm); }
+.conn-text span { color: var(--text-muted); }
+.conn-action {
+  appearance: none;
+  flex: none;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--danger);
+  color: var(--bg-0);
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+@keyframes banner-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .conn-banner, .conn-banner.danger .dot { animation: none; }
+}
+
+/* controls pause while the backend is unreachable */
+body.is-disconnected .mode-switch button,
+body.is-disconnected .dpad button,
+body.is-disconnected .btn,
+body.is-disconnected .det-row { pointer-events: none; opacity: 0.4; }
+body.is-disconnected .overlay rect.box { pointer-events: none; cursor: default; }
+
+/* ---------- keyboard ---------- */
+.dpad-wrap { flex-direction: column; gap: var(--space-3); }
+.dpad button.pressed { background: var(--accent-wash); border-color: var(--accent-soft); transform: scale(0.94); }
+.kbd-hint { margin: 0; font-size: 12px; color: var(--text-dim); }
+kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 5px;
+  margin: 0 1px;
+  border-radius: 5px;
+  border: var(--border-width) solid var(--surface-border);
+  background: var(--surface);
+  color: var(--text-muted);
+}
+@media (hover: none) { .kbd-hint { display: none; } }
+
+.stat-row .v.lead { color: var(--warm); }
 
 /* ---------- misc ---------- */
 .footer-note {
