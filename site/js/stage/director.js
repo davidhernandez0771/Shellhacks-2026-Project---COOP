@@ -68,8 +68,8 @@ const KEYS = [
   },
   // 4 move: third person, the rig turns
   (t) => ({
-    pos: [RIG[0] - 5.2, 2.7, RIG[2] + 5.4], look: [RIG[0] + 1.6, 1.0, RIG[2] - 2.6], fov: 40,
-    rig: 1, street: 0.8, detect: 0.3, lock: 1, predict: 0.7, pan: rigPan(t), scrim: 0.9,
+    pos: [RIG[0] - 4.6, 2.9, RIG[2] + 6.0], look: [RIG[0] + 2.6, 1.0, RIG[2] - 2.2], fov: 40,
+    rig: 1, street: 0.8, detect: 0.3, lock: 1, predict: 0.45, pan: rigPan(t), scrim: 0.9,
   }),
   // 5 build: exploded hardware
   (t) => ({

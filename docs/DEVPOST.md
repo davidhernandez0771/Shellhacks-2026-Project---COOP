@@ -60,6 +60,8 @@ Working in world angles means the camera's own rotation doesn't look like target
 
 **Deployment.** A systemd unit (`scripts/coop.service`, installed by `scripts/install_service.sh`) runs COOP on boot and restarts it automatically if it crashes. A second unit runs a **Cloudflare Tunnel**, which publishes the dashboard at an HTTPS subdomain through an outbound-only connection, so it works from venue Wi-Fi behind NAT with no port forwarding. **Cloudflare Access** sits in front: only approved email addresses (one-time PIN login) can see the camera or send it commands. The live MJPEG stream passes through the tunnel unbuffered.
 
+**Showcase site.** The public page tells the pipeline as seven scroll-driven chapters in one persistent three.js scene: a street of people and cars made of ~20,000 points, which COOP scans, boxes, predicts and turns to follow, then an exploded view of the hardware. anime.js v4 drives the "COOP" decode intro (`scrambleText`), the scroll timelines (`onScroll`) and the labels that scramble in when a target is acquired. The overlays reuse the real math: detections are projected through the same camera, and the prediction is drawn in world angles like the dashboard's. It has no build step (native ES modules, vendored libraries, self-hosted fonts), a still version for reduced motion, and a 2D-canvas fallback for browsers without WebGL.
+
 **Testing.** A pytest suite covers the pixel-to-angle math, the Kalman predictor, target selection, the `Control` state machine, and the Flask API (via Flask's test client) — plus the Arduino serial protocol against a fake serial port that plays the Uno's side of the handshake, including simulated link drops. None of it needs a Pi, camera, or Arduino attached. GitHub Actions runs the suite on every push and pull request with only the lightweight dependencies installed. It skips the multi-GB PyTorch/Ultralytics install entirely, which also proves the tests never load the model or the Pi camera stack.
 
 ## Challenges we ran into
@@ -69,6 +71,7 @@ Working in world angles means the camera's own rotation doesn't look like target
 - **Tracker IDs break when the camera moves.** ByteTrack matches boxes between frames by pixel overlap, so when the gimbal slews onto a target the box jumps and the same person gets a new ID, silently dropping an operator's lock. When the tracked ID vanishes, COOP now re-identifies it as the detection closest to where the Kalman filter predicts the target in world angles, and carries the lock over. In testing, 11 of 12 lock switches held through the slew; before the fix, both attempts dropped within a second.
 - **Real-time stepping.** Python on Linux can't produce reliably timed step pulses, so we moved step generation to an Arduino and kept the Pi focused on vision.
 - **A flaky USB link shouldn't end the demo.** The Arduino connection can drop mid-run (a bumped cable, a brownout). We moved the serial link to its own supervisor thread that keeps retrying instead of taking down the whole process. The subtle part was reconnecting *safely*: opening the port resets the Uno, which zeroes its step counter wherever the camera stopped, so replaying the last target would have turned the camera past its cable limits. Now the Pi restores the Uno's counter to the last position it reported (a new `Z <pan> <tilt>` command) and freezes its own angle estimate during the outage instead of simulating motion that isn't happening.
+- **A cinematic site that still runs on a judge's laptop.** The showcase animates ~20,000 points, so every person's walk cycle and every car's motion is computed in the vertex shader from a handful of uniforms: one draw call, and the CPU never touches the points. The same scene description drives a CPU fallback that draws still frames on a 2D canvas when WebGL isn't available.
 - ✏️ _Add anything that actually went wrong during the hackathon (wiring, power, calibration, time pressure). Judges like real stories._
 
 ## Accomplishments that we're proud of
@@ -106,11 +109,11 @@ kalman-filter
 flask
 pyserial
 picamera2
-libcamera
+three.js
 accelstepper
 tmc2209
 nema-17
-computer-vision
+anime.js
 html
 css
 javascript

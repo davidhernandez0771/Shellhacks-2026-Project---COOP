@@ -186,6 +186,13 @@ export function createSolids(scene) {
       new GLTFLoader().load(CAMERA_MODEL_URL, (gltf) => {
         const model = gltf.scene;
         model.scale.setScalar(CAMERA_MODEL_SCALE);
+        // restyle to match the scene (it has no lights): ink fill + paper edges
+        const meshes = [];
+        model.traverse((o) => { if (o.isMesh) meshes.push(o); });
+        for (const m of meshes) {
+          m.material = mats.fill;
+          m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, EDGE_ANGLE), mats.edge));
+        }
         rig.setHead(model);
       });
     }).catch(() => { /* keep the procedural head */ });

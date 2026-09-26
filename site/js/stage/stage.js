@@ -63,7 +63,7 @@ export function createStage({ still, webgl, scramble }) {
     else camera.setViewOffset(W, H, 0, 0.17 * H, W, H);
     if (points && points.uniforms) {
       // copy column: the left ~40% on wide screens, the bottom ~45% on phones (NDC)
-      points.uniforms.uCopyZone.value.set(wide ? 0 : 1, wide ? -0.5 : -0.35, wide ? -0.12 : 0.05, 1);
+      points.uniforms.uCopyZone.value.set(wide ? 0 : 1, wide ? -0.32 : -0.35, wide ? -0.04 : 0.05, 1);
     }
     camera.updateProjectionMatrix();
     if (renderer) {

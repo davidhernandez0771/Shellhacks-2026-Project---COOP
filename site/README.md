@@ -1,62 +1,83 @@
 # COOP showcase site
 
-A single static page (`index.html`, `styles.css`, `main.js`, `tokens.css`). There's no build step and it has no dependencies. Equations are native MathML, so no KaTeX/MathJax is needed.
+A cinematic one-page site: a loader, the "COOP" decode intro, and seven chapters (See, Detect, Predict, Move, Build, Gallery, Team) played out in one persistent WebGL scene that scroll drives. Design rationale: `docs/DESIGN_DIRECTIONS.md`.
 
-Preview locally:
+**No build step.** Plain HTML, CSS and native ES modules. three.js and anime.js are vendored in `vendor/` and mapped with an import map in `index.html`, and the fonts are self-hosted in `fonts/`, so the page makes no third-party requests and deploys as-is.
+
+## Preview locally
 ```bash
 python -m http.server 8765 --directory site
 ```
-Then open http://localhost:8765.
+Open http://localhost:8765. Useful switches:
 
-## Before publishing: fill the placeholders
+| URL | What you get |
+|---|---|
+| `/?still` | the reduced-motion version (same as the OS "reduce motion" setting) |
+| `/?nogl` | the no-WebGL fallback (a 2D-canvas render of the same scene) |
+| `/?debug` | exposes `window.__coop` (the stage and anime.js) in the console |
+| `/#build` | deep link to a chapter (skips the intro animation) |
+
+## Edit the copy
+All text is in `index.html`, one `<section class="chapter">` per chapter. Paragraphs with `class="reveal-words"` get the word-by-word reveal automatically; keep them plain text (no links inside). The intro lines (full name, tagline) are in `js/intro.js` (`NAME`, `TAGLINE`).
+
+## Fill the placeholders
 Search for `✏️ PLACEHOLDER` (HTML comments) and `data-placeholder` (elements):
 
 | Placeholder | Where | What to put |
 |---|---|---|
-| `demo-video` | hero | the YouTube embed (the snippet is in the comment next to it) |
-| `photo-build`, `photo-hero`, `photo-dashboard`, `photo-mount` | hardware | `<img>` tags. Put files in `site/assets/`, 3:2, ≤500 KB each |
-| `devpost-url` | hero + links | the Devpost project URL (until then, `main.js` makes these links inert) |
-| `teammate-name` | team | name, initials and a one-line description |
+| `teammate-name`, `teammate-what` | Team chapter | name and a one-line description |
+| `devpost-url` | Team chapter | the Devpost project URL (until then `main.js` makes the link inert) |
+| gallery `<li>` items | Gallery chapter | photos and videos, see below |
 | `coop.example.com` | `<head>` canonical/og | the real hostname |
 
-`tokens.css` is a **copy** of `web/tokens.css`, so that `site/` can be deployed on its own. If the dashboard's tokens change, re-copy the file.
+## Add photos and videos to the gallery
+The 3D carousel is built from the list in `index.html` (`<ul id="gallery-list">`). Without WebGL the same list shows as a grid, so it's also the accessible version. Put files in `site/media/` and replace a placeholder `<li>`:
 
-## Hosting it free on your domain
+```html
+<li data-src="media/build.jpg" data-alt="Inside COOP: Pi 5, Uno and TMC2209">Inside the build</li>
+<li data-src="media/tracking.mp4" data-kind="video" data-alt="COOP following a person">Tracking a person</li>
+```
+- The text inside the `<li>` is the caption; `data-alt` is the description for screen readers.
+- Any number of items works (the ring spaces them evenly). 6–10 looks best.
+- Images: JPG/WebP, 3:2, about 1600×1067, under 400 KB each. They're cover-cropped to 3:2.
+- Videos: MP4 (H.264), muted, 3:2 or 16:9, under 4 MB, a few seconds long. They loop silently and only play while facing the viewer.
+- Media only downloads when the visitor scrolls near the gallery. The no-WebGL grid picks up the same `data-src` files automatically.
 
-> **Hostname clash:** `scripts/setup_tunnel.md` already uses `coop.<domain>` for the live dashboard (behind Cloudflare Access). One hostname can't serve both. Recommended: put the showcase at `coop.<domain>` (the public link judges get) and move the dashboard to `cam.<domain>`, or keep the dashboard on `coop.` and use the apex or `www.` for this page. Decide before creating either DNS record.
+## Swap in the real camera model (.glb)
+The Move and Build chapters use a procedural camera head. To use a model of the actual camera:
+1. Export it as `.glb`: **facing −Z, +Y up, origin on the pan axis, in metres** (the procedural head is about 0.3 m wide). Keep it small (under ~1 MB; Draco compression is *not* enabled).
+2. Put it at `site/models/coop-camera.glb`.
+3. In `js/stage/solids.js`, set `export const CAMERA_MODEL_URL = "models/coop-camera.glb";` (and `CAMERA_MODEL_SCALE` if it needs scaling).
 
-### Option A: Cloudflare Pages (recommended, since the domain's DNS is already on Cloudflare for the tunnel)
-1. Cloudflare dashboard → **Workers & Pages → Create → Pages → Connect to Git**, then pick this repo.
-2. Build settings: framework **None**, build command **empty**, build output directory **`site`**.
-3. Deploy. You get `<project>.pages.dev`, and every push to `main` redeploys.
-4. **Custom domains → Set up a domain** → `coop.<domain>` (or whichever hostname you chose above). Because the zone is on Cloudflare, it creates the CNAME and certificate automatically.
-5. Don't put a Cloudflare Access policy on this hostname. It's the public page.
+That's the only switch. The model is restyled to match the scene (ink fill, paper edges), because the scene has no lights; `vendor/GLTFLoader.js` is only downloaded when the constant is set.
 
-### Option B: GitHub Pages
-GitHub Pages can only publish from the repo root or `/docs`, so deploy `site/` with an Actions workflow:
-1. Repo **Settings → Pages → Source: GitHub Actions**.
-2. Add `.github/workflows/pages.yml`:
-   ```yaml
-   name: Deploy site
-   on:
-     push:
-       branches: [main]
-       paths: ["site/**"]
-     workflow_dispatch:
-   permissions: { contents: read, pages: write, id-token: write }
-   concurrency: { group: pages, cancel-in-progress: true }
-   jobs:
-     deploy:
-       runs-on: ubuntu-latest
-       environment: { name: github-pages, url: "${{ steps.d.outputs.page_url }}" }
-       steps:
-         - uses: actions/checkout@v4
-         - uses: actions/upload-pages-artifact@v3
-           with: { path: site }
-         - id: d
-           uses: actions/deploy-pages@v4
-   ```
-3. **Settings → Pages → Custom domain** → `coop.<domain>`, then tick **Enforce HTTPS** once the certificate is issued.
-4. At your DNS provider, add `CNAME coop → <github-user>.github.io`. If the DNS is on Cloudflare, set that record to **DNS only** (grey cloud) until GitHub has issued its certificate.
+## How it's put together
+| File | Role |
+|---|---|
+| `main.js` | boot: loads fonts → anime.js → three.js + scene behind the gate, then the intro |
+| `js/gate.js` | the dotted progress ring and the Enter prompt |
+| `js/intro.js` | the scrambleText timeline (COOP → full name → tagline) |
+| `js/chapters.js` | anime.js `onScroll` per chapter, word reveals, nav, chapter scrubber, bearing tape, gauge |
+| `js/cursor.js` | the desktop cursor (ring → lock brackets on links, "Drag" in the gallery) |
+| `js/stage/world.js` | the street as data: people, cars, sampled point clouds (no three.js) |
+| `js/stage/director.js` | chapter keyframes: camera, what's visible, the pan angle |
+| `js/stage/points.js` | the point cloud shader (one draw call; motion computed on the GPU) |
+| `js/stage/overlay.js` | detection brackets, leader-line labels, velocity vector, aim point |
+| `js/stage/solids.js` | the rig, the exploded hardware, and the `.glb` switch |
+| `js/stage/carousel.js` | the gallery ring |
+| `js/stage/fallback2d.js` | the no-WebGL renderer |
+| `tokens.css` | every color, font and timing |
 
-Either option costs nothing. Cloudflare Pages is less setup here because the DNS and the tunnel already live in the same Cloudflare account.
+Numbers shown on the site are real where they describe COOP (FOV, frame size, lead time, limits). The detection confidences, walking figures and frame counter are an illustration, not live data.
+
+**Updating the vendored libraries:** `vendor/three.module.min.js` is `three/build/three.module.js` bundled and minified with esbuild (`esbuild three.module.js --bundle --minify --format=esm`); `vendor/GLTFLoader.js` is `three/examples/jsm/loaders/GLTFLoader.js` bundled the same way with `--external:three`; `vendor/anime.esm.min.js` is copied from the `animejs` package's `dist/bundles/`.
+
+## Deploy (Cloudflare Pages)
+The Pages project is **`coop-224`**: framework **None**, build command **empty**, build output directory **`site`**. Every pushed branch gets a preview at `https://<branch-alias>.coop-224.pages.dev`, where the alias is the branch name lowercased with `/` turned into `-` (so `cloud/showcase` → `cloud-showcase.coop-224.pages.dev`). Pushes to `main` update production.
+
+To connect it the first time: Cloudflare dashboard → **Workers & Pages → Create → Pages → Connect to Git** → this repo, with the settings above.
+
+**Hostname:** the showcase is served at `coop.<domain>` (the public link for judges); the live dashboard is at `coop-live.<domain>` behind Cloudflare Access (see `scripts/setup_tunnel.md`). Don't put an Access policy on the showcase hostname.
+
+### Alternative: GitHub Pages
+GitHub Pages can only publish from the repo root or `/docs`, so deploy `site/` with an Actions workflow (`actions/upload-pages-artifact` with `path: site`, then `actions/deploy-pages`), and set **Settings → Pages → Source: GitHub Actions**.
