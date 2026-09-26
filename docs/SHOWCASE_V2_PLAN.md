@@ -18,7 +18,7 @@ David is present in VS Code for this work. **Show him each step in the browser a
 
 ## OriginKit components (researched 2026-09-26)
 OriginKit (originkit.dev) has 547 animated components. **David's free account can copy 10 a day**; Pro ($79/yr) unlocks the rest. The code is React/Framer, and our site has no build step, so the workflow is:
-1. David opens the component, sets its colors to our tokens (`#060606` / off-white / orange), clicks **Get this Component** and saves the code to `site/_originkit/<name>.txt`. That folder is git-ignored reference material and is never published.
+1. David opens the component, sets its colors to our tokens (`#060606` / off-white / orange), clicks **Get this Component** and saves the code to **`C:\dev\COOP-site\site\_originkit\<name>.txt`** (one shared folder: lanes B and C read it from there by that absolute path, since their own folders don't have it). That folder is git-ignored reference material and is never published.
 2. The lane ports it to vanilla JS/CSS in its own files, adapting it to COOP, and credits it in `site/CREDITS.md`.
 
 Never scrape or copy components David hasn't copied through his own account.
