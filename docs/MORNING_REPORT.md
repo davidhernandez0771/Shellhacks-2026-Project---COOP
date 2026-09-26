@@ -35,6 +35,14 @@ Also: `README.md` (settings, safety, bench tools), `docs/TERMINALS.md` (the new 
 - **`frame_epoch`**: `zero()` and a `pan_invert` flip change what every angle means; aims computed from the old frame are dropped, and the loop resets the Kalman filter.
 - **Entering manual now holds the current pan** instead of jumping back to an old manual setpoint (e.g. auto has moved the camera to −30°, the last manual aim was +40°, and switching to manual used to swing it 70°).
 
+## Integration check with `cloud/showcase` (local only, nothing pushed)
+
+I merged both branches in a throwaway worktree. The only conflicts are docs, as expected: each branch has its own `docs/MORNING_REPORT.md`, and both edited `docs/DEVPOST.md`, so keep both sets of additions. The code merges cleanly and all 310 tests pass on the merge. I then ran `tools.rehearsal` with the **new dashboard** and drove it in headless Chromium at 1440 px:
+- It used the real backend (not its mock). The diagnostics strip showed live `fps`, `capture_fps`, `infer_ms`, `latency_ms`, `serial: connected` and `uptime`, with CPU/Power as "–" (no `/sys` here, as designed).
+- Clicking **E-stop** gave `estop: true`, `mode: stop`, `drivers_enabled: false`, and the banner's **Arm** released it. The tuning panel read `/api/settings` (it converts steps/s to 450°/s using `steps_per_deg`).
+- No console errors, no failed requests.
+- **One observation for the dashboard lane:** with a moving target, the drawn box trails the video by about 50 px. Boxes come from `/api/status` (polled ~300 ms) while `/video` is live, and at 12°/s that lag is 3–4°. Not a backend bug; a faster status poll, or drawing only boxes whose `frame_seq` is close to the displayed frame, would tighten it.
+
 ## How each item was reviewed, and what the passes caught
 
 Every item went through TDD (test first, watched fail) plus three passes: (1) correctness against the plan and `docs/API.md`, with an eye on motor safety; (2) testing: the full suite, the e2e runs, coverage, mutation checks; (3) rethink: is there a simpler or safer design?
