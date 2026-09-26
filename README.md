@@ -98,7 +98,7 @@ Run from the repo root. Each also works as `python tools/<name>.py`.
 | Tool | What it's for |
 |---|---|
 | `python -m tools.fake_uno --port 5555` | Emulates the Uno firmware on a TCP port. Point anything at it with `--motor-port socket://localhost:5555` (or `port = "socket://localhost:5555"` in `coop.toml`). |
-| `python -m tools.rehearsal` | The whole app with no hardware: a synthetic walker seen by a camera that turns with the emulated motor. Open `http://localhost:8000`. `--invert` shows what a wrong motor direction looks like. |
+| `python -m tools.rehearsal` | The whole app with no hardware: a synthetic walker seen by a camera that turns with the emulated motor. Open `http://localhost:8000`. `--invert` shows what a wrong motor direction looks like (the camera turns away from the walker). |
 | `python -m tools.jog [--port P]` | Jog the pan motor from the keyboard (arrows, `[` `]` step, `0` home, `z` zero, `e` e-stop, `q` quit), or `--goto 90` / `--by -10` / `--zero`. Uses `coop.toml`. |
 | `python -m tools.camera_check [--source picamera]` | Delivered resolution and FPS, plus a saved still for the colour and orientation check. |
 | `python -m tools.bench_fps [--export]` | YOLO speed, PyTorch vs NCNN at imgsz 256/320/416, timing the same `track()` call COOP makes; `--export` builds the NCNN models. Prints a Markdown table. |

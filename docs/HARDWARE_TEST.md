@@ -40,7 +40,7 @@ This proves the software end to end before anything can spin.
   - A `person` box appears and the view follows it: the walker stays near the centre as it sweeps ±25°.
   - **E-STOP** stops it and `gimbal.drivers_enabled` goes `false` about ½ s later; Auto is refused until you **arm** (`curl -X POST localhost:8000/api/arm`).
 - [ ] **What a wrong motor direction looks like:** `python -m tools.rehearsal --invert`. `[never run]`
-  **Expect:** the camera runs *away* from the walker to a limit. Hit E-STOP. That's the signature to recognise in section 7.
+  **Expect:** the camera turns *away* from the walker, faster and faster, until it loses it (about 60° out). That's the signature to recognise in section 7c; on the real rig, hit E-STOP.
 - [ ] **Jog against the emulator:** terminal 1 `python -m tools.fake_uno --port 5555`; terminal 2 `python -m tools.jog --port socket://localhost:5555`. `[never run]`
   **Expect:** →/← move the target, the emulator's status line shows `pan counter` and `rotor` following; `e` shows `drivers OFF`.
 
@@ -140,7 +140,7 @@ For this test only, in `coop.toml`: `pan_limits_deg = [-45.0, 45.0]` and `max_st
   **Expect:**
   - The camera turns *toward* you and keeps you near the centre.
   - The dashboard gets a `target_acquired` event.
-  If it swings *away* from you to a limit (what `tools.rehearsal --invert` showed): **E-STOP**, then flip `pan_invert` (live: `curl -X POST localhost:8000/api/settings -H 'Content-Type: application/json' -d '{"pan_invert": true}'` while in Stop mode after arming), and re-check section 5's orientation.
+  If it swings *away* from you (what `tools.rehearsal --invert` showed): **E-STOP**, then flip `pan_invert` (live: `curl -X POST localhost:8000/api/settings -H 'Content-Type: application/json' -d '{"pan_invert": true}'` while in Stop mode after arming), and re-check section 5's orientation.
 - [ ] **No oscillation when you stand still.** `[never run]`
   **Expect:** the camera settles and doesn't hunt. If it does, raise `deadband_deg` live: `-d '{"deadband_deg": 1.5}'`.
 - [ ] **Prediction leads.** Walk at a steady pace. `[never run]`

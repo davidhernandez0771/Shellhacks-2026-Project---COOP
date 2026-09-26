@@ -9,8 +9,8 @@ protocol. Only the pixels are synthetic: a person (an orange block) walks back a
 across +-25 degrees, and the "camera" renders it where it would appear given the physical
 angle of the emulated shaft. So if tracking works here, it closes the loop: the dashboard
 should show the camera following the walker, and E-STOP/ZERO/settings all act on the
-emulated motor. Try `--invert` to see what a wrong motor direction looks like (it runs
-away to a limit; press E-STOP).
+emulated motor. Try `--invert` to see what a wrong motor direction looks like: the camera
+turns *away* from the walker until it loses it (on the real rig, press E-STOP).
 
 Options: --port (dashboard), --uno-port (fake Uno TCP port, 0 = any), --walk-deg,
 --period-s, --invert.
