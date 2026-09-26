@@ -728,6 +728,8 @@ html:not(.js) .hud, html:not(.js) .stage-hud { display: none; }
   .gauge-read > div:last-child { display: none; }
   .gauge-read .v { font-size: 11px; }
   .team { grid-template-columns: minmax(0, 1fr); }
+  /* the closing rig portrait would sit behind the team text on a phone */
+  html[data-chapter="7"] .stage-gl, html[data-chapter="7"] .stage-hud { opacity: 0.3; transition: opacity var(--dur-slow) var(--ease-out); }
   .footer { margin-top: 40px; }
 }
 @media (max-width: 380px) {

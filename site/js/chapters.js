@@ -97,6 +97,7 @@ export function initChapters(anime, stage, { still }) {
   const needle = document.getElementById("gauge-needle");
   const sweep = document.getElementById("gauge-sweep");
   const aimArc = document.getElementById("gauge-aim");
+  const scrimEl = document.querySelector(".stage-scrim");
   buildTape(strip);
   buildGauge();
 
@@ -176,7 +177,7 @@ export function initChapters(anime, stage, { still }) {
       strip.style.transform = `translate3d(${x.toFixed(1)}px,0,0)`;
       lastTapeX = x;
     }
-    document.querySelector(".stage-scrim").style.setProperty("--scrim-o", s.scrim.toFixed(3));
+    scrimEl.style.setProperty("--scrim-o", s.scrim.toFixed(3));
     if (s.rig > 0.05) {
       const key = `${s.pan.toFixed(1)}|${s.aim.toFixed(1)}`;
       if (key !== lastGauge) {

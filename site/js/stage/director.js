@@ -78,8 +78,14 @@ const KEYS = [
   }),
   // 6 gallery: carousel
   (t) => ({ pos: [0, 2.2, 9.4], look: [0, 1.3, 0], fov: 40, carousel: 1, street: 0, form: 0.85, scrim: 0.7 }),
-  // 7 team: back to a quiet field
-  (t) => ({ pos: [0, 1.7, 12], look: [0, 1.4, 0], form: 0.18, street: 0.7, pan: 0 }),
+  // 7 team: a closing portrait of the rig, slowly scanning, in a loose field
+  (t) => {
+    const a = 0.9 + Math.sin(t * 0.07) * 0.35;
+    return {
+      pos: [RIG[0] + Math.sin(a) * 4.9, 1.9, RIG[2] + Math.cos(a) * 4.9], look: [RIG[0] - 0.2, 0.6, RIG[2]], fov: 34,
+      form: 0.12, street: 0, rig: 1, pan: 38 * Math.sin(t * 0.22), scrim: 1,
+    };
+  },
 ];
 
 const NUM_KEYS = ["fov", "form", "street", "detect", "lock", "predict", "rig", "housing", "explode", "carousel", "scrim", "pan", "eye", "scan"];
