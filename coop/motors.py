@@ -5,7 +5,9 @@ positions over USB serial. See the .ino file for the protocol. Positions on the 
 microsteps; everything in Python is degrees.
 
 Without an Arduino (or with motors disabled) the gimbal runs in mock mode and simulates
-the motion, so the rest of the pipeline and the dashboard behave normally.
+the motion, so the rest of the pipeline and the dashboard behave normally. If the link
+drops after connecting (cable pulled, Uno reset, USB brownout), a background thread keeps
+retrying the connection and the gimbal falls back to mock mode in the meantime.
 """
 import logging
 import threading
@@ -15,6 +17,7 @@ log = logging.getLogger(__name__)
 
 ARDUINO_USB_VIDS = {0x2341, 0x2A03, 0x1A86}  # Arduino, Arduino.org, CH340 clones
 HEARTBEAT_S = 0.5  # firmware stops the motors after 2 s of silence
+RECONNECT_S = 3.0  # delay between reconnect attempts
 
 
 def find_arduino_port():
@@ -32,29 +35,60 @@ def _clamp(value, limits):
 
 
 class Gimbal:
-    def __init__(self, cfg):
+    def __init__(self, cfg, on_event=None):
         self.cfg = cfg
+        self._on_event = on_event or (lambda *a, **k: None)
         base = cfg.steps_per_rev * cfg.microsteps / 360.0
         self._steps_per_deg = (base * cfg.pan_gear_ratio, base * cfg.tilt_gear_ratio)
         self._pos = [0, 0]  # microsteps, as last reported (or simulated)
         self._target = [0, 0]
+        self._state_lock = threading.Lock()  # guards _serial and _pos
         self._write_lock = threading.Lock()
         self._running = True
         self._serial = None
+        self._last_sim = time.monotonic()
+        self._thread = None
 
         if cfg.enabled:
-            try:
-                self._serial = self._connect()
-            except Exception as e:
-                log.warning("Motor controller unavailable (%s); motors in mock mode", e)
-
-        self.mock = self._serial is None
-        if self.mock:
-            log.info("Motors running in mock mode")
-            self._last_sim = time.monotonic()
-        else:
-            self._thread = threading.Thread(target=self._reader, name="motor-serial", daemon=True)
+            self._thread = threading.Thread(target=self._supervisor, name="motor-serial", daemon=True)
             self._thread.start()
+        else:
+            log.info("Motors disabled by config; running in mock mode")
+
+    @property
+    def mock(self):
+        with self._state_lock:
+            return self._serial is None
+
+    def _supervisor(self):
+        """(Re)connect to the Uno for as long as the gimbal is alive, falling back to
+        mock mode between attempts so the rest of the pipeline never blocks on hardware."""
+        while self._running:
+            try:
+                ser = self._connect()
+            except Exception as e:
+                log.warning("Motor controller unavailable (%s); retrying in %.0fs", e, RECONNECT_S)
+                time.sleep(RECONNECT_S)
+                continue
+
+            with self._state_lock:
+                self._serial = ser
+            log.info("Motor controller connected on %s", ser.port)
+            self._on_event("motor_connected", port=ser.port)
+
+            self._reader(ser)  # blocks until the link drops or close() is called
+
+            with self._state_lock:
+                self._serial = None
+            try:
+                ser.close()
+            except Exception:
+                pass
+
+            if self._running:
+                log.warning("Motor link lost; retrying in %.0fs", RECONNECT_S)
+                self._on_event("motor_disconnected")
+                time.sleep(RECONNECT_S)
 
     def _connect(self):
         import serial
@@ -73,22 +107,27 @@ class Gimbal:
             raise RuntimeError(f"no READY from {port}; is the firmware flashed?")
 
         ser.write(f"C {int(self.cfg.max_steps_per_sec)} {int(self.cfg.accel_steps_per_sec2)}\nZ\n".encode())
-        log.info("Motor controller connected on %s", port)
         return ser
 
-    def _send(self, line):
+    def _send(self, ser, line):
         with self._write_lock:
-            self._serial.write((line + "\n").encode())
+            ser.write((line + "\n").encode())
 
-    def _reader(self):
+    def _reader(self, ser):
         last_heartbeat = time.monotonic()
+        try:
+            self._send(ser, f"T {self._target[0]} {self._target[1]}")  # resume where we left off
+        except Exception as e:
+            log.error("Motor serial link failed: %s", e)
+            return
         while self._running:
             try:
-                parts = self._serial.readline().decode(errors="ignore").split()
+                parts = ser.readline().decode(errors="ignore").split()
                 if len(parts) == 3 and parts[0] == "P":
-                    self._pos = [int(parts[1]), int(parts[2])]
+                    with self._state_lock:
+                        self._pos = [int(parts[1]), int(parts[2])]
                 if time.monotonic() - last_heartbeat > HEARTBEAT_S:
-                    self._send("H")
+                    self._send(ser, "H")
                     last_heartbeat = time.monotonic()
             except ValueError:
                 continue  # garbled line
@@ -106,9 +145,11 @@ class Gimbal:
 
     @property
     def angles(self):
-        if self.mock:
-            self._simulate()
-        return self._pos[0] / self._steps_per_deg[0], self._pos[1] / self._steps_per_deg[1]
+        with self._state_lock:
+            if self._serial is None:
+                self._simulate()
+            pos = list(self._pos)
+        return pos[0] / self._steps_per_deg[0], pos[1] / self._steps_per_deg[1]
 
     def aim(self, pan_deg, tilt_deg, deadband_deg=0.0):
         pan = _clamp(pan_deg, self.cfg.pan_limits_deg)
@@ -119,14 +160,30 @@ class Gimbal:
         if moved_deg <= deadband_deg:
             return
         self._target = target
-        if not self.mock:
-            self._send(f"T {target[0]} {target[1]}")
+        self._send_if_connected(f"T {target[0]} {target[1]}")
+
+    def stop(self):
+        """Decelerate to a stop and hold the current position (used for mode == 'stop')."""
+        with self._state_lock:
+            self._target = list(self._pos)
+        self._send_if_connected("S")
+
+    def _send_if_connected(self, line):
+        with self._state_lock:
+            ser = self._serial
+        if ser is None:
+            return
+        try:
+            self._send(ser, line)
+        except Exception:
+            pass  # the supervisor thread will notice the link is down and reconnect
 
     def close(self):
         self._running = False
-        if self._serial is not None:
-            try:
-                self._send("S")
-            finally:
-                self._thread.join(timeout=1)
-                self._serial.close()
+        self._send_if_connected("S")
+        if self._thread is not None:
+            self._thread.join(timeout=1)
+        with self._state_lock:
+            ser, self._serial = self._serial, None
+        if ser is not None:
+            ser.close()
