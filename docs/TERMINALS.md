@@ -65,3 +65,15 @@ What the loop needs to do with it, per `docs/API.md`:
 `manual_aim` and calls `log_event` — it never needs to call the mutators itself, except
 `set_target(None)` to release a lost lock as noted above. All raise `ControlError`
 (`from .control import ControlError`) on bad input; `stream.py` already catches that.
+
+**Lane 3 → lane 2: handle an expired Cloudflare Access session.** Through the tunnel
+(`scripts/setup_tunnel.md`), once the Access session expires (24 h), every `fetch("/api/...")`
+gets redirected to the cross-origin Access login and rejects with a `TypeError` (no HTTP
+status). Today that looks like a silently stale dashboard. Suggest: after a few consecutive
+`TypeError`s from the real source, show a "Session expired — reload to sign in" state
+(`--danger`) with a reload button, rather than falling back to mock. Relative URLs are
+already right; keep them (no `http://localhost` anywhere).
+
+**Lane 3 → lane 4: link the tunnel guide from `README.md`.** Under "On the Pi", add:
+`sudo bash scripts/install_service.sh` (run on boot) and "remote access: see
+[scripts/setup_tunnel.md](scripts/setup_tunnel.md)".

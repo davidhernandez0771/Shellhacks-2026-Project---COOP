@@ -31,6 +31,8 @@ COOP is a self-aiming camera. A Raspberry Pi 5 watches the scene, detects **peop
 
 Everything streams live to a web dashboard: the annotated video feed with clickable bounding boxes (click a detection to lock onto it), the current target's confidence and velocity, a pan dial showing the gimbal's live and predicted angle against its physical limits, and a scrolling event log. An operator can also take over: flip the Auto/Manual/Stop switch, drive the gimbal with a D-pad in manual mode, or lock onto a specific track — every mode change and target lock/loss is written to that event log. It's a glassy, dark control-room look that works down to phone width, since judges open it on their own devices.
 
+The dashboard is reachable from anywhere over HTTPS at the team's own subdomain, behind an email login, so only approved people can watch the feed or take control.
+
 ## How we built it
 **Vision (Raspberry Pi 5).** Frames come from a 5 MP OV5647 camera through Picamera2. A YOLO11n model (Ultralytics) detects people, cars, motorcycles, buses and trucks, and ByteTrack gives each object a persistent ID so COOP doesn't jump between targets.
 
@@ -54,7 +56,7 @@ Working in world angles means the camera's own rotation doesn't look like target
 
 **Hardware.** One 12 V supply powers everything: the motors directly, and the Pi through a 5.1 V buck converter. The mount and enclosure were designed and built by our hardware lead.
 
-**Deployment.** A systemd unit (`scripts/coop.service`, installed by `scripts/install_service.sh`) runs COOP on boot and restarts it automatically if it crashes.
+**Deployment.** A systemd unit (`scripts/coop.service`, installed by `scripts/install_service.sh`) runs COOP on boot and restarts it automatically if it crashes. A second unit runs a **Cloudflare Tunnel**, which publishes the dashboard at an HTTPS subdomain through an outbound-only connection, so it works from venue Wi-Fi behind NAT with no port forwarding. **Cloudflare Access** sits in front: only approved email addresses (one-time PIN login) can see the camera or send it commands. The live MJPEG stream passes through the tunnel unbuffered.
 
 **Testing.** A pytest suite covers the pixel-to-angle math, the Kalman predictor, target selection, the `Control` state machine, and the Flask API (via Flask's test client) — plus the Arduino serial protocol against a fake serial port that plays the Uno's side of the handshake, including simulated link drops. None of it needs a Pi, camera, or Arduino attached.
 
@@ -105,12 +107,12 @@ libcamera
 accelstepper
 tmc2209
 nema-17
-stepper-motor
 computer-vision
 html
 css
 javascript
 systemd
+cloudflare
 pytest
 ```
 
