@@ -4,6 +4,10 @@ A brief for a Claude Code cloud session working unattended overnight. David is a
 
 Read first: `CLAUDE.md`, `docs/API.md`, `docs/TERMINALS.md`, `docs/HARDWARE_TEST.md`, `README.md`.
 
+## Skills (in `.claude/skills/`, see its README)
+- **Part A:** `writing-plans`, `test-driven-development`, `systematic-debugging`, `verification-before-completion`.
+- **Parts B and C:** `frontend-design` for all design work, `brainstorming` in **unattended mode**: write 3 distinct design directions to `docs/DESIGN_DIRECTIONS.md` with your reasoning, pick the strongest yourself, don't wait for answers. Also `verification-before-completion`.
+
 ## Ground rules
 - Work on **two branches off `dev`**: `cloud/hardware-ready` (Part A) and `cloud/showcase` (Parts B and C). Push them to GitHub. **Never push to `dev` or `main`**; David reviews and merges in the morning.
 - Commit small and often, with descriptive messages, so the morning review can follow what changed.
