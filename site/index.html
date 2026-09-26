@@ -3,347 +3,299 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>COOP · AI tracking camera</title>
-  <meta name="description" content="COOP is an AI tracking camera on a Raspberry Pi 5 that spots people and cars, predicts where they're heading, and turns on stepper motors to keep them in frame.">
-  <meta name="theme-color" content="#0B0807">
+  <title>COOP · Computer-vision Object Observation &amp; Prediction</title>
+  <meta name="description" content="COOP is a Raspberry Pi 5 tracking camera that detects people and cars, predicts where they're heading, and turns on a stepper motor to keep them in frame.">
+  <meta name="theme-color" content="#060606">
   <!-- ✏️ PLACEHOLDER domain: replace coop.example.com with the real hostname -->
   <link rel="canonical" href="https://coop.example.com/">
-  <meta property="og:title" content="COOP · AI tracking camera">
-  <meta property="og:description" content="A Raspberry Pi 5 camera that detects people and cars, predicts their motion, and turns on stepper motors to follow them.">
+  <meta property="og:title" content="COOP · Computer-vision Object Observation & Prediction">
+  <meta property="og:description" content="COOP keeps an eye on the coop. A Pi 5 camera that detects, predicts and turns to follow.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://coop.example.com/">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B0807'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%2335F0D0' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='2' fill='%2335F0D0'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23060606'/%3E%3Cpath d='M6 12V6h6M26 12V6h-6M6 20v6h6M26 20v6h-6' fill='none' stroke='%23EEEDEA' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23FF5A1F'/%3E%3C/svg%3E">
+  <link rel="preload" href="fonts/archivo-var.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/martian-mono-var.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="styles.css">
-  <script>document.documentElement.classList.add("js");</script>
-  <script src="main.js" defer></script>
+  <script>
+    // Runs before first paint: pick the experience tier so CSS never flashes the wrong one.
+    (function () {
+      var d = document.documentElement;
+      d.classList.add("js");
+      var rm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (rm || /[?&]still\b/.test(location.search)) d.classList.add("still");
+      var gl = false;
+      try {
+        var c = document.createElement("canvas");
+        gl = !!(window.WebGLRenderingContext && (c.getContext("webgl2") || c.getContext("webgl")));
+      } catch (e) { gl = false; }
+      if (!gl || /[?&]nogl\b/.test(location.search)) d.classList.add("no-webgl");
+    })();
+  </script>
+  <script type="importmap">
+    { "imports": {
+        "three": "./vendor/three.module.min.js",
+        "animejs": "./vendor/anime.esm.min.js"
+    } }
+  </script>
+  <script type="module" src="main.js"></script>
 </head>
 <body>
-  <a class="skip" href="#main">Skip to content</a>
+  <a class="skip" href="#see">Skip to content</a>
 
-  <header class="topbar">
-    <a class="wordmark" href="#top" aria-label="COOP, back to top">COOP</a>
-    <nav class="nav" aria-label="Sections">
-      <a href="#how">How it works</a>
-      <a href="#math">The math</a>
-      <a href="#hardware">Hardware</a>
-      <a href="#team">Team</a>
+  <!-- ───────── Loader + enter gate ───────── -->
+  <div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+    <h2 class="sr-only" id="gate-title">Loading COOP</h2>
+    <div class="gate-ring" aria-hidden="true">
+      <svg class="ring" viewBox="0 0 200 200" id="gate-ring"></svg>
+      <span class="gate-pct" id="gate-pct">000</span>
+    </div>
+    <p class="gate-status mono" id="gate-status" aria-live="polite">Acquiring</p>
+    <button type="button" class="gate-enter" id="gate-enter" hidden>
+      <span class="gate-enter-label">Enter</span>
+      <span class="chevrons" aria-hidden="true"><i>&gt;</i><i>&gt;</i><i>&gt;</i></span>
+    </button>
+  </div>
+
+  <!-- ───────── Persistent stage (WebGL, or the 2D fallback) ───────── -->
+  <div class="stage" aria-hidden="true">
+    <canvas class="stage-gl" id="stage-gl"></canvas>
+    <canvas class="stage-hud" id="stage-hud"></canvas>
+    <div class="stage-labels" id="stage-labels"></div>
+    <div class="stage-scrim"></div>
+  </div>
+
+  <!-- ───────── Floating pill nav ───────── -->
+  <header class="nav" id="nav">
+    <a class="nav-mark" href="#top" aria-label="COOP, back to the top">COOP</a>
+    <nav aria-label="Chapters">
+      <ol class="nav-links" id="nav-links">
+        <li><a href="#see" data-ch="1">See</a></li>
+        <li><a href="#detect" data-ch="2">Detect</a></li>
+        <li><a href="#predict" data-ch="3">Predict</a></li>
+        <li><a href="#move" data-ch="4">Move</a></li>
+        <li><a href="#build" data-ch="5">Build</a></li>
+        <li><a href="#gallery" data-ch="6">Gallery</a></li>
+        <li><a href="#team" data-ch="7">Team</a></li>
+      </ol>
     </nav>
-    <a class="pill pill-accent nav-cta" href="https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP">GitHub</a>
+    <a class="nav-gh" href="https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP">GitHub</a>
+    <button type="button" class="nav-menu" id="nav-menu" aria-expanded="false" aria-controls="nav-links">
+      <span class="nav-menu-ch mono" id="nav-menu-ch">00</span>
+      <span>Menu</span>
+    </button>
   </header>
 
+  <!-- ───────── Bottom HUD: chapter scrubber + bearing tape ───────── -->
+  <div class="hud" aria-hidden="true">
+    <div class="hud-chapter mono"><span id="hud-ch">00</span><span class="hud-sep">/</span>07 <span class="hud-name" id="hud-name">Intro</span></div>
+    <div class="tape" id="tape"><div class="tape-strip" id="tape-strip"></div><span class="tape-index"></span></div>
+    <div class="hud-pan mono"><span class="hud-pan-k">Pan</span> <span id="hud-pan">+000.0°</span></div>
+  </div>
+
+  <div class="cursor" id="cursor" aria-hidden="true"><span class="cursor-dot"></span><span class="cursor-ring"></span><span class="cursor-label" id="cursor-label"></span></div>
+
   <main id="main">
-    <!-- ───────────── Hero ───────────── -->
-    <section class="hero" id="top">
-      <div class="hero-copy reveal">
-        <span class="pill pill-live"><span class="dot"></span>ShellHacks 2026</span>
-        <h1>A camera that <em>looks ahead.</em></h1>
-        <p class="lede">COOP is an AI tracking camera on a Raspberry Pi 5 that spots people and cars, predicts where they're heading, and turns on stepper motors to keep them in frame, streamed live to your browser.</p>
-        <div class="cta-row">
-          <a class="btn btn-primary" href="https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP">View the code</a>
-          <!-- ✏️ PLACEHOLDER link: Devpost project URL -->
-          <a class="btn" href="#" data-placeholder="devpost-url">Devpost page</a>
+    <!-- ───────── Intro ───────── -->
+    <section class="chapter intro" id="top" data-ch="0" aria-labelledby="intro-title">
+      <div class="pin">
+        <div class="intro-lockup">
+          <p class="intro-expansion mono" id="intro-expansion" aria-hidden="true"></p>
+          <h1 class="intro-word" id="intro-title" aria-label="COOP">
+            <span class="brackets" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <span class="intro-letters" id="intro-letters" aria-hidden="true"><span>C</span><span>O</span><span>O</span><span>P</span></span>
+          </h1>
+          <p class="intro-readout" id="intro-readout" aria-hidden="true"></p>
+          <p class="sr-only">Computer-vision Object Observation &amp; Prediction. COOP keeps an eye on the coop.</p>
+          <p class="intro-lede" id="intro-lede">A Raspberry Pi&nbsp;5 camera that spots people and cars, predicts where they&rsquo;re heading, and turns on a stepper motor to keep them in frame.</p>
+        </div>
+        <p class="scroll-cue mono" id="scroll-cue"><span>Scroll to pan</span><i aria-hidden="true"></i></p>
+      </div>
+    </section>
+
+    <!-- ───────── 01 See ───────── -->
+    <section class="chapter" id="see" data-ch="1" aria-labelledby="see-title">
+      <div class="pin">
+        <div class="copy">
+          <p class="ch-num mono" aria-hidden="true">01</p>
+          <h2 class="ch-title" id="see-title">See</h2>
+          <p class="ch-lead reveal-words">It starts with a frame: brightness values, and nothing that knows what they are.</p>
+          <p class="ch-body reveal-words">A 5&nbsp;MP OV5647 camera on the Raspberry Pi&nbsp;5 watches the street through a 3.6&nbsp;mm lens. COOP reads it 640&nbsp;&times;&nbsp;480 pixels at a time, and every frame goes through the same loop.</p>
+          <dl class="spec mono">
+            <div><dt>Sensor</dt><dd>OV5647, 5&nbsp;MP</dd></div>
+            <div><dt>Field of view</dt><dd>63° &times; 49°</dd></div>
+            <div><dt>Frame</dt><dd>640 &times; 480</dd></div>
+          </dl>
         </div>
       </div>
+    </section>
 
-      <figure class="card media-frame reveal" aria-label="Demo video">
-        <!-- ✏️ PLACEHOLDER video: replace this whole .placeholder div with the embed, e.g.
-             <iframe src="https://www.youtube-nocookie.com/embed/VIDEO_ID" title="COOP demo"
-                     allow="encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe> -->
-        <div class="placeholder placeholder-video" data-placeholder="demo-video">
-          <svg class="reticle" viewBox="0 0 200 150" aria-hidden="true">
-            <rect class="reticle-box" x="62" y="30" width="56" height="92" rx="6"/>
-            <path class="reticle-cross" d="M100 66v-10M100 86v10M80 76h-10M120 76h10"/>
-            <circle class="reticle-dot" cx="100" cy="76" r="2.5"/>
-          </svg>
-          <span class="placeholder-tag">Placeholder · demo video (16:9)</span>
+    <!-- ───────── 02 Detect ───────── -->
+    <section class="chapter" id="detect" data-ch="2" aria-labelledby="detect-title">
+      <div class="pin">
+        <div class="copy">
+          <p class="ch-num mono" aria-hidden="true">02</p>
+          <h2 class="ch-title" id="detect-title">Detect</h2>
+          <p class="ch-lead reveal-words">Boxes snap onto what matters, and each one keeps its name.</p>
+          <p class="ch-body reveal-words">YOLO11n runs on the Pi&nbsp;5&rsquo;s CPU at a 320&nbsp;px input, with no accelerator. It finds people and vehicles, and ByteTrack gives each one an ID that survives from frame to frame. COOP stays on its target while it&rsquo;s visible, and otherwise picks people first, then the biggest in view.</p>
+          <dl class="spec mono">
+            <div><dt>Model</dt><dd>YOLO11n, 320&nbsp;px</dd></div>
+            <div><dt>Tracker</dt><dd>ByteTrack</dd></div>
+            <div><dt>Classes</dt><dd>people, cars, buses, trucks, motorcycles</dd></div>
+          </dl>
         </div>
-      </figure>
-
-      <dl class="stats reveal">
-        <div><dt>Accelerators</dt><dd>0</dd><dd class="sub">all inference on the Pi 5 CPU</dd></div>
-        <div><dt>Field of view</dt><dd>63°&thinsp;×&thinsp;49°</dd><dd class="sub">OV5647, 3.6&nbsp;mm lens</dd></div>
-        <div><dt>Aim lead</dt><dd>150&nbsp;ms</dd><dd class="sub">covers pipeline latency</dd></div>
-        <div><dt>Watchdog</dt><dd>2&nbsp;s</dd><dd class="sub">motors stop if the Pi goes quiet</dd></div>
-      </dl>
-    </section>
-
-    <!-- ───────────── How it works ───────────── -->
-    <section class="section" id="how" aria-labelledby="how-title">
-      <header class="section-head reveal">
-        <p class="eyebrow">01 · Pipeline</p>
-        <h2 id="how-title">How it works</h2>
-        <p class="sub">Every frame runs the same loop. Vision stays on the Pi; precise step timing lives on a microcontroller.</p>
-      </header>
-
-      <ol class="pipeline reveal" aria-label="Processing pipeline">
-        <li class="node">
-          <span class="node-idx">1</span>
-          <h3>Camera</h3>
-          <p>OV5647 through Picamera2, 640×480 BGR frames.</p>
-          <span class="node-tag">Pi 5</span>
-        </li>
-        <li class="node">
-          <span class="node-idx">2</span>
-          <h3>YOLO</h3>
-          <p>YOLO11n at 320&nbsp;px finds people and vehicles; ByteTrack keeps a stable ID on each.</p>
-          <span class="node-tag">Pi 5 · CPU</span>
-        </li>
-        <li class="node">
-          <span class="node-idx">3</span>
-          <h3>Kalman</h3>
-          <p>Pixels become world angles; a constant-velocity filter estimates speed and aims 150&nbsp;ms ahead.</p>
-          <span class="node-tag">Pi 5</span>
-        </li>
-        <li class="node">
-          <span class="node-idx">4</span>
-          <h3>Arduino</h3>
-          <p>Target positions over USB serial (<code>T pan tilt</code>); AccelStepper ramps each move.</p>
-          <span class="node-tag">Uno · 115200 baud</span>
-        </li>
-        <li class="node">
-          <span class="node-idx">5</span>
-          <h3>Steppers</h3>
-          <p>NEMA 17 motors on TMC2209 drivers turn the camera onto the target.</p>
-          <span class="node-tag">12 V</span>
-        </li>
-      </ol>
-
-      <div class="grid-3">
-        <article class="card reveal">
-          <h3>Pick a target</h3>
-          <p>Stay on the current track ID while it's visible. Otherwise choose by class priority (people first), then by size. An operator can override from the dashboard by clicking any box.</p>
-        </article>
-        <article class="card reveal">
-          <h3>Think in angles</h3>
-          <p>When the camera turns, the whole scene slides across the frame. Tracking the <em>world</em> angle (gimbal angle + in-frame offset) means the camera's own motion never looks like target motion.</p>
-        </article>
-        <article class="card reveal">
-          <h3>Watch it live</h3>
-          <p>A Flask server streams the annotated MJPEG feed and a JSON status API to a dashboard any phone can open, with Auto / Manual / Stop control and an event log.</p>
-        </article>
       </div>
     </section>
 
-    <!-- ───────────── The math ───────────── -->
-    <section class="section" id="math" aria-labelledby="math-title">
-      <header class="section-head reveal">
-        <p class="eyebrow">02 · The math</p>
-        <h2 id="math-title">From a pixel to a prediction</h2>
-        <p class="sub">Two small pieces of math do most of the work.</p>
-      </header>
-
-      <div class="grid-2 math-grid">
-        <article class="card math-card reveal">
-          <h3>Pixel → world angle</h3>
-          <p>A pinhole model turns the target's pixel column <var>x</var> in a frame of width <var>w</var> into an angle off the optical axis, then adds the gimbal's own angle. Tilt is the same with <var>y</var>, <var>h</var> and the vertical FOV.</p>
-          <div class="eq" role="img" aria-label="theta target equals theta gimbal plus arctangent of the quantity x minus w over 2, over w over 2, times tangent of half the horizontal field of view">
-            <math display="block">
-              <mrow>
-                <msub><mi>θ</mi><mtext>target</mtext></msub>
-                <mo>=</mo>
-                <msub><mi>θ</mi><mtext>gimbal</mtext></msub>
-                <mo>+</mo>
-                <mi>arctan</mi>
-                <mo>(</mo>
-                <mfrac>
-                  <mrow><mi>x</mi><mo>−</mo><mi>w</mi><mo>/</mo><mn>2</mn></mrow>
-                  <mrow><mi>w</mi><mo>/</mo><mn>2</mn></mrow>
-                </mfrac>
-                <mi>tan</mi><mspace width="0.2em"/>
-                <mfrac>
-                  <msub><mtext>FOV</mtext><mi>h</mi></msub>
-                  <mn>2</mn>
-                </mfrac>
-                <mo>)</mo>
-              </mrow>
-            </math>
-          </div>
-          <p class="note">With FOV<sub>h</sub> = 63°, the frame edge maps to exactly ±31.5°. Using <code>atan</code> (not a linear scale) keeps off-center targets accurate.</p>
-        </article>
-
-        <article class="card math-card reveal">
-          <h3>Constant-velocity Kalman filter</h3>
-          <p>State is angle and angular velocity on both axes. Each frame predicts forward by the frame time Δt, then corrects with the new measurement.</p>
-          <div class="eq" role="img" aria-label="state vector x equals pan angle, tilt angle, pan rate, tilt rate. Predict: x equals F x, P equals F P F transpose plus Q.">
-            <math display="block">
-              <mrow>
-                <mi>𝐱</mi><mo>=</mo>
-                <msup>
-                  <mrow><mo>[</mo>
-                    <msub><mi>θ</mi><mtext>pan</mtext></msub><mo>,</mo>
-                    <msub><mi>θ</mi><mtext>tilt</mtext></msub><mo>,</mo>
-                    <msub><mover accent="true"><mi>θ</mi><mo>˙</mo></mover><mtext>pan</mtext></msub><mo>,</mo>
-                    <msub><mover accent="true"><mi>θ</mi><mo>˙</mo></mover><mtext>tilt</mtext></msub>
-                  <mo>]</mo></mrow>
-                  <mi>T</mi>
-                </msup>
-              </mrow>
-            </math>
-            <math display="block">
-              <mrow>
-                <mi>𝐅</mi><mo>=</mo>
-                <mrow><mo>[</mo>
-                  <mtable>
-                    <mtr><mtd><mn>1</mn></mtd><mtd><mn>0</mn></mtd><mtd><mi>Δt</mi></mtd><mtd><mn>0</mn></mtd></mtr>
-                    <mtr><mtd><mn>0</mn></mtd><mtd><mn>1</mn></mtd><mtd><mn>0</mn></mtd><mtd><mi>Δt</mi></mtd></mtr>
-                    <mtr><mtd><mn>0</mn></mtd><mtd><mn>0</mn></mtd><mtd><mn>1</mn></mtd><mtd><mn>0</mn></mtd></mtr>
-                    <mtr><mtd><mn>0</mn></mtd><mtd><mn>0</mn></mtd><mtd><mn>0</mn></mtd><mtd><mn>1</mn></mtd></mtr>
-                  </mtable>
-                <mo>]</mo></mrow>
-              </mrow>
-            </math>
-            <math display="block">
-              <mrow>
-                <mi>𝐐</mi><mo>=</mo><mi>q</mi><mspace width="0.2em"/>
-                <mi>diag</mi><mo>(</mo>
-                  <mfrac><mrow><mi>Δ</mi><msup><mi>t</mi><mn>4</mn></msup></mrow><mn>4</mn></mfrac><mo>,</mo>
-                  <mfrac><mrow><mi>Δ</mi><msup><mi>t</mi><mn>4</mn></msup></mrow><mn>4</mn></mfrac><mo>,</mo>
-                  <mi>Δ</mi><msup><mi>t</mi><mn>2</mn></msup><mo>,</mo>
-                  <mi>Δ</mi><msup><mi>t</mi><mn>2</mn></msup>
-                <mo>)</mo>
-              </mrow>
-            </math>
-          </div>
-          <div class="eq-steps">
-            <div class="eq-step">
-              <span class="step-label">Predict</span>
-              <math>
-                <mrow>
-                  <mi>𝐱</mi><mo>←</mo><mi>𝐅</mi><mi>𝐱</mi>
-                </mrow>
-              </math>
-              <math>
-                <mrow>
-                  <mi>𝐏</mi><mo>←</mo><mi>𝐅</mi><mi>𝐏</mi><msup><mi>𝐅</mi><mi>T</mi></msup><mo>+</mo><mi>𝐐</mi>
-                </mrow>
-              </math>
+    <!-- ───────── 03 Predict ───────── -->
+    <section class="chapter chapter-long" id="predict" data-ch="3" aria-labelledby="predict-title">
+      <div class="pin">
+        <div class="copy">
+          <p class="ch-num mono" aria-hidden="true">03</p>
+          <h2 class="ch-title" id="predict-title">Predict</h2>
+          <p class="ch-lead reveal-words">Aim where it&rsquo;s going, not where it was.</p>
+          <p class="ch-body reveal-words">Every detection becomes a world angle: where the camera points, plus where the target sits in the frame. A constant-velocity Kalman filter estimates how fast that angle is changing, and COOP aims 150&nbsp;ms ahead to cancel its own latency.</p>
+        </div>
+        <figure class="equations" aria-labelledby="eq-caption">
+          <div class="eq" role="math" aria-label="theta target equals theta gimbal plus the arctangent of: x minus w over 2, divided by w over 2, times the tangent of half the horizontal field of view.">
+            <div class="eq-row" aria-hidden="true">
+              <span class="m"><i>θ</i><sub>target</sub></span>
+              <span class="o">=</span>
+              <span class="m term" data-term="a"><i>θ</i><sub>gimbal</sub></span>
+              <span class="o">+</span>
+              <span class="m term" data-term="b"><span class="fn">arctan</span><span class="paren">(</span><span class="frac"><span><i>x</i> − <i>w</i>/2</span><span><i>w</i>/2</span></span><span class="fn">tan</span><span class="frac"><span>FOV<sub><i>h</i></sub></span><span>2</span></span><span class="paren">)</span></span>
             </div>
-            <div class="eq-step">
-              <span class="step-label">Gain</span>
-              <math>
-                <mrow>
-                  <mi>𝐊</mi><mo>=</mo><mi>𝐏</mi><msup><mi>𝐇</mi><mi>T</mi></msup>
-                  <msup><mrow><mo>(</mo><mi>𝐇</mi><mi>𝐏</mi><msup><mi>𝐇</mi><mi>T</mi></msup><mo>+</mo><mi>𝐑</mi><mo>)</mo></mrow><mrow><mo>−</mo><mn>1</mn></mrow></msup>
-                </mrow>
-              </math>
-            </div>
-            <div class="eq-step">
-              <span class="step-label">Update</span>
-              <math>
-                <mrow>
-                  <mi>𝐱</mi><mo>←</mo><mi>𝐱</mi><mo>+</mo><mi>𝐊</mi><mo>(</mo><mi>𝐳</mi><mo>−</mo><mi>𝐇</mi><mi>𝐱</mi><mo>)</mo>
-                </mrow>
-              </math>
-              <math>
-                <mrow>
-                  <mi>𝐏</mi><mo>←</mo><mo>(</mo><mi>𝐈</mi><mo>−</mo><mi>𝐊</mi><mi>𝐇</mi><mo>)</mo><mi>𝐏</mi>
-                </mrow>
-              </math>
-            </div>
-            <div class="eq-step eq-step-accent">
-              <span class="step-label">Aim</span>
-              <math>
-                <mrow>
-                  <msub><mi>θ</mi><mtext>aim</mtext></msub><mo>=</mo><mi>θ</mi><mo>+</mo>
-                  <mover accent="true"><mi>θ</mi><mo>˙</mo></mover><mo>·</mo><msub><mi>t</mi><mtext>lead</mtext></msub>
-                </mrow>
-              </math>
+            <div class="eq-notes mono" aria-hidden="true">
+              <span data-term="a">where the camera points</span>
+              <span data-term="b">where the target sits in the frame</span>
             </div>
           </div>
-          <p class="note"><var>H</var> picks out the two angles we measure; <var>q</var> = 200 (deg/s²)² lets the target change speed, <var>R</var> = 0.5 deg² models detection jitter, and <var>t</var><sub>lead</sub> = 0.15 s.</p>
-        </article>
-      </div>
-    </section>
-
-    <!-- ───────────── Hardware ───────────── -->
-    <section class="section" id="hardware" aria-labelledby="hw-title">
-      <header class="section-head reveal">
-        <p class="eyebrow">03 · Hardware</p>
-        <h2 id="hw-title">One 12&nbsp;V supply, two brains</h2>
-        <p class="sub">The Pi 5 handles vision. An Arduino Uno generates the step pulses, because Linux can't time them reliably.</p>
-      </header>
-
-      <div class="grid-2 hw-grid">
-        <figure class="card media-frame reveal">
-          <!-- ✏️ PLACEHOLDER photo: inside the build (Pi, Uno, TMC2209s, buck). Replace the div with
-               <img src="assets/build.jpg" alt="Inside COOP: Pi 5, Arduino Uno and TMC2209 drivers" loading="lazy"> -->
-          <div class="placeholder placeholder-photo" data-placeholder="photo-build">
-            <span class="placeholder-tag">Placeholder · build photo (3:2)</span>
+          <div class="eq eq-aim" role="math" aria-label="theta aim equals theta plus theta dot times t lead, with t lead equal to 150 milliseconds.">
+            <div class="eq-row" aria-hidden="true">
+              <span class="m lock"><i>θ</i><sub>aim</sub></span>
+              <span class="o">=</span>
+              <span class="m"><i>θ</i></span>
+              <span class="o">+</span>
+              <span class="m"><i class="dot-acc">θ</i></span>
+              <span class="o">·</span>
+              <span class="m"><i>t</i><sub>lead</sub></span>
+            </div>
+            <div class="eq-notes mono" aria-hidden="true">
+              <span>Kalman estimate of angle and angular rate; <i>t</i><sub>lead</sub> = 150&nbsp;ms</span>
+            </div>
           </div>
+          <figcaption class="mono" id="eq-caption">Pixel to world angle (pinhole model), and the lead aim</figcaption>
         </figure>
+      </div>
+    </section>
 
-        <ul class="card parts reveal">
-          <li><span class="part">Raspberry Pi 5, 8&nbsp;GB</span><span class="spec">vision + control, active cooler</span></li>
-          <li><span class="part">OV5647 camera</span><span class="spec">5&nbsp;MP, 3.6&nbsp;mm, 75° diagonal</span></li>
-          <li><span class="part">Arduino Uno</span><span class="spec">AccelStepper, USB serial to the Pi</span></li>
-          <li><span class="part">TMC2209 ×2</span><span class="spec">STEP/DIR, 8 microsteps</span></li>
-          <li><span class="part">NEMA 17 ×2</span><span class="spec">pan + optional tilt</span></li>
-          <li><span class="part">12&nbsp;V ≥5&nbsp;A supply</span><span class="spec">motors direct, Pi via 5.1&nbsp;V buck</span></li>
+    <!-- ───────── 04 Move ───────── -->
+    <section class="chapter" id="move" data-ch="4" aria-labelledby="move-title">
+      <div class="pin">
+        <div class="copy">
+          <p class="ch-num mono" aria-hidden="true">04</p>
+          <h2 class="ch-title" id="move-title">Move</h2>
+          <p class="ch-lead reveal-words">Then it turns to follow.</p>
+          <p class="ch-body reveal-words">The Pi sends a target angle over USB serial to an Arduino Uno, and AccelStepper ramps a NEMA&nbsp;17 through a TMC2209 driver, so the camera eases onto the target instead of jerking. If the Pi goes quiet for two seconds, a watchdog stops the motor.</p>
+        </div>
+        <div class="gauge" aria-hidden="true">
+          <svg viewBox="0 0 240 140" id="gauge-svg">
+            <path class="gauge-track" id="gauge-track"/>
+            <g id="gauge-ticks"></g>
+            <path class="gauge-sweep" id="gauge-sweep"/>
+            <path class="gauge-aim" id="gauge-aim"/>
+            <line class="gauge-needle" id="gauge-needle" x1="120" y1="122" x2="120" y2="30"/>
+            <circle class="gauge-hub" cx="120" cy="122" r="3"/>
+          </svg>
+          <div class="gauge-read mono">
+            <div><span class="k">Pan</span><span class="v" id="gauge-pan">+0.0°</span></div>
+            <div><span class="k">Aim</span><span class="v lock" id="gauge-aim-v">+0.0°</span></div>
+            <div><span class="k">Limits</span><span class="v">±170°</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────── 05 Build ───────── -->
+    <section class="chapter chapter-long" id="build" data-ch="5" aria-labelledby="build-title">
+      <div class="pin">
+        <div class="copy">
+          <p class="ch-num mono" aria-hidden="true">05</p>
+          <h2 class="ch-title" id="build-title">Build</h2>
+          <p class="ch-lead reveal-words">One 12&nbsp;V supply, two brains.</p>
+          <p class="ch-body reveal-words">The Pi&nbsp;5 does the seeing. An Arduino Uno makes the step pulses, because Linux can&rsquo;t time them reliably. The motor runs straight off 12&nbsp;V, and a buck converter feeds the Pi 5.1&nbsp;V.</p>
+          <ul class="parts mono" id="parts">
+            <li data-part="camera"><span>OV5647 camera</span><span>5&nbsp;MP, 3.6&nbsp;mm, 75° diagonal</span></li>
+            <li data-part="pi"><span>Raspberry Pi 5</span><span>8&nbsp;GB, vision and control</span></li>
+            <li data-part="uno"><span>Arduino Uno</span><span>AccelStepper over USB serial</span></li>
+            <li data-part="driver"><span>TMC2209</span><span>STEP/DIR, 8 microsteps</span></li>
+            <li data-part="motor"><span>NEMA 17</span><span>pan axis</span></li>
+            <li data-part="power"><span>12&nbsp;V supply → buck</span><span>motor direct, Pi at 5.1&nbsp;V</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────── 06 Gallery ───────── -->
+    <section class="chapter" id="gallery" data-ch="6" aria-labelledby="gallery-title">
+      <div class="pin">
+        <div class="copy">
+          <p class="ch-num mono" aria-hidden="true">06</p>
+          <h2 class="ch-title" id="gallery-title">Gallery</h2>
+          <p class="ch-lead reveal-words">From the bench.</p>
+          <p class="ch-hint mono" id="gallery-hint">Drag or scroll to turn</p>
+        </div>
+        <!-- The media list. The 3D carousel is built from these items; without WebGL they show as a grid.
+             ✏️ PLACEHOLDER media: replace each <li> with a real one, e.g.
+               <li data-src="media/build.jpg" data-alt="Inside COOP: Pi 5, Uno and TMC2209">Inside the build</li>
+               <li data-src="media/tracking.mp4" data-kind="video" data-alt="COOP following a person">Tracking a person</li>
+             See site/README.md. -->
+        <ul class="gallery" id="gallery-list">
+          <li data-placeholder="photo-hero">Finished unit</li>
+          <li data-placeholder="photo-build">Inside the build</li>
+          <li data-placeholder="video-tracking" data-kind="video">Tracking a person</li>
+          <li data-placeholder="photo-dashboard">The dashboard</li>
+          <li data-placeholder="photo-mount">Pan mount</li>
+          <li data-placeholder="photo-wiring">Wiring</li>
+          <li data-placeholder="video-car" data-kind="video">Following a car</li>
+          <li data-placeholder="photo-team">The team at work</li>
         </ul>
       </div>
-
-      <pre class="card wiring reveal" aria-label="Power and signal wiring diagram"><code>                ┌─► buck 12V→5.1V ─USB-C─► Pi 5 ─USB─► Uno ─STEP/DIR─► TMC2209 ×2 ─► NEMA 17 ×2
-12 V supply ────┤                           │                                ▲
-                └───────────────────────────┼──────────── VM (motor power) ──┘
-                                            └─ camera ribbon (22-pin)</code></pre>
-
-      <div class="grid-3 gallery">
-        <!-- ✏️ PLACEHOLDER photos: replace each div with an <img> (3:2, ≤500 KB each) -->
-        <figure class="card media-frame reveal"><div class="placeholder placeholder-photo" data-placeholder="photo-hero"><span class="placeholder-tag">Placeholder · finished unit</span></div></figure>
-        <figure class="card media-frame reveal"><div class="placeholder placeholder-photo" data-placeholder="photo-dashboard"><span class="placeholder-tag">Placeholder · dashboard tracking</span></div></figure>
-        <figure class="card media-frame reveal"><div class="placeholder placeholder-photo" data-placeholder="photo-mount"><span class="placeholder-tag">Placeholder · mount / enclosure</span></div></figure>
-      </div>
     </section>
 
-    <!-- ───────────── Team ───────────── -->
-    <section class="section" id="team" aria-labelledby="team-title">
-      <header class="section-head reveal">
-        <p class="eyebrow">04 · Team</p>
-        <h2 id="team-title">Two people, built in parallel</h2>
-        <p class="sub">Everything runs on a laptop with a webcam and simulated motors, so software and hardware never blocked each other.</p>
-      </header>
-
-      <div class="grid-2">
-        <article class="card person reveal">
-          <div class="avatar" aria-hidden="true">DH</div>
-          <div>
-            <h3>David Hernandez</h3>
-            <p class="role">Software</p>
-            <p>Vision, tracking, prediction, the control API and the dashboard.</p>
+    <!-- ───────── 07 Team + links ───────── -->
+    <section class="chapter chapter-end" id="team" data-ch="7" aria-labelledby="team-title">
+      <div class="pin">
+        <div class="copy">
+          <p class="ch-num mono" aria-hidden="true">07</p>
+          <h2 class="ch-title" id="team-title">Team</h2>
+          <p class="ch-lead reveal-words">Two people, built in parallel.</p>
+          <p class="ch-body reveal-words">Everything runs on a laptop with a webcam and simulated motors, so the software and the hardware never had to wait for each other.</p>
+          <ul class="team">
+            <li>
+              <span class="team-name">David Hernandez</span>
+              <span class="team-role mono">Software</span>
+              <span class="team-what">Vision, tracking, prediction, the control API and the dashboard.</span>
+            </li>
+            <li>
+              <!-- ✏️ PLACEHOLDER: teammate's name and a one-line description -->
+              <span class="team-name" data-placeholder="teammate-name">Teammate name</span>
+              <span class="team-role mono">Design &amp; hardware</span>
+              <span class="team-what" data-placeholder="teammate-what">✏️ One line about what they built.</span>
+            </li>
+          </ul>
+          <div class="links">
+            <a class="btn btn-lock" href="https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP">Read the code on GitHub</a>
+            <!-- ✏️ PLACEHOLDER link: Devpost project URL -->
+            <a class="btn" href="#" data-placeholder="devpost-url">Devpost page</a>
           </div>
-        </article>
-        <article class="card person reveal">
-          <!-- ✏️ PLACEHOLDER: teammate's name, initials and a one-line description -->
-          <div class="avatar avatar-placeholder" aria-hidden="true">?</div>
-          <div>
-            <h3 data-placeholder="teammate-name">Teammate name</h3>
-            <p class="role">Design &amp; hardware</p>
-            <p>Enclosure, mount, steppers and wiring.</p>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <!-- ───────────── Links ───────────── -->
-    <section class="section links" aria-label="Links">
-      <div class="card links-card reveal">
-        <div>
-          <h2>See it for yourself</h2>
-          <p class="sub">Open source, MIT licensed. Runs on a laptop with <code>--source webcam --no-motors</code>.</p>
         </div>
-        <div class="cta-row">
-          <a class="btn btn-primary" href="https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP">GitHub</a>
-          <!-- ✏️ PLACEHOLDER link: Devpost project URL -->
-          <a class="btn" href="#" data-placeholder="devpost-url">Devpost</a>
-        </div>
+        <footer class="footer mono">
+          <span>COOP · ShellHacks 2026</span>
+          <span>MIT licensed · runs on a laptop with <code>--source webcam --no-motors</code></span>
+        </footer>
       </div>
     </section>
   </main>
-
-  <footer class="footer">
-    <span>COOP · ShellHacks 2026</span>
-    <span class="mono">pan · tilt · predict</span>
-  </footer>
 </body>
 </html>
