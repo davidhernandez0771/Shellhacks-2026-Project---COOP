@@ -72,7 +72,7 @@ def test_unchanged_speed_is_not_resent(rig):
     assert gimbal.calls == []
 
 
-def test_save_writes_only_the_sent_keys(rig):
+def test_save_writes_every_live_setting_and_keeps_the_rest_of_the_file(rig):
     cfg, _, _, _, client, path = rig
     path.write_text("# mine\n[motors]\nmicrosteps = 16\n", encoding="utf-8")
     cfg.motors.microsteps = 16
@@ -81,14 +81,28 @@ def test_save_writes_only_the_sent_keys(rig):
     text = path.read_text(encoding="utf-8")
     assert "# mine" in text
     data = tomllib.loads(text)
-    assert data == {"motors": {"microsteps": 16}, "tracking": {"lead_time_s": 0.3}}
+    assert data["motors"] == {"microsteps": 16, "max_steps_per_sec": 2000.0,
+                              "accel_steps_per_sec2": 6000.0, "pan_invert": False}
+    assert data["tracking"] == {"lead_time_s": 0.3, "deadband_deg": 1.0}
+    assert data["detector"] == {"conf": 0.4}
 
 
-def test_save_with_nothing_to_save(rig):
+def test_apply_then_save_persists_the_earlier_change(rig):
+    """The dashboard's Apply, then Save with nothing new: both changes must reach the file."""
     _, _, _, _, client, path = rig
+    client.post("/api/settings", json={"deadband_deg": 2.5})  # applied, not saved
     resp = client.post("/api/settings", json={"save": True})
-    assert resp.status_code == 200 and resp.get_json()["saved"] is False
-    assert not path.exists()
+    assert resp.status_code == 200 and resp.get_json()["saved"] is True
+    assert tomllib.loads(path.read_text(encoding="utf-8"))["tracking"]["deadband_deg"] == 2.5
+
+
+def test_saved_file_loads_back_to_the_same_live_values(rig):
+    from coop.settings import load_config
+
+    _, _, _, live, client, path = rig
+    client.post("/api/settings", json={"conf": 0.55, "max_steps_per_sec": 1500, "save": True})
+    reloaded = LiveSettings(load_config(path), path=path).current()
+    assert reloaded == live.current()
 
 
 @pytest.mark.parametrize("body,fragment", [
@@ -148,6 +162,20 @@ def test_changes_are_logged_as_an_event(rig):
     assert event["type"] == "settings_changed"
     assert event["changed"] == {"lead_time_s": 0.2}
     assert event["saved"] is True
+
+
+def test_a_bare_save_is_logged_too(rig):
+    _, control, _, _, client, _ = rig
+    client.post("/api/settings", json={"save": True})
+    event = control.events_since(0)[-1]
+    assert event["type"] == "settings_changed" and event["changed"] == {} and event["saved"] is True
+
+
+def test_an_empty_body_changes_nothing_and_logs_nothing(rig):
+    _, control, gimbal, _, client, path = rig
+    resp = client.post("/api/settings", json={})
+    assert resp.status_code == 200 and resp.get_json()["saved"] is False
+    assert control.events_since(0) == [] and gimbal.calls == [] and not path.exists()
 
 
 def test_a_failed_save_applies_nothing(rig, monkeypatch):

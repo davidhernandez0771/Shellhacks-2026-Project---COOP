@@ -324,8 +324,9 @@ class LiveSettings:
         return changes, save
 
     def update(self, body):
-        """Apply a POST /api/settings body. Returns {"settings", "saved"}; raises
-        SettingsError (and changes nothing) if any part is invalid or the save fails."""
+        """Apply a POST /api/settings body. With "save": true, all live settings (after the
+        change) are written to the file. Returns {"settings", "saved"}; raises SettingsError
+        (and changes nothing) if any part is invalid or the save fails."""
         changes, save = self._validate(body)
         with self._lock:
             mot = self.cfg.motors
@@ -333,13 +334,13 @@ class LiveSettings:
                 if self._control is not None and self._control.mode != "stop":
                     raise SettingsError("pan_invert can only change in stop mode "
                                         "(it reverses what every angle means)")
-            saved = False
-            if save and changes:
+            if save:
+                # Persist every live value as it will be after this request, not just the keys
+                # sent: "apply" now and "save" later must not lose the applied change.
                 grouped = {}
-                for key, value in changes.items():
+                for key, value in {**self.current(), **changes}.items():
                     grouped.setdefault(LIVE_KEYS[key], {})[key] = value
                 save_settings(self.path, grouped)  # raises before anything is applied
-                saved = True
 
             speed = changes.get("max_steps_per_sec", mot.max_steps_per_sec)
             accel = changes.get("accel_steps_per_sec2", mot.accel_steps_per_sec2)
@@ -357,6 +358,6 @@ class LiveSettings:
                 if key in changes:
                     setattr(getattr(self.cfg, LIVE_KEYS[key]), key, changes[key])
             current = self.current()
-        if changes and self._control is not None:
-            self._control.log_event("settings_changed", changed=changes, saved=saved)
-        return {"settings": current, "saved": saved}
+        if (changes or save) and self._control is not None:
+            self._control.log_event("settings_changed", changed=changes, saved=save)
+        return {"settings": current, "saved": save}

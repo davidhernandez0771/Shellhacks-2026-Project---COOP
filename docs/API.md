@@ -80,7 +80,7 @@ Event types: `target_acquired`, `target_lost`, `mode_changed`, `motor_connected`
 - `armed`: the e-stop was released (`POST /api/arm`).
 - `zeroed`: the current position became pan 0 (`POST /api/zero`).
 - `motors_idle`: drivers powered down after `motors.idle_disable_s` seconds in `stop` mode. Extra field `after_s`.
-- `settings_changed`: live settings changed. Extra fields `changed` (object of the new values) and `saved` (bool).
+- `settings_changed`: live settings changed and/or were saved. Extra fields `changed` (object of the values this request changed; `{}` for a bare save) and `saved` (bool).
 
 ## Control
 All return `{"ok": true, ...}`, or `{"ok": false, "error": "..."}` with HTTP 400.
@@ -131,6 +131,6 @@ Body: any subset of the `settings` keys, plus optional `"save": true`.
 ```json
 { "lead_time_s": 0.2, "pan_invert": true, "save": true }
 ```
-Returns `{"ok": true, "settings": {...all current values...}, "saved": true}`. Applied immediately, no restart: speed and acceleration are re-sent to the Uno at once. With `"save": true` the values are also written to `coop.toml` (only the keys you sent; comments in the file are kept), so they survive a restart.
+Returns `{"ok": true, "settings": {...all current values...}, "saved": true}`. Applied immediately, no restart: speed and acceleration are re-sent to the Uno at once. With `"save": true`, **all six live settings** (their values after this request) are written to `coop.toml`, so they survive a restart; other settings and the comments in the file are kept. So `{"save": true}` on its own means "persist what's live now", e.g. after earlier applies. Without it, changes last until COOP restarts.
 
 Validation is all-or-nothing: if any key is unknown, has the wrong type (numbers must be JSON numbers, `pan_invert` a JSON boolean) or is out of range, nothing is applied and the response is HTTP 400 with `"error"`. **`pan_invert` can only change in `stop` mode** (flipping it reverses what every angle means, so changing it while aiming would swing the camera).
