@@ -2,60 +2,116 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>COOP</title>
-  <style>
-    :root { --bg: #0e1116; --panel: #161b22; --text: #e6edf3; --muted: #8b949e; --accent: #f85149; --ok: #3fb950; }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
-    header { padding: 12px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #30363d; }
-    header h1 { margin: 0; font-size: 18px; letter-spacing: 2px; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
-    .dot.live { background: var(--ok); }
-    main { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; padding: 16px; }
-    @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
-    .video { width: 100%; border-radius: 8px; background: #000; display: block; }
-    .panel { background: var(--panel); border-radius: 8px; padding: 16px; }
-    .stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #21262d; }
-    .stat span:first-child { color: var(--muted); }
-    .target { color: var(--accent); font-weight: 600; }
-    ul { list-style: none; padding: 0; margin: 8px 0 0; }
-    li { padding: 4px 0; color: var(--muted); }
-  </style>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header><div class="dot" id="live"></div><h1>COOP</h1></header>
-  <main>
-    <img class="video" src="/video" alt="Live camera feed">
-    <section class="panel">
-      <div class="stat"><span>FPS</span><span id="fps">–</span></div>
-      <div class="stat"><span>Target</span><span id="target" class="target">none</span></div>
-      <div class="stat"><span>Pan / Tilt</span><span id="gimbal">–</span></div>
-      <div class="stat"><span>Target velocity</span><span id="vel">–</span></div>
-      <div class="stat"><span>Motors</span><span id="motors">–</span></div>
-      <h3>Detections</h3>
-      <ul id="dets"></ul>
+  <header class="topbar">
+    <h1 class="wordmark">COOP</h1>
+    <div class="topbar-status">
+      <span class="pill" id="live-pill"><span class="dot"></span><span class="label">CONNECTING</span></span>
+      <div class="mode-switch" role="group" aria-label="Mode">
+        <button type="button" data-mode="auto" class="active">Auto</button>
+        <button type="button" data-mode="manual">Manual</button>
+        <button type="button" data-mode="stop">Stop</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="card hero">
+      <div class="hero-frame" id="hero-frame">
+        <img class="feed" id="feed-img" src="/video" alt="Live camera feed" hidden>
+        <canvas class="feed-mock" id="feed-mock-canvas" hidden></canvas>
+        <div class="no-signal" id="no-signal" hidden>No signal</div>
+        <svg class="overlay" id="overlay-svg" viewBox="0 0 640 480" preserveAspectRatio="none"></svg>
+        <span class="pill state-mock mock-badge" id="mock-badge" hidden><span class="dot"></span><span class="label">MOCK FEED</span></span>
+      </div>
+
+      <div class="dpad-wrap" id="dpad-wrap" hidden>
+        <div class="dpad">
+          <button type="button" class="up" id="dpad-up" aria-label="Tilt up">&#9650;</button>
+          <button type="button" class="left" id="dpad-left" aria-label="Pan left">&#9664;</button>
+          <button type="button" class="home" id="dpad-home" aria-label="Home">&#8982;</button>
+          <button type="button" class="right" id="dpad-right" aria-label="Pan right">&#9654;</button>
+          <button type="button" class="down" id="dpad-down" aria-label="Tilt down">&#9660;</button>
+        </div>
+      </div>
     </section>
+
+    <aside class="rail">
+      <section class="card">
+        <h2 class="card-title">Target</h2>
+        <div class="target-head">
+          <span class="target-label" id="target-label" hidden></span>
+          <span class="target-empty" id="target-empty">No target</span>
+          <span class="pill" id="target-lock-pill">AUTO</span>
+        </div>
+        <div id="target-stats" hidden>
+          <div class="stat-row">
+            <span class="k">Confidence</span>
+            <span class="v"><span class="dot-meter" id="conf-meter"></span> <span id="conf-num" class="tabular"></span></span>
+          </div>
+          <div class="stat-row">
+            <span class="k">Velocity</span>
+            <span class="v tabular" id="vel-num">–</span>
+          </div>
+        </div>
+        <button type="button" class="btn" id="lock-btn" disabled>No target</button>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title">Gimbal</h2>
+        <div class="dial-wrap">
+          <svg id="dial-svg" viewBox="0 0 200 130" width="100%">
+            <path id="dial-track" fill="none" stroke="var(--surface-border)" stroke-width="10" stroke-linecap="round"></path>
+            <path id="dial-target-tick" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" opacity="0.85"></path>
+            <line id="dial-needle" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"></line>
+            <circle id="dial-pivot" cx="100" cy="110" r="3" fill="var(--text-muted)"></circle>
+            <circle id="dial-needle-dot" r="5" fill="var(--accent)"></circle>
+            <text id="dial-min-label" x="6" y="126" class="mono"></text>
+            <text id="dial-max-label" x="194" y="126" text-anchor="end" class="mono"></text>
+          </svg>
+          <div class="dial-readout">
+            <div class="item">
+              <div class="num tabular" id="pan-current-num">0.0°</div>
+              <div class="lbl">Pan</div>
+            </div>
+            <div class="item">
+              <div class="num tabular" id="pan-target-num">0.0°</div>
+              <div class="lbl">Target</div>
+            </div>
+            <div class="item" id="tilt-readout" hidden>
+              <div class="num tabular" id="tilt-num">0.0°</div>
+              <div class="lbl">Tilt</div>
+            </div>
+          </div>
+          <div class="tilt-note" id="tilt-note">Tilt fixed</div>
+        </div>
+        <div class="motors-chip">
+          <span class="pill" id="motors-chip"><span class="dot"></span><span class="label">Motors</span></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title">Detections</h2>
+        <div class="det-list" id="det-list">
+          <div class="empty-note">Nothing in view</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title">Event log</h2>
+        <div class="event-list" id="event-list"></div>
+      </section>
+    </aside>
   </main>
-  <script>
-    const $ = (id) => document.getElementById(id);
-    async function poll() {
-      try {
-        const s = await (await fetch("/api/status")).json();
-        $("live").classList.toggle("live", Date.now() / 1000 - s.server_time < 2);
-        $("fps").textContent = s.fps ?? "–";
-        $("target").textContent = s.target ? `${s.target.label} #${s.target.id}` : "none";
-        if (s.gimbal) {
-          $("gimbal").textContent = `${s.gimbal.pan}° / ${s.gimbal.tilt}°`;
-          $("motors").textContent = s.gimbal.mock ? "mock" : "live";
-        }
-        if (s.velocity_deg_s) $("vel").textContent = s.velocity_deg_s.map((v) => `${v}°/s`).join(" , ");
-        $("dets").innerHTML = (s.detections || [])
-          .map((d) => `<li>${d.label} #${d.id ?? "?"} (${d.conf})</li>`).join("") || "<li>nothing in view</li>";
-      } catch { $("live").classList.remove("live"); }
-    }
-    setInterval(poll, 300);
-    poll();
-  </script>
+
+  <p class="footer-note">COOP · Pi 5 tracking camera</p>
+
+  <script src="mock.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

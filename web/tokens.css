@@ -1,0 +1,49 @@
+/* COOP design tokens — the single source of color, radius, spacing and motion.
+   Nothing outside this file should hard-code a color. See docs/DESIGN_BRIEF.md. */
+:root {
+  /* color */
+  --bg-0: #0B0807;
+  --bg-glow: #2A130A;
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-strong: rgba(255, 255, 255, 0.075);
+  --surface-border: rgba(255, 255, 255, 0.09);
+  --surface-highlight: rgba(255, 255, 255, 0.08);
+  --text: #F4F0EC;
+  --text-muted: #8E837B;
+  --text-dim: #5C5450;
+  --accent: #35F0D0;
+  --accent-soft: rgba(53, 240, 208, 0.35);
+  --accent-wash: rgba(53, 240, 208, 0.12);
+  --warm: #FF9A2E;
+  --warm-wash: rgba(255, 154, 46, 0.14);
+  --danger: #FF5A5F;
+  --danger-wash: rgba(255, 90, 95, 0.14);
+  --muted-line: rgba(244, 240, 236, 0.35);
+
+  /* shape */
+  --radius-card: 26px;
+  --radius-sm: 14px;
+  --radius-pill: 999px;
+  --border-width: 1px;
+
+  /* spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 28px;
+
+  /* type */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  --font-mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, Consolas, monospace;
+
+  /* motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 150ms;
+  --dur-med: 250ms;
+  --dur-slow: 350ms;
+
+  /* blur */
+  --blur-card: 20px;
+}
