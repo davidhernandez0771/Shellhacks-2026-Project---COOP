@@ -45,21 +45,20 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
     t.used = true;
     return t;
   }
-  function setTag(t, x, y, alpha, text, { lock = false, dim = false, sub = null } = {}) {
+  // `ident` names what the label is about; the label scrambles in when it first appears or
+  // when its subject changes, and otherwise just updates its text (numbers ticking).
+  function setTag(t, x, y, alpha, text, { lock = false, dim = false, sub = null, ident = text } = {}) {
     if (alpha <= 0.01) {
       if (t.shown) { t.el.style.opacity = "0"; t.shown = false; }
       return;
     }
-    if (text !== t.text) {
-      const prev = t.text;
+    if (ident !== t.ident || !t.shown) {
+      t.ident = ident;
       t.text = text;
-      if (!prev || !t.shown) {
-        if (!still && scramble) scramble(t.line, text); else t.line.textContent = text;
-      } else if (prev.split(" ")[0] !== text.split(" ")[0] || prev.slice(0, 12) !== text.slice(0, 12)) {
-        if (!still && scramble) scramble(t.line, text, true); else t.line.textContent = text;
-      } else {
-        t.line.textContent = text;
-      }
+      if (!still && scramble) scramble(t.line, text); else t.line.textContent = text;
+    } else if (text !== t.text) {
+      t.text = text;
+      t.line.textContent = text;
     }
     if (sub !== t.sub) {
       t.sub = sub;
@@ -77,7 +76,7 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
   }
   function sweepTags() {
     for (const [, t] of tags) {
-      if (!t.used && t.shown) { t.el.style.opacity = "0"; t.shown = false; t.text = ""; }
+      if (!t.used && t.shown) { t.el.style.opacity = "0"; t.shown = false; }
       t.used = false;
     }
   }
@@ -128,8 +127,8 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
    * @param {object} ctxs  { t, local (per-chapter progress array), project, solids }
    */
   let drewLast = true;
-  function draw(s, { t, local, project, partAnchors, lensScreen }) {
-    const needs = s.detect > 0.01 || s.predict > 0.01 || s.explode > 0.55;
+  function draw(s, { t, local, project, partAnchors, lensScreen, scan, center }) {
+    const needs = s.detect > 0.01 || s.predict > 0.01 || s.explode > 0.55 || s.eye > 0.01;
     if (!needs && !drewLast) { sweepTags(); return; }
     drewLast = needs;
     // A full reset, not clearRect: in testing, clearRect sometimes left leader lines behind
@@ -137,6 +136,34 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
     if (ctx.reset) ctx.reset(); else canvas.width = canvas.width; // eslint-disable-line no-self-assign
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const small = W < 700;
+
+    // viewfinder: COOP's own 4:3 frame (640 × 480), strongest in 01 --------------
+    if (s.eye > 0.01) {
+      const va = s.eye * (0.45 + 0.55 * s.scan);
+      const fh = small ? Math.min(H * 0.22, (W - 48) * 0.75) : Math.min(H * 0.6, (W * 0.62) * 0.75);
+      const fw = fh * 4 / 3;
+      const x0 = center.x - fw / 2, y0 = center.y - fh / 2, x1 = x0 + fw, y1 = y0 + fh;
+      ctx.globalAlpha = va * 0.9;
+      brackets({ x0, y0, x1, y1 }, small ? 14 : 22, col.paper, 1);
+      // optical axis
+      ctx.globalAlpha = va * 0.5;
+      ctx.strokeStyle = col.paper;
+      ctx.beginPath();
+      ctx.moveTo(center.x - 7, center.y); ctx.lineTo(center.x + 7, center.y);
+      ctx.moveTo(center.x, center.y - 7); ctx.lineTo(center.x, center.y + 7);
+      ctx.stroke();
+      // the rolling-shutter line, clipped to the frame
+      const sy = (1 - scan) * 0.5 * H;
+      if (s.scan > 0.01 && sy > y0 && sy < y1) {
+        ctx.globalAlpha = s.scan * s.eye * 0.35;
+        ctx.beginPath(); ctx.moveTo(x0, sy); ctx.lineTo(x1, sy); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      const frameNo = String(Math.floor(t * 14) % 1000000).padStart(6, "0");
+      setTag(tag("vf-tl"), x0, y0 - 16, va * 0.9, "OV5647 · 640 × 480", { dim: true });
+      setTag(tag("vf-tr"), x1 - labelWidth(`FRAME ${frameNo}`), y0 - 16, va * 0.9, `FRAME ${frameNo}`, { dim: true, ident: "frame" });
+      if (!small) setTag(tag("vf-bl"), x0, y1 + 6, va * 0.9, "63.0° × 49.0°", { dim: true });
+    }
 
     // detections ------------------------------------------------------------
     const pDetect = local[2];
@@ -188,7 +215,7 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
         ctx.stroke();
         ctx.globalAlpha = 1;
         const tg = tag(key);
-        setTag(tg, flip ? ex - 4 - labelW : ex + 4, ly - 7, a, label, { lock: locked, dim: !isFocus, sub: locked ? "LOCKED" : null });
+        setTag(tg, flip ? ex - 4 - labelW : ex + 4, ly - 7, a, label, { lock: locked, dim: !isFocus, sub: locked ? "LOCKED" : null, ident: `${o.id}${small && !isFocus ? "s" : ""}` });
       });
     }
 
@@ -265,7 +292,7 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
         setTag(tag("ghost"), g.x + r * 2 + 6, g.y + 6, pr, `AIM · t + ${GHOST_S.toFixed(1)} s`, { lock: true });
         // angular rate as COOP measures it: world-angle change seen from the camera
         const w = (bearing(EYE, objectState(FOCUS_INDEX, t + 0.1).x, st.z) - bearing(EYE, st.x, st.z)) / 0.1;
-        setTag(tag("vel"), c.x - 8, c.y + (small ? 40 : 64), pr * 0.9, `ω ${w >= 0 ? "+" : "−"}${Math.abs(w).toFixed(1)}°/s`, { dim: true });
+        setTag(tag("vel"), c.x - 8, c.y + (small ? 40 : 64), pr * 0.9, `ω ${w >= 0 ? "+" : "−"}${Math.abs(w).toFixed(1)}°/s`, { dim: true, ident: "vel" });
       } else if (wrapped) {
         trail.length = 0;
       }

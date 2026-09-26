@@ -3,7 +3,10 @@
 
 import * as THREE from "three";
 import { OBJECTS, FOCUS_INDEX, objectState, edgeFade } from "./world.js";
-import { stateAt, GHOST_S } from "./director.js";
+import { stateAt, GHOST_S, SCAN_PERIOD } from "./director.js";
+
+// rolling-shutter band position in NDC (top to bottom, then a short pause off-screen)
+const scanY = (t) => 1.15 - ((t % SCAN_PERIOD) / SCAN_PERIOD) * 2.9;
 import { createPoints } from "./points.js";
 import { createSolids } from "./solids.js";
 import { createCarousel } from "./carousel.js";
@@ -91,6 +94,11 @@ export function createStage({ still, webgl, scramble }) {
   const listeners = [];
   const v3 = new THREE.Vector3();
 
+  // where the optical axis lands on screen (the view offset moves it off-centre)
+  function opticalCenter() {
+    return W > 820 ? { x: W * 0.67, y: H * 0.5 } : { x: W * 0.5, y: H * 0.33 };
+  }
+
   function project(p) {
     v3.set(p[0], p[1], p[2]).project(camera);
     return { x: (v3.x + 1) * 0.5 * W, y: (1 - v3.y) * 0.5 * H, front: v3.z > -1 && v3.z < 1 };
@@ -149,9 +157,10 @@ export function createStage({ still, webgl, scramble }) {
       u.uForm.value = s.form;
       u.uStreet.value = s.street;
       u.uLock.value = s.lock * Math.max(s.detect > 0.5 ? Math.min(1, Math.max(0, (local[2] - LOCK_AT) / 0.04)) : 0, s.predict);
-      u.uSize.value = 58 * ratio * Math.min(1.25, H / 900 + 0.35);
+      u.uSize.value = 58 * ratio * Math.min(1.25, H / 900 + 0.35) * (W > 820 ? 1 : 0.7);
       u.uMaxSize.value = 8 * ratio;
       u.uCopyZone.value.w = s.form * (1 - s.carousel);
+      u.uScan.value.set(scanY(t), s.scan);
       OBJECTS.forEach((o, i) => {
         const st = objectState(i, t);
         u.uObj.value[i].set(st.x, st.z, st.heading, st.phase);
@@ -184,7 +193,7 @@ export function createStage({ still, webgl, scramble }) {
       }) : null;
       let lensScreen = null;
       if (s.rig > 0.05) { const l = solids.lensWorld(); lensScreen = project([l.x, l.y, l.z]); }
-      overlay.draw(s, { t, local, project, partAnchors, lensScreen });
+      overlay.draw(s, { t, local, project, partAnchors, lensScreen, scan: scanY(t), center: opticalCenter() });
     }
 
     lastState = { ...s, pan: cur.pan, aim: s.pan, bearing, t };

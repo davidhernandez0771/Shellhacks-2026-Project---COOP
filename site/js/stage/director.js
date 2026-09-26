@@ -5,6 +5,7 @@ import { EYE, RIG, OBJECTS, FOCUS_INDEX, objectState } from "./world.js";
 
 export const CHAPTERS = ["Intro", "See", "Detect", "Predict", "Move", "Build", "Gallery", "Team"];
 export const LEAD_S = 0.15;          // the real lead time (coop/config.py lead_time_s)
+export const SCAN_PERIOD = 2.4;      // seconds per rolling-shutter sweep in chapter 01
 export const GHOST_S = 1.6;          // the ghost is drawn further ahead than t_lead so it's visible
 
 const DEG = 180 / Math.PI;
@@ -44,7 +45,7 @@ export function rigPan(t) {
 const BASE = {
   pos: [0, 1.6, 11], look: [0, 1.3, 0], fov: 42,
   form: 1, street: 1, detect: 0, lock: 0, predict: 0, rig: 0, housing: 1, explode: 0,
-  carousel: 0, scrim: 1, pan: 0, eye: 0,
+  carousel: 0, scrim: 1, pan: 0, eye: 0, scan: 0,
 };
 
 const KEYS = [
@@ -53,7 +54,7 @@ const KEYS = [
   // 1 see: COOP scans the street
   (t) => {
     const yaw = 13 * Math.sin(t * 0.16);
-    return { eye: 1, pos: EYE.slice(), look: eyeLook(yaw), pan: yaw };
+    return { eye: 1, pos: EYE.slice(), look: eyeLook(yaw), pan: yaw, scan: 1 };
   },
   // 2 detect: boxes, then a lock
   (t) => {
@@ -81,7 +82,7 @@ const KEYS = [
   (t) => ({ pos: [0, 1.7, 12], look: [0, 1.4, 0], form: 0.18, street: 0.7, pan: 0 }),
 ];
 
-const NUM_KEYS = ["fov", "form", "street", "detect", "lock", "predict", "rig", "housing", "explode", "carousel", "scrim", "pan", "eye"];
+const NUM_KEYS = ["fov", "form", "street", "detect", "lock", "predict", "rig", "housing", "explode", "carousel", "scrim", "pan", "eye", "scan"];
 
 function resolve(i, t) {
   return { ...BASE, ...KEYS[i](t) };

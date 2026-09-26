@@ -19,6 +19,7 @@ const VERT = /* glsl */ `
   uniform float uLock;
   uniform vec3 uGhost;              // x offset, z offset, alpha (ghost copies only)
   uniform float uIsGhost;
+  uniform vec2 uScan;               // rolling-shutter band: NDC y, strength
   uniform vec4 uCopyZone;           // axis (0 = x, 1 = y), fade from, fade to (NDC), strength
   attribute vec3 aNoise;
   attribute vec4 aInfo;             // obj (-1 street, -2 dust), part, seed, brightness
@@ -81,9 +82,12 @@ const VERT = /* glsl */ `
     alpha *= smoothstep(34.0, 9.0, depth);
     gl_PointSize = min(uSize * (0.75 + 0.5 * aInfo.w) / max(depth, 0.5), uMaxSize);
     gl_Position = projectionMatrix * mv;
+    vec2 ndc = gl_Position.xy / max(gl_Position.w, 0.001);
+    // chapter 01: a band sweeps down the frame like the sensor's rolling shutter reading rows
+    float band = ndc.y - uScan.x;
+    alpha *= 1.0 + uScan.y * 2.2 * exp(-band * band * 260.0);
     // fade moving things as they pass behind the copy column, so text stays legible
     if (obj >= 0.0 || uIsGhost > 0.5) {
-      vec2 ndc = gl_Position.xy / max(gl_Position.w, 0.001);
       float c = uCopyZone.x < 0.5 ? ndc.x : ndc.y;
       alpha *= mix(1.0, smoothstep(uCopyZone.y, uCopyZone.z, c), uCopyZone.w);
     }
@@ -124,6 +128,7 @@ export function createPoints(scene, pal) {
     uSize: { value: 60 },
     uMaxSize: { value: 8 },
     uCopyZone: { value: new THREE.Vector4(0, -0.55, -0.15, 1) },
+    uScan: { value: new THREE.Vector2(2, 0) },
     uLockObj: { value: FOCUS_INDEX },
     uLock: { value: 0 },
     uGhost: { value: new THREE.Vector3() },
