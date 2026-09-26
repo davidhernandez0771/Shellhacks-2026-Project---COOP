@@ -1,6 +1,8 @@
 # COOP
 
-**ShellHacks 2026.** A Raspberry Pi tracking camera that spots **people and cars**, predicts where they're moving, and turns on stepper motors to keep them in frame. You watch it live from any browser on the network.
+> COOP is an AI tracking camera on a Raspberry Pi 5 that spots people and cars, predicts where they're heading, and turns on stepper motors to keep them in frame, streamed live to your browser.
+
+Built for **ShellHacks 2026**. Devpost submission text lives in [docs/DEVPOST.md](docs/DEVPOST.md).
 
 ```
 Pi Camera ─► YOLO detect + ByteTrack IDs ─► pick target ─► Kalman prediction ─► stepper pan/tilt

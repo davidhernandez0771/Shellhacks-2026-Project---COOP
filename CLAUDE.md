@@ -16,5 +16,19 @@ A Raspberry Pi 5 (8 GB) tracking camera. It detects people and cars, predicts th
 - Everything must run on a laptop without Pi hardware: camera falls back to the webcam, motors fall back to mock mode (`--source webcam --no-motors`).
 - Hardware imports (`picamera2`, `serial`) happen lazily inside functions.
 - If you change the serial protocol, update both `coop/motors.py` and the .ino file.
+
+## Parallel terminals
+Several Claude sessions may be working in this folder at once. Read `docs/TERMINALS.md` and stay in your lane's files. Commit only your own paths (never `git add -A`). The backend ↔ dashboard contract is `docs/API.md`; the look is `docs/DESIGN_BRIEF.md`.
+
+## Owner preferences
+David wants real technical explanations, not beginner simplifications. Propose options with a recommendation before big architecture or scope changes; once a direction is agreed, implement it without re-debating. Use small, descriptive commits.
+
+## Devpost doc: keep it in sync
+`docs/DEVPOST.md` holds the copy-paste-ready Devpost submission. In the same change as the code, update it whenever:
+- a library, framework, language, tool or hardware part is added or removed → update "Built with" (max 25 tags, keep the count note accurate) and "How we built it"
+- a feature is added, changed or removed → update "What it does" (and "What's next" if it was listed there)
+- a notable technical problem gets solved → add it to "Challenges we ran into"
+- the pitch changes → keep the elevator pitch ≤200 characters and update the count
+Never fill in the ✏️ personal sections (inspiration, what we learned) with invented content; those are the team's to write.
 - Tracking and prediction work in world-angle space (gimbal angle + in-frame offset), not pixels.
 - The dev machine is Windows; the Pi runs Raspberry Pi OS Bookworm. Keep shell scripts LF (enforced by .gitattributes).
