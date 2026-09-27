@@ -502,6 +502,18 @@ html:not(.no-webgl) .parts {
   position: absolute !important;
   width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
 }
+/* Build, continued: the stack grid (js/fx/interactive-grid.css). An opaque ink band above
+   the fixed stage, so no part labels or scene show through behind the tiles. */
+.build-stack {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+  padding: 56px var(--gutter) 120px;
+  background: var(--ink);
+}
+.build-stack-inner { max-width: 72rem; margin: 0 auto; }
+.build-stack-head { display: flex; gap: 14px; margin: 0 0 22px; color: var(--paper-2); }
+.build-stack-head > span:first-child { color: var(--paper-3); }
 
 /* ───────────────────────── 06 gallery (grid fallback; the carousel replaces it with WebGL) ───────────────────────── */
 .gallery {

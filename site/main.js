@@ -38,6 +38,17 @@ Promise.all([import("./js/fx/tactile-button.js"), import("./js/fx/scan-grid-butt
   if (gh) scangrid.createScanGridButton(gh, { reducedMotion: still });
 });
 
+// Build's stack grid: plain CSS at rest; the hover lift is loaded once it nears the viewport.
+const stackGrid = document.getElementById("stack-grid");
+if (stackGrid && "IntersectionObserver" in window) {
+  const io = new IntersectionObserver((entries) => {
+    if (!entries.some((e) => e.isIntersecting)) return;
+    io.disconnect();
+    import("./js/fx/interactive-grid.js").then(({ createInteractiveGrid }) => createInteractiveGrid(stackGrid, { reducedMotion: still }));
+  }, { rootMargin: "400px 0px" });
+  io.observe(stackGrid);
+}
+
 // Without WebGL the gallery list is shown as a grid: give its items their media.
 if (!webgl) {
   document.querySelectorAll("#gallery-list > li[data-src]").forEach((li) => {
