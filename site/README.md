@@ -28,7 +28,6 @@ Search for `✏️ PLACEHOLDER` (HTML comments) and `data-placeholder` (elements
 | Placeholder | Where | What to put |
 |---|---|---|
 | `cost-comparison` | Problem block | COOPER's total parts cost vs. a newer car vs. an aftermarket system |
-| `devpost-url` | Team chapter | the Devpost project URL (until then `main.js` makes the link inert) |
 | gallery `<li>` items | Gallery chapter | photos and videos, see below |
 
 ## Add photos and videos to the gallery
