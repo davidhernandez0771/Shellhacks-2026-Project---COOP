@@ -1,0 +1,18 @@
+/* Mask Text Reveal — clip-path unmask, left-to-right.
+   Hidden state clips from the right edge inward (inset right = 100%);
+   revealed state opens the clip fully. Only `clip-path` is animated. */
+
+.mask-reveal {
+  --mask-duration: 800ms;
+  --mask-easing: cubic-bezier(0.44, 0, 0.56, 1);
+  clip-path: inset(0% 100% 0% 0%);
+  -webkit-clip-path: inset(0% 100% 0% 0%);
+  transition: clip-path var(--mask-duration) var(--mask-easing),
+    -webkit-clip-path var(--mask-duration) var(--mask-easing);
+  will-change: clip-path;
+}
+
+.mask-reveal.is-revealed {
+  clip-path: inset(0% 0% 0% 0%);
+  -webkit-clip-path: inset(0% 0% 0% 0%);
+}

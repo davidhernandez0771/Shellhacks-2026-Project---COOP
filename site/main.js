@@ -32,6 +32,66 @@ document.querySelectorAll(".team-link-discord[data-discord]").forEach((btn) => {
   });
 });
 
+// Hero CTAs: progressively enhance the two plain links with their press/hover mechanics.
+Promise.all([import("./js/fx/tactile-button.js"), import("./js/fx/scan-grid-button.js")]).then(([tactile, scangrid]) => {
+  const how = document.getElementById("cta-how");
+  const gh = document.getElementById("cta-github");
+  if (how) tactile.createTactileButton(how, { reducedMotion: still });
+  if (gh) scangrid.createScanGridButton(gh, { reducedMotion: still });
+});
+
+// Section headings: mask-reveal on first scroll into view.
+import("./js/fx/mask-text-reveal.js").then(({ initMaskTextReveal }) => {
+  initMaskTextReveal(document.querySelectorAll(".ch-title"), { reducedMotion: still });
+});
+
+// Heavier WebGL/canvas fx: lazy-mount once their host nears the viewport, skipped entirely
+// without WebGL (their hosts are all display:none under html.no-webgl, see styles.css).
+function lazyMount(hostId, load, mount) {
+  const host = document.getElementById(hostId);
+  if (!host) return;
+  if (!("IntersectionObserver" in window)) { load().then((mod) => mount(mod, host)); return; }
+  const io = new IntersectionObserver((entries) => {
+    if (!entries[0].isIntersecting) return;
+    io.disconnect();
+    load().then((mod) => mount(mod, host));
+  }, { rootMargin: "600px 0px" });
+  io.observe(host);
+}
+
+if (webgl) {
+  lazyMount("predict-bg", () => import("./js/fx/predictive-arc.js"), (mod, host) =>
+    mod.createPredictiveArc(host, { reducedMotion: still }));
+  lazyMount("pipeline-dither", () => import("./js/fx/dither-reveal.js"), (mod, host) =>
+    mod.createDitherReveal(host, { src: "media/pipeline.svg", reducedMotion: still }));
+  lazyMount("leds", () => import("./js/fx/neon-border.js"), (mod, host) =>
+    mod.createNeonBorder(host, { reducedMotion: still }));
+
+  const STACK_ITEMS = [
+    { name: "Python", src: "media/logos/python.svg" },
+    { name: "Raspberry Pi", src: "media/logos/raspberry-pi.svg" },
+    { name: "YOLO / Ultralytics", src: "media/logos/yolo.svg" },
+    { name: "PyTorch", src: "media/logos/pytorch.svg" },
+    { name: "OpenCV", src: "media/logos/opencv.svg" },
+    { name: "NumPy", src: "media/logos/numpy.svg" },
+    { name: "Flask", src: "media/logos/flask.svg" },
+    { name: "Picamera2", src: "media/logos/picamera2.svg" },
+    { name: "three.js", src: "media/logos/three-js.svg" },
+    { name: "anime.js", src: "media/logos/anime-js.svg" },
+    { name: "Blender", src: "media/logos/blender.svg" },
+    { name: "HTML5", src: "media/logos/html5.svg" },
+    { name: "CSS3", src: "media/logos/css3.svg" },
+    { name: "JavaScript", src: "media/logos/javascript.svg" },
+    { name: "systemd", src: "media/logos/systemd.svg" },
+    { name: "Cloudflare", src: "media/logos/cloudflare.svg" },
+    { name: "pytest", src: "media/logos/pytest.svg" },
+    { name: "GitHub Actions", src: "media/logos/github-actions.svg" },
+  ];
+  lazyMount("stack-grid", () => import("./js/fx/interactive-grid.js"), (mod, host) =>
+    mod.createInteractiveGrid(host, STACK_ITEMS, { reducedMotion: still, cols: 6 }));
+}
+
+
 // Without WebGL the gallery list is shown as a grid: give its items their media.
 if (!webgl) {
   document.querySelectorAll("#gallery-list > li[data-src]").forEach((li) => {
@@ -48,10 +108,27 @@ if (!webgl) {
 
 async function boot() {
   const deepLink = location.hash && location.hash !== "#top" ? location.hash : null;
-  const gated = !still;
   const gate = createGate();
+  const gated = !still && !gate.alreadySeen;
   if (gated) root.classList.add("is-gated");
   else gate.close();
+
+  // The hero title (Vector Wordmark) and its small particle orb: mounted early so they're
+  // ready the moment the gate hands off, WebGL only (the plain "COOPER" text and no gimbal
+  // at all are the fallback everywhere else — see styles.css).
+  let wordmark = null, gimbal = null;
+  if (webgl) {
+    import("./js/fx/vector-wordmark.js").then(({ createVectorWordmark }) => {
+      const host = document.getElementById("vector-wordmark-host");
+      if (host) wordmark = createVectorWordmark(host, { text: "COOPER", textColor: "#EEEDEA", shade: "#9C9B98", accent: "#FF5A1F", reducedMotion: still });
+    });
+    if (!still) {
+      import("./js/fx/particle-gimbal.js").then(({ createParticleGimbal }) => {
+        const host = document.getElementById("intro-gimbal");
+        if (host) gimbal = createParticleGimbal(host, { dotColor: "#EEEDEA", accentColor: "#FF5A1F" });
+      });
+    }
+  }
 
   gate.progress(0.04, "Acquiring");
   const fonts = Promise.all([

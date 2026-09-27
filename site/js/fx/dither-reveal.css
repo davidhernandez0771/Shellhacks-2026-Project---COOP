@@ -1,0 +1,17 @@
+/* Dither Reveal canvas.
+   `host` is the caller's existing, already-sized/positioned container;
+   createDitherReveal() only inserts this canvas to fill it. The dithering
+   and reveal-hole colors come from the source photo's own luminance/pixels,
+   not from CSS, so there is little to theme here. --ink is the site's base
+   black (tokens.css) and only shows briefly as a fallback backdrop while
+   the image loads or if it fails to load. */
+
+.dither-reveal-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: var(--ink, #060606);
+  touch-action: none;
+}

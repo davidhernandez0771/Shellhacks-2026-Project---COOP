@@ -1,11 +1,7 @@
-// The intro: "COOPER" decodes out of noise like a camera acquiring a lock, then the line under
-// it re-scrambles into the name line, then into the tagline.
+// The intro: acquisition brackets close in on the COOPER wordmark (rendered by the Vector
+// Wordmark component, js/fx/vector-wordmark.js), then the readout decodes into the tagline.
 
-// ✏️ PLACEHOLDER: the story behind the name COOPER. Put the same line in NAME (plain text, it
-// gets scrambled) and NAME_HTML (shown once it settles).
-const NAME = "The story behind the name goes here";
 const TAGLINE = "COOPER sees it coming.";
-const NAME_HTML = "✏️ The story behind the name goes here";
 const CURSOR = "░▒▓█";
 const NOISE = "░▒▓█▚▞▙▛▜▟ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%";
 
@@ -30,39 +26,32 @@ export function makeScrambler(anime) {
   };
 }
 
-function setFinal(letters, expansion, readout, brackets) {
-  letters.forEach((s, i) => { s.textContent = "COOPER"[i]; s.classList.add("is-set"); });
-  expansion.innerHTML = NAME_HTML;
+function setFinal(readout, brackets, wordmarkHost) {
   readout.textContent = TAGLINE;
   brackets.classList.add("is-lock");
   brackets.querySelectorAll("i").forEach((i) => { i.style.opacity = "1"; });
+  if (wordmarkHost) wordmarkHost.style.opacity = "1";
 }
 
 export function playIntro(anime, { still, skip }) {
   const { animate, createTimeline, stagger, scrambleText } = anime;
-  const wrap = document.getElementById("intro-letters");
-  const letters = Array.from(wrap.children);
-  const expansion = document.getElementById("intro-expansion");
   const readout = document.getElementById("intro-readout");
   const brackets = document.querySelector(".intro-word .brackets");
+  const wordmarkHost = document.getElementById("vector-wordmark-host");
   const lede = document.getElementById("intro-lede");
+  const ctas = document.getElementById("intro-ctas");
   const cue = document.getElementById("scroll-cue");
 
-  // Fix every letter cell to its final glyph's width so the scramble never reflows the word.
-  letters.forEach((s) => { s.style.width = ""; });
-  const widths = letters.map((s) => s.getBoundingClientRect().width);
-  letters.forEach((s, i) => { s.style.width = `${widths[i]}px`; });
-
   if (still || skip) {
-    setFinal(letters, expansion, readout, brackets);
+    setFinal(readout, brackets, wordmarkHost);
     lede.style.opacity = "1";
+    ctas.style.opacity = "1";
     cue.style.opacity = "1";
     return Promise.resolve();
   }
 
-  letters.forEach((s) => { s.textContent = ""; });
-  wrap.classList.add("is-scrambling");
   const bracketEls = brackets.querySelectorAll("i");
+  if (wordmarkHost) wordmarkHost.style.opacity = "0";
   const tl = createTimeline({ defaults: { ease: "outExpo" } });
 
   // 1. brackets close in from wide, like an autofocus hunting
@@ -74,46 +63,19 @@ export function playIntro(anime, { still, skip }) {
     delay: stagger(40),
   }, 0);
 
-  // 2. the letters decode out of noise, one cell at a time
-  letters.forEach((s, i) => {
-    tl.add(s, {
-      innerHTML: scrambleText({
-        text: "COOPER"[i],
-        chars: NOISE,
-        cursor: CURSOR,
-        settleDuration: 520 + i * 90,
-        settleRate: 24,
-        revealRate: 30,
-        override: "",
-      }),
-      duration: 700 + i * 140,
-      ease: "linear",
-      onComplete: () => s.classList.add("is-set"),
-    }, 250 + i * 130);
-  });
-
-  // 3. lock: brackets snap to orange with a small overshoot
-  tl.call(() => { brackets.classList.add("is-lock"); wrap.classList.remove("is-scrambling"); }, 1450);
+  // 2. lock: brackets snap to orange with a small overshoot, and the wordmark's own
+  // reveal sweep (js/fx/vector-wordmark.js) takes over from here
+  tl.call(() => { brackets.classList.add("is-lock"); }, 1450);
   tl.add(bracketEls, { scale: [1.35, 1], duration: 500, ease: "outBack(2)" }, 1450);
+  if (wordmarkHost) tl.add(wordmarkHost, { opacity: [0, 1], duration: 600 }, 1500);
 
-  // 4. the readout decodes into the full name...
-  tl.add(readout, {
-    innerHTML: scrambleText({ text: NAME, chars: NOISE, cursor: CURSOR, revealRate: 70, settleDuration: 260, override: "", perturbation: 0.3 }),
-    ease: "linear",
-  }, 1650);
-
-  // 5. ...which then re-scrambles into the tagline, while the name settles above the word
+  // 3. the readout decodes straight into the tagline
   tl.add(readout, {
     innerHTML: scrambleText({ text: TAGLINE, chars: NOISE, cursor: CURSOR, revealRate: 55, settleDuration: 300, perturbation: 0.25 }),
     ease: "linear",
-  }, 3650);
-  tl.add(expansion, {
-    innerHTML: scrambleText({ text: NAME, chars: "A-Za-z", revealRate: 110, settleDuration: 180, override: "" }),
-    ease: "linear",
-    onComplete: () => { expansion.innerHTML = NAME_HTML; },
-  }, 3700);
+  }, 1900);
 
-  tl.add([lede, cue], { opacity: [0, 1], y: [10, 0], duration: 900, delay: stagger(140) }, 4300);
+  tl.add([lede, ctas, cue], { opacity: [0, 1], y: [10, 0], duration: 900, delay: stagger(140) }, 2900);
 
   return new Promise((resolve) => {
     tl.then(() => resolve());

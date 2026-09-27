@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1067" role="img" aria-labelledby="pipeline-title pipeline-desc">
+  <title id="pipeline-title">COOPER's pipeline</title>
+  <desc id="pipeline-desc">Camera feeds YOLO11n and ByteTrack, which feed a per-object Kalman filter, which feeds the lane risk check, which lights the yellow or red LED and drives the dashboard stream.</desc>
+  <rect width="1600" height="1067" fill="#060606"/>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10Z" fill="#9C9B98"/>
+    </marker>
+  </defs>
+  <g font-family="Archivo, Helvetica, Arial, sans-serif" font-weight="700" fill="#EEEDEA">
+    <!-- stage boxes -->
+    <g id="stages">
+      <!-- Camera -->
+      <rect x="70" y="453" width="220" height="160" rx="6" fill="none" stroke="#62615F" stroke-width="2"/>
+      <circle cx="180" cy="503" r="26" fill="none" stroke="#EEEDEA" stroke-width="3"/>
+      <circle cx="180" cy="503" r="10" fill="#EEEDEA"/>
+      <text x="180" y="580" font-size="26" text-anchor="middle">Camera</text>
+
+      <!-- Detect -->
+      <rect x="380" y="453" width="240" height="160" rx="6" fill="none" stroke="#62615F" stroke-width="2"/>
+      <rect x="430" y="483" width="60" height="46" fill="none" stroke="#EEEDEA" stroke-width="2.5"/>
+      <rect x="510" y="500" width="46" height="60" fill="none" stroke="#EEEDEA" stroke-width="2.5"/>
+      <text x="500" y="580" font-size="24" text-anchor="middle">YOLO11n + ByteTrack</text>
+
+      <!-- Predict -->
+      <rect x="710" y="453" width="240" height="160" rx="6" fill="none" stroke="#62615F" stroke-width="2"/>
+      <path d="M760 560 Q800 460 900 500" fill="none" stroke="#EEEDEA" stroke-width="2.5"/>
+      <path d="M900 500 Q930 512 950 495" fill="none" stroke="#FF5A1F" stroke-width="2.5" stroke-dasharray="6 6"/>
+      <circle cx="900" cy="500" r="6" fill="#EEEDEA"/>
+      <circle cx="950" cy="495" r="6" fill="#FF5A1F"/>
+      <text x="830" y="580" font-size="26" text-anchor="middle">Kalman filter</text>
+
+      <!-- Risk -->
+      <rect x="1040" y="453" width="220" height="160" rx="6" fill="none" stroke="#62615F" stroke-width="2"/>
+      <path d="M1080 590 L1120 500 L1160 560 L1200 480" fill="none" stroke="#EEEDEA" stroke-width="2.5"/>
+      <text x="1150" y="580" font-size="26" text-anchor="middle">Lane risk</text>
+
+      <!-- LEDs + stream -->
+      <rect x="1330" y="380" width="200" height="120" rx="6" fill="none" stroke="#62615F" stroke-width="2"/>
+      <circle cx="1390" cy="440" r="16" fill="#FFC21A"/>
+      <circle cx="1440" cy="440" r="16" fill="none" stroke="#E5212B" stroke-width="2.5"/>
+      <text x="1430" y="480" font-size="18" text-anchor="middle" fill="#9C9B98">LEDs</text>
+
+      <rect x="1330" y="533" width="200" height="120" rx="6" fill="none" stroke="#62615F" stroke-width="2"/>
+      <rect x="1360" y="558" width="140" height="54" rx="3" fill="none" stroke="#EEEDEA" stroke-width="2.5"/>
+      <path d="M1500 570 L1520 558 L1520 622 L1500 610Z" fill="none" stroke="#EEEDEA" stroke-width="2.5"/>
+      <text x="1430" y="633" font-size="18" text-anchor="middle" fill="#9C9B98">Dashboard</text>
+    </g>
+
+    <!-- arrows -->
+    <g stroke="#9C9B98" stroke-width="2" marker-end="url(#arrow)">
+      <line x1="290" y1="533" x2="376" y2="533"/>
+      <line x1="620" y1="533" x2="706" y2="533"/>
+      <line x1="950" y1="533" x2="1036" y2="533"/>
+      <line x1="1260" y1="500" x2="1326" y2="450"/>
+      <line x1="1260" y1="570" x2="1326" y2="593"/>
+    </g>
+  </g>
+</svg>

@@ -1,84 +1,94 @@
-// Loader: a dotted ring that fills with real load progress, then an "Enter >>>" prompt.
+// The intro: glyphs scattered across a burst shape travel into the word "COOPER"
+// (js/fx/morphing-glyph-cloud.js), hold for a beat, then hand off to the Vector Wordmark hero
+// title underneath. It plays once per browser session, waits for real asset loading, and is
+// always skippable by a click or a key — there is no Enter button.
+//
+// Reduced motion and repeat visits never see this at all: main.js only gates on it when
+// `gate.alreadySeen` is false and the visitor hasn't asked for reduced motion (see boot()).
 
-const DOTS = 48;
+import { createMorphingGlyphCloud } from "./fx/morphing-glyph-cloud.js";
+
+const SEEN_KEY = "coopIntroSeen";
+const HOLD_S = 0.5;   // how long "COOPER" holds, fully formed, before the gate can close
+
+function sessionFlag() {
+  try { return sessionStorage.getItem(SEEN_KEY) === "1"; } catch (e) { return false; }
+}
+function markSeen() {
+  try { sessionStorage.setItem(SEEN_KEY, "1"); } catch (e) {}
+}
 
 export function createGate() {
   const root = document.documentElement;
   const gate = document.getElementById("gate");
-  const svg = document.getElementById("gate-ring");
-  const pctEl = document.getElementById("gate-pct");
   const statusEl = document.getElementById("gate-status");
-  const enterBtn = document.getElementById("gate-enter");
-  const NS = "http://www.w3.org/2000/svg";
+  const canvas = document.getElementById("gate-canvas");
+  const alreadySeen = sessionFlag();
 
-  // four reticle ticks outside the ring
-  for (const a of [0, 90, 180, 270]) {
-    const r = (a * Math.PI) / 180;
-    const l = document.createElementNS(NS, "line");
-    l.setAttribute("x1", (100 + Math.sin(r) * 94).toFixed(2));
-    l.setAttribute("y1", (100 - Math.cos(r) * 94).toFixed(2));
-    l.setAttribute("x2", (100 + Math.sin(r) * 104).toFixed(2));
-    l.setAttribute("y2", (100 - Math.cos(r) * 104).toFixed(2));
-    svg.appendChild(l);
-  }
-  const dots = [];
-  for (let i = 0; i < DOTS; i++) {
-    const a = (i / DOTS) * Math.PI * 2 - Math.PI / 2;
-    const c = document.createElementNS(NS, "circle");
-    c.setAttribute("cx", (100 + Math.cos(a) * 84).toFixed(2));
-    c.setAttribute("cy", (100 + Math.sin(a) * 84).toFixed(2));
-    c.setAttribute("r", i % 4 === 0 ? "2.1" : "1.4");
-    svg.appendChild(c);
-    dots.push(c);
+  let target = 0, skipped = false, morphStarted = false, holding = false, holdT = 0;
+  let cloud = null, raf = 0, last = 0;
+
+  function resizeCanvas() {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = window.innerWidth, h = window.innerHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
   }
 
-  let target = 0, shown = 0, raf = 0, last = 0;
-  const reduce = root.classList.contains("still");
-  // Converge at a fixed rate per elapsed *time*, not per animation frame: a fixed
-  // fraction-per-tick (the old behaviour) makes the ring's wall-clock fill time scale
-  // with however slow the main thread is making requestAnimationFrame fire, so a busy
-  // page (importing three.js, compiling shaders) visibly stretches the loader.
-  const LAMBDA = 14; // 1/s; ~99.999% converged in ~0.8s regardless of frame rate
-  function tick(now) {
-    const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
-    last = now;
-    shown += (target - shown) * (reduce ? 1 : 1 - Math.exp(-LAMBDA * dt));
-    if (Math.abs(target - shown) < 0.002) shown = target;
-    const on = Math.round(shown * DOTS);
-    dots.forEach((d, i) => d.classList.toggle("on", i < on));
-    pctEl.textContent = String(Math.round(shown * 100)).padStart(3, "0");
-    raf = shown < target ? requestAnimationFrame(tick) : (last = 0);
+  if (!alreadySeen && canvas) {
+    cloud = createMorphingGlyphCloud(canvas, { baseColor: "#FF5A1F" });
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+    const tick = (now) => {
+      const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
+      last = now;
+      if (!morphStarted) { morphStarted = true; cloud.setMorph(1); }
+      cloud.render(dt);
+      if (!holding && cloud.settled) holding = true;
+      if (holding) holdT += dt;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+  }
+
+  function stopAnim() {
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
+    window.removeEventListener("resize", resizeCanvas);
   }
 
   return {
+    alreadySeen,
     progress(p, label) {
       target = Math.max(target, Math.min(1, p));
-      if (label) statusEl.textContent = label;
-      if (!raf) raf = requestAnimationFrame(tick);
+      if (label && statusEl) statusEl.textContent = label;
     },
-    /** Resolves when the visitor enters. */
+    /** Resolves once real loading is done AND (the visitor skipped, or the intro has played out). */
     ready() {
-      target = 1;
+      markSeen();
+      target = 1; // boot() only calls ready() once it considers the page functionally loaded
       return new Promise((resolve) => {
+        let resolved = false;
         const finish = () => {
-          dots.forEach((d) => d.classList.add("on"));
-          pctEl.textContent = "100";
-          statusEl.textContent = "Locked";
-          svg.classList.add("is-lock");
-          dots.forEach((d, i) => setTimeout(() => d.classList.add("lock"), reduce ? 0 : i * 8));
-          enterBtn.hidden = false;
-          enterBtn.focus({ preventScroll: true });
-          const go = () => {
-            window.removeEventListener("keydown", onKey);
-            resolve();
-          };
-          const onKey = (e) => { if (e.key === "Enter" && document.activeElement !== enterBtn) go(); };
-          enterBtn.addEventListener("click", go, { once: true });
-          window.addEventListener("keydown", onKey);
+          if (resolved) return;
+          resolved = true;
+          window.removeEventListener("keydown", onKey);
+          window.removeEventListener("pointerdown", onKey);
+          stopAnim();
+          resolve();
         };
-        const wait = () => (shown >= 0.999 ? finish() : requestAnimationFrame(wait));
-        if (!raf) raf = requestAnimationFrame(tick);
-        wait();
+        const onKey = () => { skipped = true; };
+        window.addEventListener("keydown", onKey);
+        window.addEventListener("pointerdown", onKey);
+        const check = () => {
+          if (resolved) return;
+          const animDone = skipped || (holding && holdT > HOLD_S);
+          if (target >= 0.999 && animDone) finish();
+          else requestAnimationFrame(check);
+        };
+        check();
       });
     },
     close() {

@@ -16,6 +16,13 @@
   <link rel="preload" href="fonts/martian-mono-var.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="tokens.css?v=2">
   <link rel="stylesheet" href="styles.css?v=2">
+  <link rel="stylesheet" href="js/fx/tactile-button.css">
+  <link rel="stylesheet" href="js/fx/scan-grid-button.css">
+  <link rel="stylesheet" href="js/fx/neon-border.css">
+  <link rel="stylesheet" href="js/fx/predictive-arc.css">
+  <link rel="stylesheet" href="js/fx/mask-text-reveal.css">
+  <link rel="stylesheet" href="js/fx/dither-reveal.css">
+  <link rel="stylesheet" href="js/fx/interactive-grid.css">
   <script>
     // Runs before first paint: pick the experience tier so CSS never flashes the wrong one.
     (function () {
@@ -42,18 +49,13 @@
 <body>
   <a class="skip" href="#see">Skip to content</a>
 
-  <!-- ───────── Loader + enter gate ───────── -->
+  <!-- ───────── Intro: glyphs form "COOPER", then hand off (site/js/gate.js). Skip with a
+       click or a key; plays once per session; never shown at all under reduced motion. ───────── -->
   <div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
     <h2 class="sr-only" id="gate-title">Loading COOPER</h2>
-    <div class="gate-ring" aria-hidden="true">
-      <svg class="ring" viewBox="0 0 200 200" id="gate-ring"></svg>
-      <span class="gate-pct" id="gate-pct">000</span>
-    </div>
+    <canvas class="gate-canvas" id="gate-canvas" aria-hidden="true"></canvas>
     <p class="gate-status mono" id="gate-status" aria-live="polite">Acquiring</p>
-    <button type="button" class="gate-enter" id="gate-enter" hidden>
-      <span class="gate-enter-label">Enter</span>
-      <span class="chevrons" aria-hidden="true"><i>&gt;</i><i>&gt;</i><i>&gt;</i></span>
-    </button>
+    <p class="gate-skip mono" aria-hidden="true">Click or press any key to skip</p>
   </div>
 
   <!-- ───────── Persistent stage (WebGL, or the 2D fallback) ───────── -->
@@ -99,16 +101,22 @@
     <section class="chapter intro" id="top" data-ch="0" aria-labelledby="intro-title">
       <div class="pin">
         <div class="intro-lockup">
-          <p class="intro-expansion mono" id="intro-expansion" aria-hidden="true"></p>
           <h1 class="intro-word" id="intro-title" aria-label="COOPER">
             <span class="brackets" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-            <span class="intro-letters" id="intro-letters" aria-hidden="true"><span>C</span><span>O</span><span>O</span><span>P</span><span>E</span><span>R</span></span>
+            <span class="intro-word-text" id="intro-word-text" aria-hidden="true">COOPER</span>
+            <!-- JS + WebGL only: the Vector Wordmark canvas overlays intro-word-text (site/js/fx/vector-wordmark.js) -->
+            <div class="vector-wordmark-host" id="vector-wordmark-host" aria-hidden="true"></div>
           </h1>
           <p class="intro-readout" id="intro-readout" aria-hidden="true"></p>
-          <!-- ✏️ PLACEHOLDER: the story behind the name COOPER (also NAME / NAME_HTML in js/intro.js) -->
           <p class="sr-only">COOPER: the dashcam that sees it coming.</p>
           <p class="intro-lede" id="intro-lede">A Raspberry Pi&nbsp;5 dashcam that spots people and vehicles, predicts where each one is heading, and lights a warning before one of them enters your lane.</p>
+          <div class="intro-ctas" id="intro-ctas">
+            <a class="cta-tactile" id="cta-how" href="#see">SEE HOW IT WORKS</a>
+            <a class="cta-scangrid" id="cta-github" href="https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOPER" target="_blank" rel="noopener">VIEW ON GITHUB</a>
+          </div>
         </div>
+        <!-- JS + WebGL only: a small interactive particle orb (site/js/fx/particle-gimbal.js) -->
+        <div class="intro-gimbal" id="intro-gimbal" aria-hidden="true"></div>
         <p class="scroll-cue mono" id="scroll-cue"><span>Scroll to see</span><i aria-hidden="true"></i></p>
       </div>
     </section>
@@ -165,6 +173,8 @@
     <!-- ───────── 03 Predict ───────── -->
     <section class="chapter chapter-long" id="predict" data-ch="3" aria-labelledby="predict-title">
       <div class="pin">
+        <!-- WebGL only: a field of predicted arcs behind the copy (site/js/fx/predictive-arc.js) -->
+        <div class="predict-bg" id="predict-bg" aria-hidden="true"></div>
         <div class="copy">
           <p class="ch-num mono" aria-hidden="true">03</p>
           <h2 class="ch-title" id="predict-title">Predict</h2>
@@ -251,6 +261,12 @@
             <li data-part="pi"><span>Raspberry Pi 5</span><span>8&nbsp;GB, vision and risk</span></li>
             <li data-part="case"><span>Case</span><span>car power in over USB-C</span></li>
           </ul>
+          <!-- WebGL only: the pipeline diagram, dithered until you look at it (site/js/fx/dither-reveal.js) -->
+          <figure class="pipeline-figure">
+            <div class="pipeline-dither" id="pipeline-dither" aria-hidden="true"></div>
+            <img class="pipeline-fallback" src="media/pipeline.svg" alt="Camera feeds YOLO11n and ByteTrack, which feed a per-object Kalman filter, which feeds the lane risk check, which lights the yellow or red LED and drives the dashboard stream." loading="lazy">
+            <figcaption class="mono">The pipeline, camera to LED</figcaption>
+          </figure>
         </div>
       </div>
     </section>
@@ -277,6 +293,23 @@
         <p class="ch-lead">A rehearsal tool already proves the logic. The next step is real driving.</p>
         <p class="ch-body">A synthetic road already tests COOPER end to end: a car cutting in, a pedestrian crossing, the car ahead braking, and a car in the next lane that must never light an LED. Next: validate against the Waymo Open Dataset, comparing COOPER&rsquo;s time-to-collision estimates against lidar ground truth; add an audible warning alongside the LEDs; detect the lane from road markings instead of calibrating it by hand; improve detection at night and in rain; and road-test the thresholds in real cars.</p>
       </div>
+    </section>
+
+    <!-- ───────── Built with (static block) ───────── -->
+    <section class="info-block" id="stack" aria-labelledby="stack-title">
+      <div class="copy copy-wide">
+        <h2 class="ch-title" id="stack-title">Built with</h2>
+        <p class="ch-lead">Every language, library and tool actually in COOPER.</p>
+      </div>
+      <!-- WebGL only: a pointer-reactive tile grid (site/js/fx/interactive-grid.js); the plain
+           list just below is the accessible/no-WebGL source of truth for the same tools. -->
+      <div class="stack-grid" id="stack-grid" aria-hidden="true"></div>
+      <ul class="stack-list mono" id="stack-list">
+        <li>Python</li><li>Raspberry Pi</li><li>YOLO / Ultralytics</li><li>PyTorch</li>
+        <li>OpenCV</li><li>NumPy</li><li>Flask</li><li>Picamera2</li><li>three.js</li>
+        <li>anime.js</li><li>Blender</li><li>HTML5</li><li>CSS3</li><li>JavaScript</li>
+        <li>systemd</li><li>Cloudflare</li><li>pytest</li><li>GitHub Actions</li>
+      </ul>
     </section>
 
     <!-- ───────── 06 Gallery ───────── -->

@@ -1,0 +1,19 @@
+/* Predictive Arc background canvas.
+   `.predictive-arc-host` marks the caller's existing full-bleed layer
+   (already position: absolute; inset: 0 or similar from the page's own
+   stylesheet); this file only styles the canvas createPredictiveArc()
+   inserts into it. Accent color matches --lock (#FF5A1F) from tokens.css. */
+
+.predictive-arc-host {
+  overflow: hidden;
+  background: #060606;
+}
+
+.predictive-arc-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}

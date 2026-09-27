@@ -1,0 +1,126 @@
+/* Interactive Grid — tech-stack "built with" tile field.
+   Companion stylesheet for js/fx/interactive-grid.js.
+
+   Card look matches David's settings: fill #060606, border #222222,
+   rounding 8px on the sheet's four outer corners only (the corner-*
+   classes below are placed by the JS module since which cards are
+   corners depends on the live column count), glow #FF5A1F66 -> #FF5A1F
+   at intensity 40 (6.4px / 3.2px drop-shadow blur), perspective 1600px,
+   rotateX/rotateY 0/0. Gap reads as 0 (a shared 1px hairline border
+   instead of a real grid gap) so the tiles read as one bordered sheet,
+   not floating cards.
+
+   Column count is set by the module itself (createInteractiveGrid), not
+   by a media query here, so its hover-neighbour math always matches
+   what is actually on screen; this file only supplies the 6-column
+   fallback grid-template-columns before JS runs. */
+
+.interactive-grid {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.interactive-grid__sheet {
+  width: 100%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0;
+  background: #060606;
+  border: 1px solid #222222;
+  border-radius: 8px;
+  perspective: 1600px;
+  transform-style: preserve-3d;
+  transform: rotateX(0deg) rotateY(0deg);
+}
+
+.interactive-grid__card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  aspect-ratio: 1 / 1;
+  padding: 12%;
+  background: #060606;
+  border-right: 1px solid #222222;
+  border-bottom: 1px solid #222222;
+  transform: scale(1) translate(0, 0) translateZ(0);
+  transition: transform 200ms ease;
+  z-index: 1;
+}
+
+.interactive-grid__card.corner-tl { border-top-left-radius: 8px; }
+.interactive-grid__card.corner-tr { border-top-right-radius: 8px; }
+.interactive-grid__card.corner-bl { border-bottom-left-radius: 8px; }
+.interactive-grid__card.corner-br { border-bottom-right-radius: 8px; }
+
+.interactive-grid__card img {
+  width: 60%;
+  height: 60%;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  opacity: 0.7;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  transition: opacity 200ms ease, filter 200ms ease;
+}
+
+.interactive-grid__card:hover img {
+  opacity: 1;
+}
+
+.interactive-grid__card.is-big {
+  transform: scale(1.15) translate(-20px, -20px) translateZ(15px);
+  z-index: 20;
+}
+.interactive-grid__card.is-small {
+  transform: scale(1.05) translate(-5px, -5px) translateZ(0);
+  z-index: 10;
+}
+.interactive-grid__card.is-big img,
+.interactive-grid__card.is-small img {
+  opacity: 1;
+}
+
+.interactive-grid__card.is-big img {
+  animation: interactive-grid-glow-big 1.5s ease-in-out infinite alternate;
+}
+.interactive-grid__card.is-small img {
+  animation: interactive-grid-glow-small 1.5s ease-in-out infinite alternate;
+}
+@keyframes interactive-grid-glow-big {
+  0%   { filter: drop-shadow(0 0 2px #FF5A1F66); }
+  100% { filter: drop-shadow(0 1px 6.4px #FF5A1F); }
+}
+@keyframes interactive-grid-glow-small {
+  0%   { filter: drop-shadow(0 0 2px #FF5A1F66); }
+  100% { filter: drop-shadow(0 1px 3.2px #FF5A1F66); }
+}
+
+/* reducedMotion / prefers-reduced-motion: the module never adds is-big /
+   is-small in this state, so nothing above fires; this just makes sure
+   the card itself settles instantly (no lingering transform tween) and
+   the logos still read clearly without needing to hover. */
+.interactive-grid__sheet.is-static .interactive-grid__card {
+  transition: none;
+}
+.interactive-grid__sheet.is-static .interactive-grid__card img {
+  animation: none;
+  opacity: 0.85;
+  transition: opacity 200ms ease;
+}
+
+@media (max-width: 720px) {
+  .interactive-grid { padding: 24px; }
+}
+@media (max-width: 420px) {
+  .interactive-grid { padding: 16px; }
+}

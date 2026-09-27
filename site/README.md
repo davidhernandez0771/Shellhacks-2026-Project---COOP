@@ -18,7 +18,7 @@ Open http://localhost:8765. Useful switches:
 | `/#build` | deep link to a chapter (skips the intro animation) |
 
 ## Edit the copy
-All text is in `index.html`, one `<section class="chapter">` per chapter. Paragraphs with `class="reveal-words"` get the word-by-word reveal automatically; keep them plain text (no links inside). The intro lines (the name line and the tagline) are in `js/intro.js` (`NAME`, `NAME_HTML`, `TAGLINE`). The chapter names in the bottom HUD come from `CHAPTERS` in `js/stage/director.js`, and the on-canvas tags (`TRACKED`, `PATH · t + …`) from `js/stage/overlay.js`.
+All text is in `index.html`, one `<section class="chapter">` per chapter. Paragraphs with `class="reveal-words"` get the word-by-word reveal automatically; keep them plain text (no links inside). The intro tagline is in `js/intro.js` (`TAGLINE`). The chapter names in the bottom HUD come from `CHAPTERS` in `js/stage/director.js`, and the on-canvas tags (`TRACKED`, `PATH · t + …`) from `js/stage/overlay.js`.
 
 The Warn chapter keeps the section id `move` (the nav, the scroll code and the scene key off chapter numbers and ids), so don't rename the id.
 
@@ -27,7 +27,6 @@ Search for `✏️ PLACEHOLDER` (HTML comments) and `data-placeholder` (elements
 
 | Placeholder | Where | What to put |
 |---|---|---|
-| name lore | intro (`NAME`, `NAME_HTML` in `js/intro.js`) | the story behind the name COOPER (there is no acronym) |
 | `cost-comparison` | Problem block | COOPER's total parts cost vs. a newer car vs. an aftermarket system |
 | `devpost-url` | Team chapter | the Devpost project URL (until then `main.js` makes the link inert) |
 | gallery `<li>` items | Gallery chapter | photos and videos, see below |

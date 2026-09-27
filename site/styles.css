@@ -256,44 +256,9 @@ html.js .gate {
   background: var(--ink);
 }
 html.js.is-entered .gate { display: none; }
-.gate-ring { position: relative; width: 168px; height: 168px; }
-.ring { width: 100%; height: 100%; overflow: visible; }
-.ring circle { fill: var(--paper-3); transition: fill var(--dur-fast) linear; }
-.ring circle.on { fill: var(--paper); }
-.ring circle.lock { fill: var(--lock); }
-.ring line { stroke: var(--paper-3); stroke-width: 1; }
-.ring.is-lock line { stroke: var(--lock); }
-.gate-pct {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font: 300 13px/1 var(--font-mono);
-  font-stretch: var(--stretch-mono);
-  letter-spacing: 0.08em;
-  font-variant-numeric: tabular-nums;
-}
-.gate-status { margin: 0; color: var(--paper-2); min-height: 1.4em; }
-.gate-enter {
-  display: inline-flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 22px 12px 24px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--paper);
-  font: 500 15px/1 var(--font-body);
-  cursor: pointer;
-  transition: border-color var(--dur-med) var(--ease-out), background-color var(--dur-med) var(--ease-out);
-}
-.gate-enter:hover, .gate-enter:focus-visible { border-color: var(--lock); background: var(--lock-dim); }
-.gate-enter:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--lock-dim); }
-.chevrons { display: inline-flex; gap: 1px; color: var(--lock); font: 500 14px/1 var(--font-mono); }
-.chevrons i { font-style: normal; animation: chev 1.2s var(--ease-in-out) infinite; opacity: 0.25; }
-.chevrons i:nth-child(2) { animation-delay: 0.15s; }
-.chevrons i:nth-child(3) { animation-delay: 0.3s; }
-@keyframes chev { 0%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+.gate-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; }
+.gate-status { position: relative; margin: 0; color: var(--paper-2); min-height: 1.4em; }
+.gate-skip { position: absolute; left: 0; right: 0; bottom: 28px; margin: 0; text-align: center; color: var(--paper-3); opacity: 0.8; }
 
 /* ───────────────────────── chapters ───────────────────────── */
 main { position: relative; z-index: 1; }
@@ -354,15 +319,8 @@ main { position: relative; z-index: 1; }
 .spec dd { margin: 0; color: var(--paper); }
 
 /* ───────────────────────── intro ───────────────────────── */
-.intro .pin { align-content: center; }
+.intro .pin { align-content: center; position: relative; }
 .intro-lockup { display: grid; justify-items: start; }
-.intro-expansion {
-  min-height: 1.3em;
-  margin: 0 0 clamp(22px, 3.2vw, 46px) 0.4vw;
-  color: var(--paper-2);
-  font-size: clamp(10px, 0.9vw, 12px);
-}
-.intro-expansion b { color: var(--paper); font-weight: 500; }
 .intro-word {
   position: relative;
   margin: 0;
@@ -373,10 +331,33 @@ main { position: relative; z-index: 1; }
   line-height: 0.8;
   letter-spacing: -0.04em;
 }
-.intro-letters { display: inline-flex; }
-.intro-letters span { display: inline-block; text-align: center; }
-.intro-letters.is-scrambling span { color: var(--paper-2); }
-.intro-letters span.is-set { color: var(--paper); }
+/* the plain text is the no-JS/no-WebGL wordmark; JS+WebGL hides it in favour of the
+   Vector Wordmark canvas (js/fx/vector-wordmark.js), which overlays the same box so the
+   layout and font sizing never shift between the two. */
+.intro-word-text { display: inline-block; }
+html.js:not(.no-webgl) .intro-word-text { visibility: hidden; }
+.vector-wordmark-host {
+  display: none;
+  position: absolute;
+  inset: -0.08em -0.06em;
+  opacity: 0;
+  transition: opacity var(--dur-slow) var(--ease-out);
+}
+html.js:not(.no-webgl) .vector-wordmark-host { display: block; }
+html.still .vector-wordmark-host { opacity: 1; transition: none; }
+/* a small interactive particle orb near the hero title (js/fx/particle-gimbal.js);
+   decorative, so it never appears without WebGL or with reduced motion */
+.intro-gimbal {
+  display: none;
+  position: absolute;
+  right: var(--gutter);
+  top: calc(var(--nav-h) + 28px);
+  width: clamp(120px, 11vw, 190px);
+  aspect-ratio: 1;
+  opacity: 0.9;
+}
+html.js:not(.no-webgl):not(.still) .intro-gimbal { display: block; }
+@media (max-width: 820px) { .intro-gimbal { display: none !important; } }
 /* acquisition brackets around the word */
 .brackets { position: absolute; inset: -0.08em -0.1em -0.02em -0.1em; pointer-events: none; }
 .brackets i {
@@ -405,7 +386,9 @@ main { position: relative; z-index: 1; }
   margin: 22px 0 0 0.4vw;
   color: var(--paper-2);
 }
-html.js:not(.still):not(.boot-failed) .intro-lede { opacity: 0; }
+.intro-ctas { display: flex; flex-wrap: wrap; gap: 14px; margin: 30px 0 0 0.4vw; }
+html.js:not(.still):not(.boot-failed) .intro-lede,
+html.js:not(.still):not(.boot-failed) .intro-ctas { opacity: 0; }
 .scroll-cue {
   position: absolute;
   left: var(--gutter);
@@ -449,6 +432,17 @@ html.js:not(.still):not(.no-webgl) #predict .equations {
 html.still #predict .pin, html.no-webgl #predict .pin { grid-template-areas: "copy" "eq"; align-content: center; gap: 28px; }
 html.still #predict .copy, html.no-webgl #predict .copy { grid-area: copy; }
 html.still #predict .equations, html.no-webgl #predict .equations { grid-area: eq; }
+/* the predictive-arc field sits behind the copy, full-bleed within the sticky viewport */
+.predict-bg {
+  display: none;
+  grid-area: stack;
+  position: absolute;
+  inset: calc(-1 * (var(--nav-h) + 48px)) calc(-1 * var(--gutter)) -88px;
+  z-index: 0;
+  pointer-events: none;
+}
+html.js:not(.no-webgl) .predict-bg { display: block; }
+#predict .copy, #predict .equations { position: relative; z-index: 1; }
 .equations {
   justify-self: start;
   max-width: 100%;
@@ -551,6 +545,12 @@ html:not(.no-webgl) .parts {
   position: absolute !important;
   width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
 }
+.pipeline-figure { margin: 22px 0 0; padding: 0; max-width: 34rem; }
+.pipeline-figure figcaption { margin-top: 8px; color: var(--paper-3); }
+.pipeline-dither, .pipeline-fallback { display: block; width: 100%; aspect-ratio: 3 / 2; border: 1px solid var(--line); }
+.pipeline-dither { display: none; position: relative; }
+html.js:not(.no-webgl) .pipeline-dither { display: block; }
+html.js:not(.no-webgl) .pipeline-fallback { display: none; }
 
 /* ───────────────────────── 06 gallery (grid fallback; the carousel replaces it with WebGL) ───────────────────────── */
 .gallery {
@@ -582,10 +582,35 @@ html.no-webgl .ch-hint { display: none; }
 html.no-webgl #gallery { height: auto; }
 html.no-webgl #gallery .pin { position: relative; height: auto; min-height: 100vh; }
 
-/* ───────────────────────── static info blocks (problem, privacy, next) ───────────────────────── */
+/* ───────────────────────── static info blocks (problem, privacy, next, stack) ───────────────────────── */
 .info-block { position: relative; padding: 120px var(--gutter); border-top: 1px solid var(--line); }
 .info-block .copy { max-width: 40rem; }
 .info-block [data-placeholder] { text-decoration: underline dashed var(--paper-3); text-underline-offset: 5px; text-decoration-thickness: 1px; }
+
+/* ───────────────────────── built-with tile grid ───────────────────────── */
+.copy-wide { max-width: 48rem; }
+.stack-grid { display: none; max-width: 900px; margin: 34px auto 0; aspect-ratio: 2 / 1; }
+html.js:not(.no-webgl) .stack-grid { display: block; }
+.stack-list {
+  list-style: none;
+  max-width: 900px;
+  margin: 34px auto 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+.stack-list li { background: var(--ink); padding: 14px 10px; text-align: center; color: var(--paper-2); }
+html.js:not(.no-webgl) .stack-list {
+  position: absolute !important;
+  width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+@media (max-width: 820px) {
+  .stack-list { grid-template-columns: repeat(3, 1fr); }
+  .stack-grid { aspect-ratio: 1 / 1; }
+}
 
 /* ───────────────────────── 07 team + links ───────────────────────── */
 .team { list-style: none; margin: 8px 0 30px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 24px; max-width: 52rem; }
@@ -739,7 +764,7 @@ html:not(.js) .hud, html:not(.js) .stage-hud { display: none; }
 }
 
 /* ───────────────────────── still (reduced motion) ───────────────────────── */
-html.still .chevrons i, html.still .scroll-cue i::after { animation: none; opacity: 1; }
+html.still .scroll-cue i::after { animation: none; opacity: 1; }
 html.still .stage-scrim { transition: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }

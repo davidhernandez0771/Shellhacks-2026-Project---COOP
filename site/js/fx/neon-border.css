@@ -1,0 +1,103 @@
+/* Neon Border — styles for site/js/fx/neon-border.js
+ *
+ * Structure created by createNeonBorder(el):
+ *
+ *   el
+ *     └─ .neon-border                 (overlay, absolute, fills el)
+ *          ├─ .neon-border-base       (dim static ring, always on)
+ *          ├─ .neon-border-group      (comet A: half the sweep phase)
+ *          │    ├─ .neon-border-glow  x3 (blurred halo layers)
+ *          │    │    └─ .neon-border-band
+ *          │    └─ .neon-border-edge  x2 (crisp bright line)
+ *          │         └─ .neon-border-band
+ *          └─ .neon-border-group      (comet B: other half the phase)
+ *               └─ ...same as above...
+ *
+ * .neon-border-band is masked (content-box XOR border-box) down to just the
+ * ring between its padding and its edge, so `background: var(--arc)` (a
+ * conic-gradient rebuilt in JS every frame) only ever paints a thin frame,
+ * never fills the box.
+ *
+ * Custom properties (set on .neon-border by JS, with CSS fallbacks below):
+ *   --neon-color       ring/glow color, default var(--lock) (#FF5A1F)
+ *   --neon-thickness   ring thickness, default 2px
+ *   --neon-base-color  color of the dim always-on base ring
+ *   --arc              (set per .neon-border-group) the animated conic-gradient
+ */
+
+.neon-border {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  box-sizing: border-box;
+
+  --neon-color: var(--lock, #FF5A1F);
+  --neon-thickness: 2px;
+  --neon-base-color: var(--lock-glow, rgba(255, 90, 31, 0.45));
+
+  opacity: 0;
+  transition: opacity var(--dur-med, 320ms) var(--ease-out, ease);
+}
+
+.neon-border.is-ready {
+  opacity: 1;
+}
+
+/* Dim, non-animated ring under the sweeping comets, so the frame still
+   reads as a border between sweeps. */
+.neon-border-base {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border-radius: inherit;
+  border: var(--neon-thickness) solid var(--neon-base-color);
+}
+
+.neon-border-group {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* Blurred halo layer trailing the bright edge. Geometry (inset/padding/
+   border-radius) is set inline by JS per element size; only opacity/blur
+   are styled here. */
+.neon-border-glow {
+  position: absolute;
+  box-sizing: border-box;
+  opacity: var(--neon-opacity, 0.3);
+  mix-blend-mode: plus-lighter;
+  filter: blur(var(--neon-blur, 12px));
+  -webkit-filter: blur(var(--neon-blur, 12px));
+}
+
+/* Crisp, unblurred copy of the ring that carries the bright edge itself. */
+.neon-border-edge {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: plus-lighter;
+}
+
+/* The actual painted ring: background is the animated conic-gradient
+   (inherited --arc from the nearest .neon-border-group), masked down to a
+   band between its padding-box and its own box (content-box XOR border-box). */
+.neon-border-band {
+  position: absolute;
+  box-sizing: border-box;
+  background: var(--arc, transparent);
+
+  -webkit-mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
+  -webkit-mask-clip: content-box, border-box;
+  -webkit-mask-composite: xor;
+  mask-image: linear-gradient(#fff 0 0), linear-gradient(#fff 0 0);
+  mask-clip: content-box, border-box;
+  mask-composite: exclude;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neon-border {
+    transition: none;
+  }
+}
