@@ -81,6 +81,24 @@ export function initChapters(anime, stage, { still }) {
     });
   });
 
+  // An instant jump (a nav link, the logo, Home) can skip over sections without anime
+  // updating them, leaving a stale progress behind (e.g. the hero showing chapter 05's
+  // scene). Resync every section from its geometry: the same "top top" → "top bottom" range.
+  function resync() {
+    let changed = false;
+    sections.forEach((section, i) => {
+      const r = section.getBoundingClientRect();
+      const p = Math.min(1, Math.max(0, -r.top / r.height));
+      if (Math.abs(p - progress[i]) > 0.001) {
+        progress[i] = p;
+        section.style.setProperty("--p", p.toFixed(4));
+        changed = true;
+      }
+    });
+    if (changed) recompute();
+  }
+  window.addEventListener("scroll", resync, { passive: true });
+
   // word-by-word reveal, scrubbed by scroll
   if (!still) {
     document.querySelectorAll(".reveal-words").forEach((p) => {
