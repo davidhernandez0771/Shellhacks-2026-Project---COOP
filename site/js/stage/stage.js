@@ -215,8 +215,10 @@ export function createStage({ still, webgl, scramble }) {
 
     // adaptive resolution: react in ~1s of sustained slow frames, not ~90 frames worth of
     // wall time (11s+ once frames are already down at ~8fps, long after a visitor has
-    // judged the page as laggy)
-    if (animate && ratioCap > 1 && dt > 0.026) {
+    // judged the page as laggy). Gated on `!still`, not `animate`, so the ?nogl fallback
+    // (which redraws a full 2D canvas on every scroll frame, same fill-rate cost as WebGL)
+    // gets the same relief a struggling WebGL visitor does.
+    if (!still && ratioCap > 1 && dt > 0.026) {
       if (++slowFrames > 24) { ratioCap = Math.max(1, ratio - 0.5); slowFrames = 0; resize(); }
     } else if (slowFrames > 0) slowFrames--;
 

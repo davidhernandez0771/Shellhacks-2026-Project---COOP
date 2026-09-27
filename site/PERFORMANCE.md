@@ -130,6 +130,23 @@ Fixes 1–4 combined take the reported problem's two symptoms from baseline to:
 | Scroll FPS (WebGL, DPR 2) | 8.4 | 27.1 |
 | Task ms/frame (WebGL, DPR 2) | 117 | 37 |
 
+### 5. Give `?nogl` the same adaptive-resolution relief as WebGL
+
+After fix 4, `?nogl` (47 ms/frame) was slower than WebGL (37 ms/frame): the fallback 2D
+scene render (`fallback2d.js`) plus the HUD overlay is now the more expensive path, but the
+adaptive-resolution step from fix 3 was gated on `animate` (`= !still && webgl`), which is
+always `false` without WebGL — so a struggling `?nogl` visitor never got the ratio-cap
+downgrade a struggling WebGL visitor does. Changed the gate to `!still`, since the
+ratio/resize the step controls applies to the 2D canvases the same way it applies to the
+WebGL one, regardless of which path is drawing.
+
+| Config | Scroll FPS before | Scroll FPS after | Task ms/frame before | after |
+|---|---|---|---|---|
+| `?nogl`, DPR 2 | 20.4 | 32.3 | 47 | 28 |
+
+(WebGL numbers are unchanged by this fix, confirmed by re-measuring: 28.1 fps / 36 ms per
+frame, within run-to-run noise of fix 4's 27.1 fps / 37 ms.)
+
 ## Performance rules
 
 (filled in at the end, once the fixes are locked in)
