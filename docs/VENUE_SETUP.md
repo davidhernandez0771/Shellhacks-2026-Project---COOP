@@ -1,7 +1,7 @@
 # COOPER: setting up at the venue (laptop)
 
 Everything is on GitHub. Nothing is left only on the desktop.
-Repo: https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP
+Repo: https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOPER
 
 **Live links**
 - Main site (the `dev` branch): https://coop.davidhernandez.work
@@ -20,7 +20,7 @@ Repo: https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP
 
 ## 2. Get the project (PowerShell, one line at a time)
 ```
-git clone https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP C:\dev\COOP
+git clone https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOPER C:\dev\COOP
 cd C:\dev\COOP
 git switch dev
 pip install -r requirements.txt
