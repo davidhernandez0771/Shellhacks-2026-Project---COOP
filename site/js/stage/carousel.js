@@ -177,10 +177,12 @@ export function createCarousel(scene, pal, camera) {
   const cursorEl = document.getElementById("cursor");
   const cursorLabel = document.getElementById("cursor-label");
   let hovered = -1;
+  // only presses and hovers on the gallery itself (not the nav, a link, or the open viewer)
+  const inGallery = (t) => root.classList.contains("gallery-active") && !!t.closest
+    && !!t.closest("#gallery") && !t.closest("a, button, .nav, dialog, [role=dialog]");
   function hover(e) {
     if (e.pointerType && e.pointerType !== "mouse") return;
-    const over = !dragging && root.classList.contains("gallery-active")
-      && !(e.target.closest && e.target.closest("a, button, .nav")) ? pick(e.clientX, e.clientY) : -1;
+    const over = !dragging && inGallery(e.target) ? pick(e.clientX, e.clientY) : -1;
     if (over !== -1 && cursorEl && root.classList.contains("has-cursor")) {
       cursorEl.classList.add("is-lock");
       cursorEl.classList.remove("is-drag");
@@ -196,9 +198,8 @@ export function createCarousel(scene, pal, camera) {
   let downX = 0, downY = 0, downT = 0, pressed = false;
   let focusCard = -1;                      // a keyboard-focused <li> turns the ring to its card
   function down(e) {
-    if (!root.classList.contains("gallery-active")) return;
+    if (!inGallery(e.target)) return;
     if (e.button !== undefined && e.button !== 0) return;
-    if (e.target.closest && e.target.closest("a, button, .nav")) return;
     dragging = true; lastX = e.clientX; lastT = performance.now(); vel = 0;
     pressed = true; downX = e.clientX; downY = e.clientY; downT = lastT;
     focusCard = -1;
