@@ -1,6 +1,6 @@
 # COOPER showcase site
 
-A cinematic one-page site for COOPER, a fixed, car-mounted Raspberry Pi 5 dashcam that predicts every road user's path and lights a yellow or red LED before something enters your lane. A loader, the "COOPER" decode intro, and seven chapters (See, Detect, Predict, Warn, Build, Gallery, Team) played out in one persistent WebGL scene that scroll drives. Design rationale: `docs/DESIGN_DIRECTIONS.md`.
+A cinematic one-page site for COOPER, a fixed, car-mounted Raspberry Pi 5 dashcam that predicts every road user's path and lights a yellow or red LED before something enters your lane. The COOPER wordmark hero and seven chapters (See, Detect, Predict, Warn, Build, Gallery, Team) played out in one persistent WebGL scene that scroll drives. Design rationale: `docs/DESIGN_DIRECTIONS.md`.
 
 **No build step.** Plain HTML, CSS and native ES modules. three.js and anime.js are vendored in `vendor/` and mapped with an import map in `index.html`, and the fonts are self-hosted in `fonts/`, so the page makes no third-party requests and deploys as-is.
 
@@ -18,7 +18,7 @@ Open http://localhost:8765. Useful switches:
 | `/#build` | deep link to a chapter (skips the intro animation) |
 
 ## Edit the copy
-All text is in `index.html`, one `<section class="chapter">` per chapter. Paragraphs with `class="reveal-words"` get the word-by-word reveal automatically; keep them plain text (no links inside). The intro lines (the name line and the tagline) are in `js/intro.js` (`NAME`, `NAME_HTML`, `TAGLINE`). The chapter names in the bottom HUD come from `CHAPTERS` in `js/stage/director.js`, and the on-canvas tags (`TRACKED`, `PATH · t + …`) from `js/stage/overlay.js`.
+All text is in `index.html`, one `<section class="chapter">` per chapter. Paragraphs with `class="reveal-words"` get the word-by-word reveal automatically; keep them plain text (no links inside). The intro tagline under the wordmark is `TAGLINE` in `js/intro.js`. The chapter names in the bottom HUD come from `CHAPTERS` in `js/stage/director.js`, and the on-canvas tags (`TRACKED`, `PATH · t + …`) from `js/stage/overlay.js`.
 
 The Warn chapter keeps the section id `move` (the nav, the scroll code and the scene key off chapter numbers and ids), so don't rename the id.
 
@@ -27,7 +27,6 @@ Search for `✏️ PLACEHOLDER` (HTML comments) and `data-placeholder` (elements
 
 | Placeholder | Where | What to put |
 |---|---|---|
-| name lore | intro (`NAME`, `NAME_HTML` in `js/intro.js`) | the story behind the name COOPER (there is no acronym) |
 | `cost-comparison` | Problem block | COOPER's total parts cost vs. a newer car vs. an aftermarket system |
 | `devpost-url` | Team chapter | the Devpost project URL (until then `main.js` makes the link inert) |
 | gallery `<li>` items | Gallery chapter | photos and videos, see below |
@@ -64,9 +63,12 @@ The CAD files stay out of the repo. The script prints each part's triangle count
 ## How it's put together
 | File | Role |
 |---|---|
-| `main.js` | boot: loads fonts → anime.js → three.js + scene behind the gate, then the intro |
-| `js/gate.js` | the dotted progress ring and the Enter prompt |
-| `js/intro.js` | the scrambleText timeline (COOPER → name line → tagline) |
+| `main.js` | boot, straight into the hero (no loader or Enter gate): fonts → anime.js → three.js + scene → intro; enhances the hero CTAs, the wordmark and the stack grid |
+| `js/intro.js` | the hero timeline: brackets lock onto the wordmark, the readout decodes into the tagline |
+| `js/fx/vector-wordmark.js` | the hero title: "COOPER" drawn as one WebGL quad, its glyphs revealed through a soft-to-sharp mask that follows the pointer (auto-sweeps with no pointer) |
+| `js/fx/tactile-button.js` + `.css` | the "See how it works" CTA: a keycap face that presses down onto its base and springs back |
+| `js/fx/scan-grid-button.js` + `.css` | the "View on GitHub" CTA: a looping scanline sweep and a staggered glitch on the label while hovered or focused |
+| `js/fx/interactive-grid.js` + `.css` | the tech-stack tile sheet at the end of the Build chapter (`#stack-grid`, logos in `media/logos/`): the hovered tile and its four neighbours lift and glow; the layout is pure CSS and works without JS |
 | `js/chapters.js` | anime.js `onScroll` per chapter, word reveals, nav, chapter scrubber, frame counter, the Warn LEDs |
 | `js/cursor.js` | the desktop cursor (ring → lock brackets on links, "Drag" in the gallery) |
 | `js/stage/world.js` | the street as data: people, cars, sampled point clouds (no three.js) |
@@ -78,7 +80,7 @@ The CAD files stay out of the repo. The script prints each part's triangle count
 | `js/stage/fallback2d.js` | the no-WebGL renderer |
 | `tokens.css` | every color, font and timing |
 
-Numbers in the copy are real where they describe COOPER (FOV, frame size, the 1.5 s horizon and 0.1 s path steps, the 2 s time-to-contact warning, two frames to light and 0.5 s hold; see `cooper/config.py` on the dashcam branch). The scene is an illustration, not live data: the detection confidences, figures, frame counter, "my lane" (a 1.6 m × 5.5 m strip ahead of the unit) and the `PATH · t + 1.6 s` tag (drawn further ahead than the real horizon so it's visible) are all made up.
+Numbers in the copy are real where they describe COOPER (FOV, frame size, the 1.5 s horizon and 0.1 s path steps, the 2 s time-to-contact warning, two frames to light and 0.5 s hold; see `cooper/config.py`). The scene is an illustration, not live data: the detection confidences, figures, frame counter, "my lane" (a 1.6 m × 5.5 m strip ahead of the unit) and the `PATH · t + 1.6 s` tag (drawn further ahead than the real horizon so it's visible) are all made up.
 
 **Updating the vendored libraries:** `vendor/three.module.min.js` is `three/build/three.module.js` bundled and minified with esbuild (`esbuild three.module.js --bundle --minify --format=esm`); `vendor/GLTFLoader.js` is `three/examples/jsm/loaders/GLTFLoader.js` bundled the same way with `--external:three`; `vendor/anime.esm.min.js` is copied from the `animejs` package's `dist/bundles/`.
 

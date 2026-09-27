@@ -29,7 +29,7 @@ export function initCursor({ still }) {
     if (!raf) raf = requestAnimationFrame(loop);
   }, { passive: true });
   document.documentElement.addEventListener("pointerleave", () => el.classList.remove("is-live"));
-  // after a click that removes or covers the hovered element (the gate's Enter), drop the lock look
+  // after a click that removes or covers the hovered element (e.g. an in-page link that scrolls away), drop the lock look
   window.addEventListener("click", () => requestAnimationFrame(() => {
     const under = document.elementFromPoint(x, y);
     el.classList.toggle("is-lock", !!(under && under.closest && under.closest("a, button")));

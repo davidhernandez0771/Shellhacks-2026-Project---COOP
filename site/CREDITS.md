@@ -12,4 +12,4 @@ Everything on this site (code, scene, copy, the point-cloud figures and the proc
 
 Fonts were taken from the Fontsource npm packages (`@fontsource-variable/archivo`, `@fontsource-variable/martian-mono`, `@fontsource/stix-two-text`), Latin and Greek subsets.
 
-Inspiration only (no code or assets used): Active Theory's site for the loader, enter gesture and cinematic pacing, and Julian Garnier's scrambleText CodePen for what the API can do.
+Inspiration only (no code or assets used): Active Theory's site for the cinematic pacing, and Julian Garnier's scrambleText CodePen for what the API can do.

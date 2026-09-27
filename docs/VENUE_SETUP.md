@@ -1,7 +1,7 @@
 # COOPER: setting up at the venue (laptop)
 
 Everything is on GitHub. Nothing is left only on the desktop.
-Repo: https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP
+Repo: https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOPER
 
 **Live links**
 - Main site (the `dev` branch): https://coop.davidhernandez.work
@@ -20,7 +20,7 @@ Repo: https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP
 
 ## 2. Get the project (PowerShell, one line at a time)
 ```
-git clone https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP C:\dev\COOP
+git clone https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOPER C:\dev\COOP
 cd C:\dev\COOP
 git switch dev
 pip install -r requirements.txt
@@ -112,7 +112,7 @@ Read CLAUDE.md and docs/HARDWARE_TEST.md. Today we bring up the real hardware (P
 | Preview a design lane locally | `python -m http.server 8124 --directory C:\dev\COOP-site\site`, then open http://localhost:8124 |
 
 ## 7. Reminders
-- The team is **David Hernandez** (software) and **Diego Avila** (design and hardware).
+- The team is **David Hernandez** (backend, vision, tracking, prediction), **Diego Avila** (CAD and hardware; assembled and wired the finished project) and **Diego Tabares** (presentation, pitch, and elements of website design).
 - Still to decide: Diego's GitHub or LinkedIn link, and whether David's team card links SANT (https://github.com/davidhernandez0771/Nebius-X-NVIDIA-Hackathon-Project).
 - The hardware checklist is `docs/HARDWARE_TEST.md`; the Devpost copy is `docs/DEVPOST.md`.
 - Only merge to `main` once the hardware checklist passes.

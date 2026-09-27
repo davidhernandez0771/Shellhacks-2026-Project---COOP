@@ -1,0 +1,113 @@
+/* Interactive Grid: the tech-stack tile sheet at the end of the Build chapter.
+   Companion to js/fx/interactive-grid.js, which only adds the is-big / is-small hover
+   classes; everything here works without it.
+
+   OriginKit settings kept: card fill #060606, border #222222, gap 0 drawn as shared
+   1px hairlines (one bordered sheet, rounded 8px on its four outer corners only), glow
+   #FF5A1F66 -> #FF5A1F. Changed: logos at full #EEEDEA at rest (they were black strokes
+   on #060606 in PR #8, which is why they looked faded), a mono name under each, and a
+   smaller, static lift instead of the source's pulsing glow. Transitions: transform and
+   filter only. Columns: 6 -> 3 (phones) -> 2 (under 340px); the tile count (18) divides all three. */
+
+.stack-grid {
+  --ig-fill: #060606;
+  --ig-line: #222222;
+  --ig-glow-dim: #FF5A1F66;
+  --ig-glow: #FF5A1F;
+  --ig-cols: 6;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--ig-cols), minmax(0, 1fr));
+  background: var(--ig-line);
+  border: 1px solid var(--ig-line);
+  border-radius: 8px;
+  gap: 1px;
+}
+
+.stack-grid > li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+  aspect-ratio: 1 / 1;
+  padding: 14% 8px 12%;
+  background: var(--ig-fill);
+  color: var(--paper, #EEEDEA);
+  text-align: center;
+}
+
+/* the four outer corners, per column count (sheet radius minus its 1px border) */
+.stack-grid > li:first-child { border-top-left-radius: 7px; }
+.stack-grid > li:nth-child(6) { border-top-right-radius: 7px; }
+.stack-grid > li:nth-last-child(6) { border-bottom-left-radius: 7px; }
+.stack-grid > li:last-child { border-bottom-right-radius: 7px; }
+
+.stack-grid img {
+  display: block;
+  width: 44%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.stack-grid .ig-name {
+  max-width: 100%;
+  color: #EEEDEA;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+/* hover: only where there is a real hover, and never under reduced motion */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .stack-grid > li {
+    transition: transform 200ms var(--ease-out, ease), filter 200ms var(--ease-out, ease);
+  }
+  .stack-grid img {
+    transition: filter 200ms var(--ease-out, ease);
+  }
+  /* no JS: the tile itself still lifts */
+  .stack-grid:not(.is-live) > li:hover,
+  .stack-grid > li.is-big {
+    z-index: 2;
+    transform: translateY(-8px) scale(1.06);
+    filter: drop-shadow(0 10px 18px var(--ig-glow-dim));
+  }
+  .stack-grid:not(.is-live) > li:hover img,
+  .stack-grid > li.is-big img {
+    filter: drop-shadow(0 0 6px var(--ig-glow));
+  }
+  .stack-grid > li.is-small {
+    z-index: 1;
+    transform: translateY(-3px) scale(1.02);
+  }
+  .stack-grid > li.is-small img {
+    filter: drop-shadow(0 0 3px var(--ig-glow-dim));
+  }
+}
+
+@media (max-width: 820px) {
+  .stack-grid { --ig-cols: 3; }
+  .stack-grid > li:nth-child(6) { border-top-right-radius: 0; }
+  .stack-grid > li:nth-last-child(6) { border-bottom-left-radius: 0; }
+  .stack-grid > li:nth-child(3) { border-top-right-radius: 7px; }
+  .stack-grid > li:nth-last-child(3) { border-bottom-left-radius: 7px; }
+}
+@media (max-width: 339px) {
+  .stack-grid { --ig-cols: 2; }
+  .stack-grid > li { gap: 8px; }
+  .stack-grid > li:nth-child(3) { border-top-right-radius: 0; }
+  .stack-grid > li:nth-last-child(3) { border-bottom-left-radius: 0; }
+  .stack-grid > li:nth-child(2) { border-top-right-radius: 7px; }
+  .stack-grid > li:nth-last-child(2) { border-bottom-left-radius: 7px; }
+}
+@media (max-width: 480px) {
+  .stack-grid > li { gap: 8px; padding: 16% 4px 12%; }
+  .stack-grid .ig-name { font-size: 9.5px; letter-spacing: 0; }
+}

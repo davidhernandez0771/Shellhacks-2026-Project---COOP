@@ -1,0 +1,128 @@
+/* Tactile Button
+   The main call-to-action. A solid "base" layer sits underneath the visible
+   face, offset down-and-slightly-left. On press the face slides down onto
+   that base (a fast, stiff move -- like a keycap bottoming out) and springs
+   back up on release with a slight overshoot. Hover swaps the face's fill
+   and text color. Keyboard Enter/Space trigger the same press animation as
+   a real pointer press, not just a plain focus outline.
+
+   Structure the JS module builds around the existing <a> element:
+     .tactile-btn        outer wrapper -- reserves room for the base layer
+                          so it never gets clipped by page layout
+     .tactile-btn-scope   sizes itself to the face; positions the base layer
+     .tactile-btn-base    the solid offset layer underneath (aria-hidden)
+     .tactile-btn-face    the enhanced <a> itself -- the pressable face
+     .tactile-btn-label   wrapper around the original link text
+     .tactile-btn-face.is-pressed  applied by the JS module while the
+                          pointer/key is down; removing it plays the
+                          spring-back release
+     .tactile-btn--reduced  applied by the JS module when reduced motion
+                          is requested: transitions collapse to ~instant
+*/
+
+.tactile-btn {
+  /* component tokens -- reuse site tokens where the value matches exactly,
+     literal hex where David's setting has no equivalent token */
+  --tactile-fill: var(--lock);           /* #FF5A1F */
+  --tactile-text: var(--ink);            /* #060606 */
+  --tactile-hover-fill: #FF7A45;         /* David's setting, no matching token */
+  --tactile-hover-text: var(--ink);      /* #060606 */
+  --tactile-base-color: #A8350C;         /* David's setting, no matching token */
+  --tactile-radius: 12px;
+  --tactile-padding: 16px 28px;
+  --tactile-dx: -1px;                    /* base offsetX */
+  --tactile-dy: 11px;                    /* base offsetY */
+  --tactile-press-dur: 50ms;             /* fast bottom-out, matches the tween */
+  --tactile-press-ease: var(--ease-out);
+  --tactile-spring-dur: 340ms;           /* approximates the stiffness/damping spring */
+  --tactile-spring-ease: cubic-bezier(0.34, 1.56, 0.64, 1); /* spring-ish overshoot */
+
+  display: inline-block;
+  box-sizing: border-box;
+  max-width: 100%;
+  /* reserve space on whichever sides the base layer pokes out past the
+     face, so it is never clipped by an ancestor's box */
+  padding-top: max(0px, calc(var(--tactile-dy) * -1));
+  padding-right: max(0px, var(--tactile-dx));
+  padding-bottom: max(0px, var(--tactile-dy));
+  padding-left: max(0px, calc(var(--tactile-dx) * -1));
+}
+
+.tactile-btn-scope {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.tactile-btn-base {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--tactile-radius);
+  background-color: var(--tactile-base-color);
+  box-sizing: border-box;
+  transform: translate(var(--tactile-dx), var(--tactile-dy));
+  pointer-events: none;
+}
+
+.tactile-btn-face {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: var(--tactile-padding);
+  border: 0;
+  border-radius: var(--tactile-radius);
+  background-color: var(--tactile-fill);
+  color: var(--tactile-text);
+  font-family: var(--font-mono);
+  font-stretch: var(--stretch-mono);
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 1.5em;
+  letter-spacing: 0;
+  text-decoration: none;
+  white-space: nowrap;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transform: translate(0, 0);
+  transition:
+    transform var(--tactile-spring-dur) var(--tactile-spring-ease),
+    background-color var(--tactile-spring-dur) var(--tactile-spring-ease),
+    color var(--tactile-spring-dur) var(--tactile-spring-ease);
+}
+
+.tactile-btn-face:hover,
+.tactile-btn-face:focus-visible {
+  background-color: var(--tactile-hover-fill);
+  color: var(--tactile-hover-text);
+}
+
+.tactile-btn-face:focus-visible {
+  outline: 2px solid var(--tactile-hover-fill);
+  outline-offset: 2px;
+}
+
+/* Pressed (pointerdown, or Enter/Space held): slide the face down onto the
+   base with a fast, stiff move -- distinct from the slower spring used for
+   the release and for the hover color swap. */
+.tactile-btn-face.is-pressed {
+  transform: translate(var(--tactile-dx), var(--tactile-dy));
+  transition:
+    transform var(--tactile-press-dur) var(--tactile-press-ease),
+    background-color var(--tactile-spring-dur) var(--tactile-spring-ease),
+    color var(--tactile-spring-dur) var(--tactile-spring-ease);
+}
+
+.tactile-btn-label {
+  pointer-events: none;
+}
+
+/* Reduced motion: JS adds this class and skips the animation entirely --
+   state still changes (pressed/hover/color), just without a transition. */
+.tactile-btn--reduced .tactile-btn-face,
+.tactile-btn--reduced .tactile-btn-face.is-pressed {
+  transition-duration: 1ms;
+}
