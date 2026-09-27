@@ -15,7 +15,7 @@ Pi camera ─► YOLO11n + ByteTrack ─► Kalman filter per object ─► lane
 | Who | Area |
 |---|---|
 | David Hernandez Del Risco | Software: vision, tracking, prediction, risk, the site's first design, and the dashboard's backend |
-| Diego Taberas | Presentation & story: the pitch, how COOPER came alive, and part of the site's design |
+| Diego Tabares | Presentation & story: the pitch, how COOPER came alive, and part of the site's design |
 | Diego Avila | Design & hardware: main designer and 3D CAD (Fusion 360), wired all the hardware together |
 
 ## What it does
