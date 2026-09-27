@@ -31,7 +31,9 @@ export function createStage({ still, webgl, scramble }) {
   let solids, points, carousel;
 
   if (webgl) {
-    renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: true, alpha: true, powerPreference: "high-performance" });
+    // No MSAA: the scene is already supersampled by the DPR cap above 1x, which covers most
+    // of what MSAA would buy on the paper-edge linework, at a fraction of the per-frame cost.
+    renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: false, alpha: true, powerPreference: "high-performance" });
     renderer.setClearColor(0x000000, 0);
   }
   solids = createSolids(scene);

@@ -107,6 +107,29 @@ Combined, fixes 2+3 take WebGL/DPR2 scroll from **8.4 fps / 117 ms per frame** (
 to **16.2 fps / 62 ms per frame** — essentially a 2× reduction in main-thread cost per
 scroll frame, with no change to the steady-state resolution when the page isn't struggling.
 
+### 4. Disable MSAA on the WebGL renderer
+
+`WebGLRenderer` was created with `antialias: true`. Under SwiftShader (headless) this alone
+was worth 16.2 → 25.4 fps; visually, checked with a same-DPR (1.5, the site's `MAX_DPR`)
+screenshot comparison of the Warn chapter (the densest line/edge scene — the COOPER model's
+paper edges, "my lane" dashes, detection brackets), the difference is not perceptible: the
+DPR cap already supersamples above 1×, which covers most of what MSAA buys on this line-art
+style at a fraction of the per-frame GPU cost. (MSAA cost on a real GPU is usually cheaper
+than on SwiftShader's software rasterizer, but the resolve step is never free, and the scene
+never needed it once DPR-supersampled.)
+
+| Config | Scroll FPS before | Scroll FPS after | Task ms/frame before | after |
+|---|---|---|---|---|
+| WebGL, DPR 2 | 16.2 | 27.1 | 62 | 37 |
+
+Fixes 1–4 combined take the reported problem's two symptoms from baseline to:
+
+| Metric | Baseline | After fixes 1–4 |
+|---|---|---|
+| Loader end (WebGL, DPR 2) | 2.8 s | ~2.0 s |
+| Scroll FPS (WebGL, DPR 2) | 8.4 | 27.1 |
+| Task ms/frame (WebGL, DPR 2) | 117 | 37 |
+
 ## Performance rules
 
 (filled in at the end, once the fixes are locked in)
