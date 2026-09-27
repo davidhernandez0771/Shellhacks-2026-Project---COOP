@@ -1,6 +1,6 @@
 # COOPER showcase site
 
-A cinematic one-page site for COOPER, a fixed, car-mounted Raspberry Pi 5 dashcam that predicts every road user's path and lights a yellow or red LED before something enters your lane. A loader, the "COOPER" decode intro, and seven chapters (See, Detect, Predict, Warn, Build, Gallery, Team) played out in one persistent WebGL scene that scroll drives. Design rationale: `docs/DESIGN_DIRECTIONS.md`.
+A cinematic one-page site for COOPER, a fixed, car-mounted Raspberry Pi 5 dashcam that predicts every road user's path and lights a yellow or red LED before something enters your lane. The COOPER wordmark hero and seven chapters (See, Detect, Predict, Warn, Build, Gallery, Team) played out in one persistent WebGL scene that scroll drives. Design rationale: `docs/DESIGN_DIRECTIONS.md`.
 
 **No build step.** Plain HTML, CSS and native ES modules. three.js and anime.js are vendored in `vendor/` and mapped with an import map in `index.html`, and the fonts are self-hosted in `fonts/`, so the page makes no third-party requests and deploys as-is.
 
@@ -63,9 +63,8 @@ The CAD files stay out of the repo. The script prints each part's triangle count
 ## How it's put together
 | File | Role |
 |---|---|
-| `main.js` | boot: loads fonts → anime.js → three.js + scene behind the gate, then the intro |
-| `js/gate.js` | the dotted progress ring and the Enter prompt |
-| `js/intro.js` | the scrambleText timeline (COOPER → name line → tagline) |
+| `main.js` | boot: loads fonts → anime.js → three.js + scene, then the intro (no loader) |
+| `js/intro.js` | the hero timeline: brackets lock onto the wordmark, the readout decodes into the tagline |
 | `js/chapters.js` | anime.js `onScroll` per chapter, word reveals, nav, chapter scrubber, frame counter, the Warn LEDs |
 | `js/cursor.js` | the desktop cursor (ring → lock brackets on links, "Drag" in the gallery) |
 | `js/stage/world.js` | the street as data: people, cars, sampled point clouds (no three.js) |

@@ -44,20 +44,6 @@
 <body>
   <a class="skip" href="#see">Skip to content</a>
 
-  <!-- ───────── Loader + enter gate ───────── -->
-  <div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
-    <h2 class="sr-only" id="gate-title">Loading COOPER</h2>
-    <div class="gate-ring" aria-hidden="true">
-      <svg class="ring" viewBox="0 0 200 200" id="gate-ring"></svg>
-      <span class="gate-pct" id="gate-pct">000</span>
-    </div>
-    <p class="gate-status mono" id="gate-status" aria-live="polite">Acquiring</p>
-    <button type="button" class="gate-enter" id="gate-enter" hidden>
-      <span class="gate-enter-label">Enter</span>
-      <span class="chevrons" aria-hidden="true"><i>&gt;</i><i>&gt;</i><i>&gt;</i></span>
-    </button>
-  </div>
-
   <!-- ───────── Persistent stage (WebGL, or the 2D fallback) ───────── -->
   <div class="stage" aria-hidden="true">
     <canvas class="stage-gl" id="stage-gl"></canvas>

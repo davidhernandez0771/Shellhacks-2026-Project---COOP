@@ -219,12 +219,12 @@ Keep these in mind for future work on `site/`:
    already judged the page as laggy long before a multi-second-to-trip threshold fires; a
    short debounce (a couple dozen frames, not a couple hundred) still avoids reacting to a
    single hitch.
-6. **Anything that visibly counts up or fills in during load (the loader ring, any future
-   progress indicator) must converge at a fixed rate per elapsed *time*, never per
+6. **Anything that visibly counts up or fills in during load (any future progress
+   indicator; the loader ring that prompted this rule is gone) must converge at a fixed rate per elapsed *time*, never per
    animation frame.** A fixed fraction-per-tick makes the animation's wall-clock duration
    inversely proportional to the frame rate — exactly backwards, since it's slowest exactly
-   when the page is busiest. Use a `dt`-based exponential decay (see `js/gate.js`'s `tick`,
-   or `js/stage/stage.js`'s `damp()`) instead.
+   when the page is busiest. Use a `dt`-based exponential decay (see
+   `js/stage/stage.js`'s `damp()`) instead.
 7. **The 2D HUD/overlay and fallback scene redraw the whole canvas every frame they have
    anything to show**, by design (the scene's state is genuinely continuous — camera
    easing, time-driven motion, scroll scrubbing). Don't try to skip redraws based on "did
