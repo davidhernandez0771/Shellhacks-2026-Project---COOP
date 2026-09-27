@@ -25,6 +25,8 @@ const VERT = /* glsl */ `
   attribute vec4 aInfo;             // obj (-1 street, -2 dust), part, seed, brightness
   varying float vAlpha;
   varying float vLock;
+  varying float vDepth;
+  varying float vSeed;
 
   vec2 rot(vec2 p, float a) { float c = cos(a), s = sin(a); return vec2(c * p.x - s * p.y, s * p.x + c * p.y); }
 
@@ -93,6 +95,10 @@ const VERT = /* glsl */ `
     }
     vAlpha = alpha;
     vLock = isLock;
+    // depth 0 = closest visible, 1 = at the far fog line: cheap atmospheric perspective and a
+    // per-point brightness jitter (from the existing per-point seed) for a less uniform field.
+    vDepth = clamp((depth - 4.0) / 30.0, 0.0, 1.0);
+    vSeed = seed;
   }
 `;
 
@@ -101,12 +107,20 @@ const FRAG = /* glsl */ `
   uniform vec3 uLockColor;
   varying float vAlpha;
   varying float vLock;
+  varying float vDepth;
+  varying float vSeed;
   void main() {
     vec2 d = gl_PointCoord - 0.5;
     float r = length(d);
+    // a soft-edged disc with a slightly brighter core, instead of one flat falloff curve
     float a = smoothstep(0.5, 0.0, r);
-    a = a * a;
+    a = mix(a * a, a, 0.22);
     vec3 col = mix(uPaper, uLockColor, vLock);
+    // distant points cool and dim a touch (fog); a tiny per-point jitter keeps the field from
+    // reading as perfectly uniform. Both are subtle so lock colour still reads clearly.
+    col = mix(col, vec3(0.62, 0.66, 0.72) * col, vDepth * 0.4);
+    col *= 1.0 - vDepth * 0.22;
+    col *= 0.92 + 0.16 * fract(vSeed * 43.0);
     gl_FragColor = vec4(col * a * vAlpha, 1.0);
   }
 `;
