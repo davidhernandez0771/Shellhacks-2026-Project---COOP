@@ -36,7 +36,7 @@ COOPER is a car-mounted dashcam that warns you before something gets into your l
 
 "Your lane" is a trapezoid of the road in front of the car, which you drag into place from the dashboard once the camera is mounted.
 
-Everything streams live to a web dashboard: the video with every detected object, its predicted path drawn ahead of it, and the lane tinted yellow or red with the risk. A side panel says what COOPER is worried about and why ("car #201 heading into your lane in 0.8 s"), shows both LEDs, lists every object by risk, and logs every change. A diagnostics strip shows the Pi's temperature and throttling, the vision and camera frame rates, inference time and camera-to-LED latency; a tuning panel changes the prediction horizon and time-to-contact thresholds live. Every failure has its own designed state (no camera, connection lost, signed out), all in the same black-white-and-orange identity as the showcase site, down to phone width.
+Everything streams live to a web dashboard: the video with every detected object, its predicted path drawn ahead of it, and the lane tinted yellow or red with the risk. A side panel says what COOPER is worried about and why ("car #201 heading into your lane in 0.8 s"), shows both LEDs, lists every object by risk, and logs every change. A diagnostics strip shows the Pi's temperature and throttling, the vision and camera frame rates, inference time and camera-to-LED latency; a tuning panel changes the prediction horizon and time-to-contact thresholds live. It can also beep in step with the LEDs, like a parking sensor: one short beep a second for yellow, rapid high beeps for red (off until you turn it on with the speaker button or the S key, since browsers block audio until the page is touched). Every failure has its own designed state (no camera, connection lost, signed out), all in the same black-white-and-orange identity as the showcase site, down to phone width.
 
 The dashboard is reachable from anywhere over HTTPS at the team's own subdomain, behind an email login.
 
@@ -69,9 +69,9 @@ drops below 2.0 s while it's in the lane's corridor (released above 2.5 s). Hyst
 
 **Deployment.** A systemd unit runs COOPER as soon as the car powers the Pi and restarts it if it crashes. A second unit runs a **Cloudflare Tunnel**, which publishes the dashboard at an HTTPS subdomain through an outbound-only connection, so it works behind any NAT (a phone hotspot included) with no port forwarding. **Cloudflare Access** sits in front: only approved email addresses (one-time PIN login) can see the camera.
 
-**Showcase site.** The public page tells the story in scroll-driven chapters in one persistent three.js scene: a street of people and cars made of ~20,000 points. anime.js v4 drives the intro, the scroll timelines and the labels. The dashcam in it is our real CAD: a Blender script turns the Fusion 360 assembly into a 281 KB glTF with one node per part, so the Build chapter pulls apart the actual lid, LEDs, Pi, camera mount and camera module, and in the Warn chapter the model's two LEDs light with the scene's warning level. It has no build step (native ES modules, vendored libraries, self-hosted fonts), a still version for reduced motion, and a 2D-canvas fallback for browsers without WebGL.
+**Showcase site.** The public page opens straight on the hero, no loading screen: the COOPER wordmark is a single WebGL quad whose letters come into focus under a lens that follows the pointer (it sweeps by itself when there's no pointer), over two calls to action, a keycap button that presses down and springs back and a GitHub button with a scanline sweep and a glitch on hover. The story then plays out in scroll-driven chapters in one persistent three.js scene: a street of people and cars made of ~20,000 points. anime.js v4 drives the intro, the scroll timelines and the labels. The Build chapter ends on a tile sheet of the tech stack whose hovered tile and its four neighbours lift and glow; it's plain HTML and CSS underneath, so it reads the same without JavaScript. The dashcam in it is our real CAD: a Blender script turns the Fusion 360 assembly into a 281 KB glTF with one node per part, so the Build chapter pulls apart the actual lid, LEDs, Pi, camera mount and camera module, and in the Warn chapter the model's two LEDs light with the scene's warning level. It has no build step (native ES modules, vendored libraries, self-hosted fonts), a still version for reduced motion, and a 2D-canvas fallback for browsers without WebGL.
 
-**Team.** David Hernandez Del Risco built the software: vision, tracking, prediction, risk, the site's first design, and the dashboard's backend. Diego Tabares shaped the pitch and the story of how COOPER came alive, and worked on part of the site's design. Diego Avila was the main designer and did the 3D CAD (Fusion 360), and wired all the hardware together.
+**Team.** David Hernandez built the backend: vision, tracking and prediction. Diego Avila did the CAD (Fusion 360) and the hardware, and assembled and wired the finished project. Diego Tabares did the presentation and the pitch, and elements of the website's design.
 
 **Testing.** A pytest suite covers the Kalman filter (against the full matrix form, the occlusion gate, time to contact), every risk rule and the hysteresis, the LEDs (gpio vs mock on a fake board, only writing on a change, releasing a half-claimed pin), the settings file, live settings and the lane API, the Flask API, diagnostics and the capture thread. It also runs the rehearsal's whole 20-second loop and checks that the cut-in, the pedestrian and the braking car each warn before they're danger, that the car in the next lane never lights an LED, and that no LED state lasts under a quarter second. GitHub Actions runs it on every push and pull request without installing PyTorch, Ultralytics or the Pi camera stack, which also proves the tests never load them.
 
@@ -107,7 +107,7 @@ drops below 2.0 s while it's in the lane's corridor (released above 2.5 s). Hyst
 ---
 
 ## Built with
-_(up to 25 tags, currently 23. Type each one into the tag box)_
+_(up to 25 tags, currently 24. Type each one into the tag box)_
 ```
 python
 raspberry-pi
@@ -123,6 +123,7 @@ flask
 picamera2
 gpiozero
 three.js
+webgl
 anime.js
 blender
 html
@@ -139,7 +140,7 @@ github-actions
 ## "Try it out" links
 ```
 https://coop.davidhernandez.work
-https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP
+https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOPER
 ```
 Don't list the live dashboard: it's behind Cloudflare Access, so judges would hit a login wall.
 
@@ -157,7 +158,7 @@ Shot list:
 - [ ] Wiring diagram (see `hardware/README.md`)
 - [ ] The team working on it
 
-The screenshots in `docs/screenshots/` show the old motorized-gimbal dashboard and will be replaced.
+The screenshots in `docs/screenshots/` are from an earlier dashboard and will be replaced.
 
 ## Video demo link
 _(YouTube / Vimeo / Facebook / Youku link; embedded at the top of the page)_
