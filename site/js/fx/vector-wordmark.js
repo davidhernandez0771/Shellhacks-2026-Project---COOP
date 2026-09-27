@@ -1,27 +1,17 @@
 // The hero title: "COOPER" rendered as a single WebGL quad, its glyphs revealed through a
 // soft-to-sharp mask that follows the pointer like a lens finding focus. With no pointer it
-// auto-sweeps left to right. Three small reticle handles drift near the word and report their
-// own position, in the same telemetry language as the rest of the site's overlays.
+// auto-sweeps left to right.
 //
-// createVectorWordmark(host, options) mounts a <canvas> (and, if options.labels !== false,
-// up to 3 label <div>s) filling `host`, and returns { destroy() }.
+// createVectorWordmark(host, options) mounts a <canvas> filling `host` and returns { destroy() }.
 
 const MAX_DPR = 2;
 const REF_WIDTH = 1200;
 const MAX_TEX = 4096;
 
-const HANDLES = 3;
-const CELL_ASPECT = 0.6;
-const DRIFT_X = 0.08;
-const DRIFT_Y = 0.04;
-const DRIFT_RATE = 1.3;
-const DRIFT_RATE_Y = 1.3 * 1.3;
 const SWEEP_RATE = 0.5;
 const SWEEP_BAND = 0.28;
-const RESNAP = 0.2;
 const DAMP_REF = 20;
 const SPEED_REF = 50;
-const LABEL_MAX = 0.6;
 
 const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 const fract = (x) => x - Math.floor(x);
@@ -71,12 +61,6 @@ uniform vec2 uPtr;
 uniform float uReach;
 uniform vec3 uText;
 uniform vec3 uShade;
-uniform vec4 uAccent;
-uniform vec2 uV0;
-uniform vec2 uV1;
-uniform vec2 uV2;
-uniform float uHalf;
-uniform float uHandles;
 varying vec2 vUv;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -91,24 +75,6 @@ vec2 blurRG(vec2 uv, float e) {
     sum += texture2D(uMap, uv + off * e);
   }
   return (sum / 6.0).rg;
-}
-
-vec2 segment(vec2 p, vec2 a, vec2 b) {
-  vec2 ab = b - a;
-  vec2 ap = p - a;
-  float t = clamp(dot(ap, ab) / max(dot(ab, ab), 1e-8), 0.0, 1.0);
-  return vec2(length(ap - ab * t), t);
-}
-float stroke(float d, float lw, float px) { return 1.0 - smoothstep(lw, lw + px, d); }
-float dashedLine(vec2 p, vec2 a, vec2 b, float lw, float px) {
-  vec2 s = segment(p, a, b);
-  float dash = step(0.5, fract(s.y * length(b - a) * 100.0));
-  return stroke(s.x, lw, px) * dash;
-}
-float boxEdge(vec2 p, vec2 c, float h, float lw, float px) {
-  vec2 q = abs(p - c) - vec2(h);
-  float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
-  return stroke(abs(d), lw, px);
 }
 
 void main() {
@@ -127,19 +93,7 @@ void main() {
   float mask = mix(soft.r, sharp.g, k) * inside;
   vec3 fill = mix(uShade, uText, smoothstep(0.0, 1.0, E.y));
 
-  vec2 P = vec2(vUv.x * aspect, vUv.y);
-  float px = 1.0 / uRes.y;
-  float lw = px * 0.2;
-  float A = 0.0;
-  if (uHandles > 0.5) {
-    float lines = max(max(dashedLine(P, uV0, uV1, lw, px), dashedLine(P, uV1, uV2, lw, px)), dashedLine(P, uV2, uV0, lw, px));
-    float boxes = max(max(boxEdge(P, uV0, uHalf, lw, px), boxEdge(P, uV1, uHalf, lw, px)), boxEdge(P, uV2, uHalf, lw, px));
-    A = max(lines, boxes) * uAccent.a * (1.0 - vUv.y);
-  }
-
-  vec4 card = vec4(fill * mask, mask);
-  vec4 comp = vec4(uAccent.rgb * A, A) + card * (1.0 - A);
-  gl_FragColor = comp * pow(clamp(E.y, 0.0, 1.0), 0.7);
+  gl_FragColor = vec4(fill * mask, mask) * pow(clamp(E.y, 0.0, 1.0), 0.7);
 }`;
 
 function compile(gl, vs, fs) {
@@ -204,11 +158,9 @@ export function createVectorWordmark(host, options = {}) {
     background = "transparent",
     textColor = "#EEEDEA",
     shade = "#9C9B98",
-    accent = "#FF5A1F",
     reach = 290,
     speed = 50,
     damping = 60,
-    handles = { size: 109, spread: 27, labels: true },
     reducedMotion = false,
   } = options;
 
@@ -216,19 +168,6 @@ export function createVectorWordmark(host, options = {}) {
   canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
   host.style.background = background === "transparent" ? "" : background;
   host.appendChild(canvas);
-
-  const hg = { size: 109, spread: 27, labels: true, ...handles };
-  const labelEls = [];
-  if (hg.labels && !reducedMotion) {
-    for (let i = 0; i < HANDLES; i++) {
-      const el = document.createElement("div");
-      el.className = "vector-wordmark-label mono";
-      el.style.cssText = "position:absolute;left:0;top:0;white-space:nowrap;pointer-events:none;will-change:transform;";
-      el.style.color = accent;
-      host.appendChild(el);
-      labelEls.push(el);
-    }
-  }
 
   const attrs = { alpha: true, antialias: false, depth: false, stencil: false, premultipliedAlpha: true, powerPreference: "low-power" };
   const gl = canvas.getContext("webgl2", attrs) || canvas.getContext("webgl", attrs);
@@ -239,10 +178,7 @@ export function createVectorWordmark(host, options = {}) {
     map: gl.getUniformLocation(prog, "uMap"), res: gl.getUniformLocation(prog, "uRes"),
     atlas: gl.getUniformLocation(prog, "uAtlas"), ptr: gl.getUniformLocation(prog, "uPtr"),
     reach: gl.getUniformLocation(prog, "uReach"), text: gl.getUniformLocation(prog, "uText"),
-    shade: gl.getUniformLocation(prog, "uShade"), accent: gl.getUniformLocation(prog, "uAccent"),
-    v0: gl.getUniformLocation(prog, "uV0"), v1: gl.getUniformLocation(prog, "uV1"),
-    v2: gl.getUniformLocation(prog, "uV2"), half: gl.getUniformLocation(prog, "uHalf"),
-    handlesOn: gl.getUniformLocation(prog, "uHandles"),
+    shade: gl.getUniformLocation(prog, "uShade"),
   };
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -308,20 +244,7 @@ export function createVectorWordmark(host, options = {}) {
   }
 
   const target = { x: -0.5, y: 0.5 }, eased = { x: -0.5, y: 0.5 };
-  const cells = [], verts = [];
-  for (let i = 0; i < HANDLES; i++) { cells.push({ x: -0.5, y: 0.5 }); verts.push({ x: -0.5, y: 0.5 }); }
-  let hasPointer = false, sweepClock = 0, driftT = 0;
-
-  function snap(x, y, cw, ch) {
-    const cx = Math.floor(x / cw), cy = Math.floor(y / ch);
-    const found = [];
-    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
-      const px2 = (cx + i + 0.5) * cw, py2 = (cy + j + 0.5) * ch;
-      found.push({ x: px2, y: py2, d: Math.hypot(px2 - x, py2 - y) });
-    }
-    found.sort((a, b) => a.d - b.d);
-    for (let i = 0; i < HANDLES; i++) { cells[i].x = found[i + 1].x; cells[i].y = found[i + 1].y; }
-  }
+  let hasPointer = false;
 
   const onMove = (e) => {
     hasPointer = true;
@@ -340,59 +263,20 @@ export function createVectorWordmark(host, options = {}) {
 
   function step(dt) {
     const rate = speed / SPEED_REF;
-    const cw = Math.max(0.01, hg.spread / 100);
-    const ch = cw * CELL_ASPECT;
-    const aspect = boxW / boxH;
     if (!hasPointer) {
       const band = (atlasRatioH * Math.max(8, drawFontPx())) / boxH;
       target.x += dt * SWEEP_RATE * rate;
       target.y = (1 - band) / 2 + SWEEP_BAND * band;
       if (target.x > 1.5) { target.x = -0.5; eased.x = -0.5; }
-      sweepClock += dt;
-      if (sweepClock >= RESNAP) { sweepClock = 0; snap(target.x * aspect, target.y, cw, ch); }
-    } else {
-      snap(target.x * aspect, target.y, cw, ch);
     }
     const damp = clamp((damping / 100) * DAMP_REF * dt, 0, 1);
     eased.x += (target.x - eased.x) * damp;
     eased.y += (target.y - eased.y) * damp;
-    driftT += dt * rate;
-    for (let i = 0; i < HANDLES; i++) {
-      const c = cells[i];
-      const sx = Math.round(c.x / cw - 0.5), sy = Math.round(c.y / ch - 0.5);
-      const h1 = fract(Math.sin(sx * 127.1 + sy * 311.7) * 43758.5453);
-      const h2 = fract(Math.sin(sx * 269.5 + sy * 183.3) * 43758.5453);
-      verts[i].x = c.x + DRIFT_X * cw * Math.sin(driftT * DRIFT_RATE + h1 * Math.PI * 2);
-      verts[i].y = c.y + DRIFT_Y * ch * Math.sin(driftT * DRIFT_RATE_Y + h2 * Math.PI * 2);
-    }
-  }
-
-  function writeLabels() {
-    if (!labelEls.length) return;
-    const aspect = boxW / boxH;
-    const half = hg.size / 2;
-    // the reticle itself (drawn in the shader) can sweep past the word during the idle scan;
-    // clamp the DOM labels in real viewport pixels (not just a fraction of the word's own
-    // width) so a wide sweep on a narrow hero never pushes the page wider than the viewport.
-    const hostLeft = host.getBoundingClientRect().left;
-    const labelW = 70; // generous estimate for "100, 100"-shaped text; only used to clamp
-    const margin = 8;
-    for (let i = 0; i < HANDLES; i++) {
-      const el = labelEls[i];
-      const bx = verts[i].x / aspect, by = verts[i].y;
-      const gx = Math.round(clamp(bx * 100, 0, 100)), gy = Math.round(clamp(by * 100, 0, 100));
-      let tx = bx * boxW - half;
-      tx = clamp(tx, margin - hostLeft, window.innerWidth - margin - labelW - hostLeft);
-      el.style.transform = `translate(${tx.toFixed(1)}px, ${((1 - by) * boxH - half).toFixed(1)}px)`;
-      el.style.opacity = String(LABEL_MAX);
-      el.textContent = `${gx}, ${gy}`;
-    }
   }
 
   function draw() {
     const tc = parseColor(textColor, [0.859, 0.918, 0.992, 1]);
     const sc = parseColor(shade, [0.035, 0.063, 0.102, 1]);
-    const ac = parseColor(accent, [1, 1, 1, 0.4]);
     gl.viewport(0, 0, bufW, bufH);
     gl.useProgram(prog);
     gl.uniform1i(U.map, 0);
@@ -405,12 +289,6 @@ export function createVectorWordmark(host, options = {}) {
     gl.uniform1f(U.reach, reducedMotion ? 4 : Math.max(1, reach) / boxW);
     gl.uniform3f(U.text, tc[0], tc[1], tc[2]);
     gl.uniform3f(U.shade, sc[0], sc[1], sc[2]);
-    gl.uniform4f(U.accent, ac[0], ac[1], ac[2], ac[3]);
-    gl.uniform2f(U.v0, verts[0].x, verts[0].y);
-    gl.uniform2f(U.v1, verts[1].x, verts[1].y);
-    gl.uniform2f(U.v2, verts[2].x, verts[2].y);
-    gl.uniform1f(U.half, hg.size / 2 / boxH);
-    gl.uniform1f(U.handlesOn, hg.labels && !reducedMotion ? 1 : 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
@@ -426,7 +304,6 @@ export function createVectorWordmark(host, options = {}) {
     last = now;
     sync();
     step(dt);
-    writeLabels();
     draw();
     raf = requestAnimationFrame(frame);
   };
@@ -460,7 +337,6 @@ export function createVectorWordmark(host, options = {}) {
       window.removeEventListener("pointermove", onMove);
       document.removeEventListener("visibilitychange", gate);
       canvas.remove();
-      labelEls.forEach((el) => el.remove());
     },
   };
 }

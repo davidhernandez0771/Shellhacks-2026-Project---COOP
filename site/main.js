@@ -61,7 +61,7 @@ async function boot() {
   if (webgl) {
     import("./js/fx/vector-wordmark.js").then(({ createVectorWordmark }) => {
       const host = document.getElementById("vector-wordmark-host");
-      if (host) createVectorWordmark(host, { text: "COOPER", textColor: "#EEEDEA", shade: "#9C9B98", accent: "#FF5A1F", reducedMotion: still });
+      if (host) createVectorWordmark(host, { text: "COOPER", textColor: "#EEEDEA", shade: "#9C9B98", reducedMotion: still });
     });
   }
 
