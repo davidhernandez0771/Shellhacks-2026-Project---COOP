@@ -1,16 +1,16 @@
-"""Settings file (coop.toml) on top of the coop/config.py defaults.
+"""Settings file (cooper.toml) on top of the cooper/config.py defaults.
 
-Load order: the dataclass defaults, then coop.toml next to the repo (if it exists), then
-command-line flags. coop.example.toml documents every key; copy it to coop.toml and delete
-what you don't change. coop.toml is gitignored, so each machine keeps its own.
+Load order: the dataclass defaults, then cooper.toml next to the repo (if it exists), then
+command-line flags. cooper.example.toml documents every key; copy it to cooper.toml and delete
+what you don't change. cooper.toml is gitignored, so each machine keeps its own.
 
-The file mirrors Config: one [section] per Config field (camera, detector, motors, ...),
+The file mirrors Config: one [section] per Config field (camera, detector, stream, ...),
 one key per dataclass field. Unknown sections or keys and wrong types are errors, not
-warnings: a typo like `pan_inverted = true` silently ignored is how a motor ends up
-spinning the wrong way on demo day.
+warnings: a typo silently ignored is how a threshold ends up at its default on demo day.
 """
 from __future__ import annotations
 
+import copy
 import dataclasses
 import difflib
 import math
@@ -23,18 +23,15 @@ from pathlib import Path
 
 from .config import Config
 
-DEFAULT_PATH = Path(__file__).resolve().parent.parent / "coop.toml"
-
-MICROSTEP_CHOICES = (1, 2, 4, 8, 16, 32, 64, 128, 256)
+DEFAULT_PATH = Path(__file__).resolve().parent.parent / "cooper.toml"
 
 # Numeric ranges shared by file validation and live tuning (GET /api/settings "ranges").
 RANGES = {
-    ("tracking", "lead_time_s"): (0.0, 1.0),
-    ("tracking", "deadband_deg"): (0.0, 10.0),
     ("detector", "conf"): (0.05, 0.95),
-    # AccelStepper on a 16 MHz Uno manages roughly 4000 steps/s in total.
-    ("motors", "max_steps_per_sec"): (50.0, 4000.0),
-    ("motors", "accel_steps_per_sec2"): (100.0, 50000.0),
+    ("risk", "horizon_s"): (0.1, 5.0),
+    ("risk", "ttc_warn_s"): (0.1, 10.0),
+    ("risk", "ttc_clear_s"): (0.1, 10.0),
+    ("risk", "hold_s"): (0.0, 5.0),
 }
 
 
@@ -130,30 +127,37 @@ def validate_config(cfg):
         value = getattr(getattr(cfg, section), key)
         check(lo <= value <= hi, key, f"{value} is outside {lo}..{hi}")
 
-    cam, det, mot, sim, stream = cfg.camera, cfg.detector, cfg.motors, cfg.sim, cfg.stream
+    cam, det, stream = cfg.camera, cfg.detector, cfg.stream
     check(cam.source in ("auto", "picamera", "webcam"), "source", "must be auto, picamera or webcam")
     check(cam.width > 0 and cam.height > 0, "width", "width and height must be positive")
     check(cam.fps > 0, "fps", "must be positive")
     check(0 < cam.hfov_deg < 180 and 0 < cam.vfov_deg < 180, "hfov_deg",
           "hfov_deg and vfov_deg must be between 0 and 180")
     check(det.imgsz >= 32 and det.imgsz % 32 == 0, "imgsz", "must be a multiple of 32 (e.g. 256, 320, 416)")
-    check(mot.microsteps in MICROSTEP_CHOICES, "microsteps", f"must be one of {MICROSTEP_CHOICES}")
-    check(mot.steps_per_rev > 0, "steps_per_rev", "must be positive")
-    check(mot.pan_gear_ratio > 0, "pan_gear_ratio", "must be positive")
-    check(len(mot.pan_limits_deg) == 2, "pan_limits_deg", "must be [min, max]")
-    lo, hi = mot.pan_limits_deg
-    check(lo < hi, "pan_limits_deg", "min must be below max")
-    check(lo <= 0 <= hi, "pan_limits_deg", "must include 0 (the power-on position)")
-    check(-360 <= lo and hi <= 360, "pan_limits_deg", "must stay within -360..360")
-    check(mot.idle_disable_s == 0 or mot.idle_disable_s >= 1, "idle_disable_s",
-          "must be 0 (never) or at least 1 second")
-    check(mot.baud > 0, "baud", "must be positive")
     check(cam.webcam_index >= 0, "webcam_index", "must be 0 or more")
     check(all(c >= 0 for c in det.classes), "classes", "COCO class ids are 0 or more")
-    check(cfg.tracking.lost_timeout_s > 0, "lost_timeout_s", "must be positive")
-    check(cfg.tracking.reassociate_deg >= 0, "reassociate_deg", "must be 0 or more")
-    check(sim.world_hfov_deg > cam.hfov_deg and sim.world_hfov_deg < 180, "world_hfov_deg",
-          "must be wider than camera.hfov_deg and below 180")
+    pred, risk, leds = cfg.prediction, cfg.risk, cfg.leds
+    for key in ("accel_std_px_s2", "height_accel_std_px_s2", "meas_std_px", "init_vel_std_px_s",
+                "lost_timeout_s", "gate_sigma", "max_coast_s"):
+        check(getattr(pred, key) > 0, key, "must be positive")
+    check(pred.min_hits >= 2, "min_hits", "must be at least 2 (one measurement has no velocity)")
+    check(pred.growth_min_sigma >= 0, "growth_min_sigma", "must be 0 or more")
+    check(len(risk.lane) == 8, "lane", "must be 8 numbers: x, y of the top-left, top-right, "
+                                       "bottom-right and bottom-left corners")
+    if len(risk.lane) == 8:
+        tlx, tly, trx, try_, brx, bry, blx, bly = risk.lane
+        check(all(0 <= c <= 1 for c in risk.lane), "lane", "corners are fractions of the frame, 0..1")
+        check(max(tly, try_) < min(bly, bry), "lane", "the top edge must be above the bottom edge")
+        check(tlx < trx and blx < brx, "lane", "left corners must be left of the right ones")
+    check(0 < risk.step_s <= risk.horizon_s, "step_s", "must be positive and at most horizon_s")
+    check(risk.ttc_warn_s < risk.ttc_clear_s, "ttc_warn_s", "must be below ttc_clear_s")
+    check(risk.ttc_min_height_px >= 0, "ttc_min_height_px", "must be 0 or more")
+    check(risk.enter_frames >= 1, "enter_frames", "must be at least 1")
+    check(0 < risk.min_overlap <= 1, "min_overlap", "must be in 0..1 (a share of the bottom edge)")
+    check(risk.lane_margin >= 0, "lane_margin", "must be 0 or more")
+    check(0 <= leds.yellow_pin <= 27, "yellow_pin", "BCM GPIO numbers are 0..27")
+    check(0 <= leds.red_pin <= 27, "red_pin", "BCM GPIO numbers are 0..27")
+    check(leds.red_pin != leds.yellow_pin, "red_pin", "must differ from yellow_pin")
     check(1 <= stream.port <= 65535, "port", "must be 1..65535")
     check(1 <= stream.jpeg_quality <= 100, "jpeg_quality", "must be 1..100")
 
@@ -231,7 +235,7 @@ def save_settings(path, updates):
 
     tmp = None
     try:
-        fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".coop-", suffix=".toml")
+        fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".cooper-", suffix=".toml")
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
             f.write(result)
         os.replace(tmp, path)
@@ -252,31 +256,33 @@ def _parse_text(text, path, saving=False):
         raise SettingsError(f"{what} {path}: {e}; fix or delete the file") from None
 
 
-# ---- live tuning (GET/POST /api/settings) ----
+# ---- live tuning (GET/POST /api/settings, POST /api/lane) ----
+
+def _corners(lane):
+    """Flat (x, y) * 4 -> [[x, y], ...], as the API sends it."""
+    return [[lane[i], lane[i + 1]] for i in range(0, 8, 2)]
 
 # Setting name -> Config section. Names are unique across sections, so the API is flat.
+# Every live setting is a number with an entry in RANGES.
 LIVE_KEYS = {
-    "lead_time_s": "tracking",
-    "deadband_deg": "tracking",
     "conf": "detector",
-    "max_steps_per_sec": "motors",
-    "accel_steps_per_sec2": "motors",
-    "pan_invert": "motors",
+    "horizon_s": "risk",
+    "ttc_warn_s": "risk",
+    "ttc_clear_s": "risk",
+    "hold_s": "risk",
 }
 
 
 class LiveSettings:
     """Validates, applies and optionally saves the live-tunable settings.
 
-    The vision loop reads cfg.tracking / cfg.detector every frame, so plain attribute
-    writes take effect on the next frame. Motor settings go through the Gimbal, which
-    re-sends C to the Uno and moves frame_epoch on for pan_invert.
+    The vision loop reads its config sections every frame, so plain attribute writes take
+    effect on the next frame.
     """
 
-    def __init__(self, cfg, path=None, gimbal=None, control=None):
+    def __init__(self, cfg, path=None, control=None):
         self.cfg = cfg
         self.path = Path(path) if path is not None else DEFAULT_PATH
-        self._gimbal = gimbal
         self._control = control
         self._lock = threading.Lock()
 
@@ -284,16 +290,41 @@ class LiveSettings:
         return {key: getattr(getattr(self.cfg, section), key) for key, section in LIVE_KEYS.items()}
 
     def snapshot(self):
-        mot = self.cfg.motors
-        steps_per_deg = (self._gimbal.steps_per_deg if self._gimbal is not None
-                         else mot.steps_per_rev * mot.microsteps / 360.0 * mot.pan_gear_ratio)
         return {
             "settings": self.current(),
-            "ranges": {key: list(RANGES[(section, key)]) for key, section in LIVE_KEYS.items()
-                       if (section, key) in RANGES},
-            "steps_per_deg": round(steps_per_deg, 4),
+            "ranges": {key: list(RANGES[(section, key)]) for key, section in LIVE_KEYS.items()},
+            "lane": _corners(self.cfg.risk.lane),
+            "lane_default": _corners(Config().risk.lane),
             "file": str(self.path),
         }
+
+    def update_lane(self, body):
+        """Apply a POST /api/lane body: {"lane": [[x, y] * 4], "save": bool}. Corners are
+        normalized, in order top-left, top-right, bottom-right, bottom-left. Returns
+        {"lane", "saved"}; raises SettingsError (and changes nothing) if it's invalid."""
+        if not isinstance(body, dict):
+            raise SettingsError("body must be a JSON object")
+        save = body.get("save", False)
+        if not isinstance(save, bool):
+            raise SettingsError("save must be true or false")
+        corners = body.get("lane")
+        if (not isinstance(corners, list) or len(corners) != 4
+                or not all(isinstance(c, list) and len(c) == 2 for c in corners)):
+            raise SettingsError("lane must be 4 corners [x, y]: top-left, top-right, bottom-right, bottom-left")
+        flat = [v for c in corners for v in c]
+        if not all(not isinstance(v, bool) and isinstance(v, (int, float)) and math.isfinite(v) for v in flat):
+            raise SettingsError("lane corners must be numbers")
+        lane = tuple(float(v) for v in flat)
+        with self._lock:
+            candidate = copy.deepcopy(self.cfg)
+            candidate.risk.lane = lane
+            validate_config(candidate)
+            if save:
+                save_settings(self.path, {"risk": {"lane": list(lane)}})
+            self.cfg.risk.lane = lane  # the risk judge reads it on the next frame
+        if self._control is not None:
+            self._control.log_event("lane_changed", lane=_corners(lane), saved=save)
+        return {"lane": _corners(lane), "saved": save}
 
     def _validate(self, body):
         if not isinstance(body, dict):
@@ -307,19 +338,14 @@ class LiveSettings:
                 continue
             if key not in LIVE_KEYS:
                 raise SettingsError(f"unknown setting '{key}'; live settings are "
-                                    f"{', '.join(LIVE_KEYS)} (others need coop.toml and a restart)."
+                                    f"{', '.join(LIVE_KEYS)} (others need cooper.toml and a restart)."
                                     f"{_suggest(key, LIVE_KEYS)}")
-            section = LIVE_KEYS[key]
-            if key == "pan_invert":
-                if not isinstance(value, bool):
-                    raise SettingsError("pan_invert must be true or false")
-            else:
-                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
-                    raise SettingsError(f"{key} must be a number")
-                value = float(value)
-                lo, hi = RANGES[(section, key)]
-                if not lo <= value <= hi:
-                    raise SettingsError(f"{key}: {value} is outside {lo}..{hi}")
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                raise SettingsError(f"{key} must be a number")
+            value = float(value)
+            lo, hi = RANGES[(LIVE_KEYS[key], key)]
+            if not lo <= value <= hi:
+                raise SettingsError(f"{key}: {value} is outside {lo}..{hi}")
             changes[key] = value
         return changes, save
 
@@ -329,11 +355,11 @@ class LiveSettings:
         (and changes nothing) if any part is invalid or the save fails."""
         changes, save = self._validate(body)
         with self._lock:
-            mot = self.cfg.motors
-            if "pan_invert" in changes and changes["pan_invert"] != mot.pan_invert:
-                if self._control is not None and self._control.mode != "stop":
-                    raise SettingsError("pan_invert can only change in stop mode "
-                                        "(it reverses what every angle means)")
+            # Rules between settings (ttc_warn_s < ttc_clear_s, ...) hold on the result.
+            candidate = copy.deepcopy(self.cfg)
+            for key, value in changes.items():
+                setattr(getattr(candidate, LIVE_KEYS[key]), key, value)
+            validate_config(candidate)
             if save:
                 # Persist every live value as it will be after this request, not just the keys
                 # sent: "apply" now and "save" later must not lose the applied change.
@@ -341,22 +367,8 @@ class LiveSettings:
                 for key, value in {**self.current(), **changes}.items():
                     grouped.setdefault(LIVE_KEYS[key], {})[key] = value
                 save_settings(self.path, grouped)  # raises before anything is applied
-
-            speed = changes.get("max_steps_per_sec", mot.max_steps_per_sec)
-            accel = changes.get("accel_steps_per_sec2", mot.accel_steps_per_sec2)
-            if (speed, accel) != (mot.max_steps_per_sec, mot.accel_steps_per_sec2):
-                if self._gimbal is not None:
-                    self._gimbal.set_motion_limits(speed, accel)
-                else:
-                    mot.max_steps_per_sec, mot.accel_steps_per_sec2 = speed, accel
-            if "pan_invert" in changes and changes["pan_invert"] != mot.pan_invert:
-                if self._gimbal is not None:
-                    self._gimbal.set_pan_invert(changes["pan_invert"])
-                else:
-                    mot.pan_invert = changes["pan_invert"]
-            for key in ("lead_time_s", "deadband_deg", "conf"):
-                if key in changes:
-                    setattr(getattr(self.cfg, LIVE_KEYS[key]), key, changes[key])
+            for key, value in changes.items():
+                setattr(getattr(self.cfg, LIVE_KEYS[key]), key, value)
             current = self.current()
         if (changes or save) and self._control is not None:
             self._control.log_event("settings_changed", changed=changes, saved=save)

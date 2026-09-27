@@ -1,6 +1,6 @@
-# COOP showcase site
+# COOPER showcase site
 
-A cinematic one-page site: a loader, the "COOP" decode intro, and seven chapters (See, Detect, Predict, Move, Build, Gallery, Team) played out in one persistent WebGL scene that scroll drives. Design rationale: `docs/DESIGN_DIRECTIONS.md`.
+A cinematic one-page site for COOPER, a fixed, car-mounted Raspberry Pi 5 dashcam that predicts every road user's path and lights a yellow or red LED before something enters your lane. A loader, the "COOPER" decode intro, and seven chapters (See, Detect, Predict, Warn, Build, Gallery, Team) played out in one persistent WebGL scene that scroll drives. Design rationale: `docs/DESIGN_DIRECTIONS.md`.
 
 **No build step.** Plain HTML, CSS and native ES modules. three.js and anime.js are vendored in `vendor/` and mapped with an import map in `index.html`, and the fonts are self-hosted in `fonts/`, so the page makes no third-party requests and deploys as-is.
 
@@ -18,13 +18,16 @@ Open http://localhost:8765. Useful switches:
 | `/#build` | deep link to a chapter (skips the intro animation) |
 
 ## Edit the copy
-All text is in `index.html`, one `<section class="chapter">` per chapter. Paragraphs with `class="reveal-words"` get the word-by-word reveal automatically; keep them plain text (no links inside). The intro lines (full name, tagline) are in `js/intro.js` (`NAME`, `TAGLINE`).
+All text is in `index.html`, one `<section class="chapter">` per chapter. Paragraphs with `class="reveal-words"` get the word-by-word reveal automatically; keep them plain text (no links inside). The intro lines (the name line and the tagline) are in `js/intro.js` (`NAME`, `NAME_HTML`, `TAGLINE`). The chapter names in the bottom HUD come from `CHAPTERS` in `js/stage/director.js`, and the on-canvas tags (`TRACKED`, `PATH · t + …`) from `js/stage/overlay.js`.
+
+The Warn chapter keeps the section id `move` (the nav, the scroll code and the scene key off chapter numbers and ids), so don't rename the id.
 
 ## Fill the placeholders
 Search for `✏️ PLACEHOLDER` (HTML comments) and `data-placeholder` (elements):
 
 | Placeholder | Where | What to put |
 |---|---|---|
+| name lore | intro (`NAME`, `NAME_HTML` in `js/intro.js`) | the story behind the name COOPER (there is no acronym) |
 | `teammate-name`, `teammate-what` | Team chapter | name and a one-line description |
 | `devpost-url` | Team chapter | the Devpost project URL (until then `main.js` makes the link inert) |
 | gallery `<li>` items | Gallery chapter | photos and videos, see below |
@@ -33,8 +36,8 @@ Search for `✏️ PLACEHOLDER` (HTML comments) and `data-placeholder` (elements
 The 3D carousel is built from the list in `index.html` (`<ul id="gallery-list">`). Without WebGL the same list shows as a grid, so it's also the accessible version. Put files in `site/media/` and replace a placeholder `<li>`:
 
 ```html
-<li data-src="media/build.jpg" data-alt="Inside COOP: Pi 5, Uno and TMC2209">Inside the build</li>
-<li data-src="media/tracking.mp4" data-kind="video" data-alt="COOP following a person">Tracking a person</li>
+<li data-src="media/build.jpg" data-alt="Inside COOPER: the Pi 5, camera and LEDs">Inside the build</li>
+<li data-src="media/cut-in.mp4" data-kind="video" data-alt="COOPER lighting yellow as a car cuts in">A cut-in, caught early</li>
 ```
 - The text inside the `<li>` is the caption; `data-alt` is the description for screen readers.
 - Any number of items works (the ring spaces them evenly). 6–10 looks best.
@@ -43,10 +46,10 @@ The 3D carousel is built from the list in `index.html` (`<ul id="gallery-list">`
 - Media only downloads when the visitor scrolls near the gallery. The no-WebGL grid picks up the same `data-src` files automatically.
 
 ## Swap in the real camera model (.glb)
-The Move and Build chapters use a procedural camera head. To use a model of the actual camera:
-1. Export it as `.glb`: **facing −Z, +Y up, origin on the pan axis, in metres** (the procedural head is about 0.3 m wide). Keep it small (under ~1 MB; Draco compression is *not* enabled).
-2. Put it at `site/models/coop-camera.glb`.
-3. In `js/stage/solids.js`, set `export const CAMERA_MODEL_URL = "models/coop-camera.glb";` (and `CAMERA_MODEL_SCALE` if it needs scaling).
+The Warn, Build and Team chapters show a **placeholder** 3D model: a procedural camera head on a turning base, with an exploded view whose solids were modelled for the old pan-tilt design. COOPER itself is fixed and nothing on it moves; the copy says so, and the Build labels (`#parts`) just borrow the placeholder solids to hang on (`data-part` picks the solid). To use a model of the actual dashcam:
+1. Export it as `.glb`: **facing −Z, +Y up, origin at the centre of the base (the axis the placeholder turns about), in metres** (the procedural head is about 0.3 m wide). Keep it small (under ~1 MB; Draco compression is *not* enabled).
+2. Put it at `site/models/cooper-camera.glb`.
+3. In `js/stage/solids.js`, set `export const CAMERA_MODEL_URL = "models/cooper-camera.glb";` (and `CAMERA_MODEL_SCALE` if it needs scaling).
 
 That's the only switch. The model is restyled to match the scene (ink fill, paper edges), because the scene has no lights; `vendor/GLTFLoader.js` is only downloaded when the constant is set.
 
@@ -55,19 +58,19 @@ That's the only switch. The model is restyled to match the scene (ink fill, pape
 |---|---|
 | `main.js` | boot: loads fonts → anime.js → three.js + scene behind the gate, then the intro |
 | `js/gate.js` | the dotted progress ring and the Enter prompt |
-| `js/intro.js` | the scrambleText timeline (COOP → full name → tagline) |
-| `js/chapters.js` | anime.js `onScroll` per chapter, word reveals, nav, chapter scrubber, bearing tape, gauge |
+| `js/intro.js` | the scrambleText timeline (COOPER → name line → tagline) |
+| `js/chapters.js` | anime.js `onScroll` per chapter, word reveals, nav, chapter scrubber, bearing tape, the Warn gauge |
 | `js/cursor.js` | the desktop cursor (ring → lock brackets on links, "Drag" in the gallery) |
 | `js/stage/world.js` | the street as data: people, cars, sampled point clouds (no three.js) |
-| `js/stage/director.js` | chapter keyframes: camera, what's visible, the pan angle |
+| `js/stage/director.js` | chapter keyframes: camera, what's visible, the bearing; the HUD chapter names |
 | `js/stage/points.js` | the point cloud shader (one draw call; motion computed on the GPU) |
-| `js/stage/overlay.js` | detection brackets, leader-line labels, velocity vector, aim point |
-| `js/stage/solids.js` | the rig, the exploded hardware, and the `.glb` switch |
+| `js/stage/overlay.js` | detection brackets, leader-line labels, velocity vector, predicted path point |
+| `js/stage/solids.js` | the placeholder rig and exploded hardware, and the `.glb` switch |
 | `js/stage/carousel.js` | the gallery ring |
 | `js/stage/fallback2d.js` | the no-WebGL renderer |
 | `tokens.css` | every color, font and timing |
 
-Numbers shown on the site are real where they describe COOP (FOV, frame size, lead time, limits). The detection confidences, walking figures and frame counter are an illustration, not live data.
+Numbers in the copy are real where they describe COOPER (FOV, frame size, the 1.5 s horizon and 0.1 s path steps, the 2 s time-to-contact warning, two frames to light and 0.5 s hold; see `cooper/config.py` on the dashcam branch). The scene is an illustration, not live data: the detection confidences, figures, frame counter, gauge bearings and the `PATH · t + 1.6 s` tag (drawn further ahead than the real horizon so it's visible) are all made up.
 
 **Updating the vendored libraries:** `vendor/three.module.min.js` is `three/build/three.module.js` bundled and minified with esbuild (`esbuild three.module.js --bundle --minify --format=esm`); `vendor/GLTFLoader.js` is `three/examples/jsm/loaders/GLTFLoader.js` bundled the same way with `--external:three`; `vendor/anime.esm.min.js` is copied from the `animejs` package's `dist/bundles/`.
 

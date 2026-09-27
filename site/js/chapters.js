@@ -1,5 +1,6 @@
 // Scroll: chapter progress (anime.js onScroll), word-by-word reveals, the nav, the chapter
-// scrubber, the bearing tape and the chapter 04 gauge.
+// scrubber, the bearing tape and the chapter 04 (Warn) gauge: where an object is now and
+// where its predicted path points, as a bearing from the fixed camera.
 
 import { CHAPTERS } from "./stage/director.js";
 
@@ -46,7 +47,7 @@ function buildTape(strip) {
   }
 }
 
-// ── gauge (chapter 04): ±170° mapped onto a 240° arc ──
+// ── gauge (chapter 04, Warn): ±170° of bearing mapped onto a 240° arc ──
 const G = { cx: 120, cy: 122, r: 96, span: 120, limit: 170 };
 const toArc = (deg) => (Math.max(-G.limit, Math.min(G.limit, deg)) / G.limit) * G.span;
 function polar(a, r = G.r) {
@@ -152,7 +153,7 @@ export function initChapters(anime, stage, { still }) {
   }
 
   // ── chrome: nav, scrubber, tape, gauge ──
-  let lastIdx = -1, lastPanTxt = "", lastTapeX = null, lastGauge = "";
+  let lastIdx = -1, frameNo = 0, lastTapeX = null, lastGauge = "";
   function updateChrome() {
     // the next chapter "arrives" once its section fills most of the screen
     const k = Math.min(CHAPTERS.length - 1, Math.floor(chapter + (chapter % 1 > 0.85 ? 1 : 0)));
@@ -170,8 +171,9 @@ export function initChapters(anime, stage, { still }) {
 
   stage.onFrame((s) => {
     const b = s.bearing ?? s.pan ?? 0;
-    const txt = fmt(b);
-    if (txt !== lastPanTxt) { hudPan.textContent = txt; lastPanTxt = txt; }
+    // A fixed dashcam has no bearing to show: the HUD counts frames, like the dashboard's frame_seq.
+    frameNo = (frameNo + 1) % 1000000;
+    hudPan.textContent = String(frameNo).padStart(6, "0");
     const x = -b * TAPE_PX_PER_DEG;
     if (lastTapeX === null || Math.abs(x - lastTapeX) > 0.2) {
       strip.style.transform = `translate3d(${x.toFixed(1)}px,0,0)`;

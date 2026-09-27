@@ -1,7 +1,7 @@
-"""Startup smoke tests: run the real coop.main.main() for one loop iteration.
+"""Startup smoke tests: run the real cooper.main.main() for one loop iteration.
 
 Only the hardware/ML edges are faked (Camera, Detector) and Flask.run is a no-op, so the
-real wiring runs: Config, Control, Gimbal (--no-motors), VirtualGimbal, KalmanPredictor,
+real wiring runs: Config, Control, FrameGrabber, Tracks, RiskJudge, Leds (mock off a Pi),
 SharedState, serve_in_background and create_app. This catches startup breakage the unit
 tests can't, such as a call site that no longer matches a changed signature.
 """
@@ -12,10 +12,10 @@ import flask
 import numpy as np
 import pytest
 
-import coop.main
-import coop.stream
-from coop.detector import Detection
-from coop.stream import SharedState
+import cooper.main
+import cooper.stream
+from cooper.detector import Detection
+from cooper.stream import SharedState
 
 
 class FakeCamera:
@@ -51,21 +51,21 @@ def run_main(monkeypatch):
     """Run main() once; return the Flask app it built, for querying afterwards."""
     FakeCamera.instances.clear()
     apps = []
-    real_create_app = coop.stream.create_app
+    real_create_app = cooper.stream.create_app
 
     def capture_create_app(*args, **kwargs):
         app = real_create_app(*args, **kwargs)
         apps.append(app)
         return app
 
-    monkeypatch.setattr(coop.main, "Camera", FakeCamera)
-    monkeypatch.setattr(coop.main, "Detector", FakeDetector)
-    monkeypatch.setattr(coop.stream, "create_app", capture_create_app)
+    monkeypatch.setattr(cooper.main, "Camera", FakeCamera)
+    monkeypatch.setattr(cooper.main, "Detector", FakeDetector)
+    monkeypatch.setattr(cooper.stream, "create_app", capture_create_app)
     monkeypatch.setattr(flask.Flask, "run", lambda self, *a, **k: None)
-    def run(argv=("--no-motors",)):
+    def run(argv=()):
         if argv is not None:
-            monkeypatch.setattr(sys, "argv", ["coop.main", *argv])
-        coop.main.main()
+            monkeypatch.setattr(sys, "argv", ["cooper.main", *argv])
+        cooper.main.main()
         assert len(apps) == 1, "serve_in_background should build exactly one app"
         return apps[0]
 
@@ -77,27 +77,77 @@ def test_main_runs_one_iteration_and_publishes_status(run_main):
 
     status = client.get("/api/status").get_json()
     assert status["frame_seq"] == 1
-    assert status["mode"] == "auto"
-    assert status["target"]["id"] == 3
-    assert status["target"]["locked"] is False
-    assert [d["id"] for d in status["detections"]] == [3]
-    assert status["gimbal"]["mock"] is True
+    assert status["frame"] == {"w": 640, "h": 480}
+    [obj] = status["objects"]
+    assert (obj["id"], obj["label"], obj["conf"], obj["box"]) == (3, "person", 0.87, [100, 60, 180, 260])
+    assert obj["level"] == "clear"               # its feet (y = 260) are beyond the lane's far end
+    assert len(obj["path"]) == 15                # 1.5 s horizon in 0.1 s steps
+    assert obj["path"][0] == [140.0, 260.0]      # first frame: no velocity yet, so it stays put
+    assert status["risk"] == {"level": "clear", "reason": ""}
+    assert status["leds"] == {"yellow": False, "red": False, "mode": "mock"}
+    assert status["lane"] == [[0.44, 0.6], [0.56, 0.6], [0.79, 1.0], [0.21, 1.0]]
     assert "server_time" in status
-    # Pan-only, but the dashboard still reads these.
-    assert status["gimbal"]["tilt"] == 0
-    assert status["gimbal"]["target_tilt"] == 0
-    assert status["gimbal"]["tilt_enabled"] is False
-    assert status["gimbal"]["tilt_limits"] == [0, 0]
-    assert status["gimbal"]["drivers_enabled"] is True
     diag = status["diag"]
     assert diag["infer_ms"] >= 0 and diag["latency_ms"] >= diag["infer_ms"]
     assert "fps" in diag and "capture_fps" in diag
-    assert diag["serial"] == "mock"  # --no-motors
+    assert diag["leds"] == "mock"
     assert diag["uptime_s"] >= 0
-    assert status["estop"] is False
 
+
+class FramesCamera(FakeCamera):
+    """`frames` frames 50 ms apart (so FrameGrabber doesn't drop any), then Ctrl+C."""
+
+    frames = 4
+
+    def read(self):
+        import time
+
+        self.reads += 1
+        if self.reads > self.frames:
+            raise KeyboardInterrupt
+        if self.reads > 1:
+            time.sleep(0.05)
+        return np.full((480, 640, 3), 90, dtype=np.uint8)
+
+
+class InLaneDetector:
+    def __init__(self, cfg):
+        pass
+
+    def detect(self, frame):
+        return [Detection(7, "car", 0.9, (270, 300, 370, 400))]  # bottom edge 270..370 at y = 400
+
+
+def test_an_object_in_the_lane_lights_the_red_led_and_logs_it(run_main, monkeypatch):
+    lit = []
+    real_leds = cooper.main.Leds
+
+    def spy_leds(cfg, **kwargs):
+        leds = real_leds(cfg, **kwargs)
+        real_set = leds.set
+        leds.set = lambda level: (real_set(level), lit.append(dict(leds.state)))[0]
+        return leds
+
+    monkeypatch.setattr(cooper.main, "Camera", FramesCamera)
+    monkeypatch.setattr(cooper.main, "Detector", InLaneDetector)
+    monkeypatch.setattr(cooper.main, "Leds", spy_leds)
+    client = run_main().test_client()
+    status = client.get("/api/status").get_json()
+    assert status["risk"]["level"] == "danger" and "#7" in status["risk"]["reason"]
+    assert status["leds"]["red"] is True and status["leds"]["yellow"] is False
+    assert lit[0] == {"yellow": False, "red": False}   # enter_frames = 2: not on the first frame
+    assert {"yellow": False, "red": True} in lit
+    assert lit[-1] == {"yellow": False, "red": False}  # shutdown turns them off
     events = client.get("/api/events").get_json()["events"]
-    assert [e["type"] for e in events] == ["target_acquired"]
+    assert [(e["type"], e["level"]) for e in events] == [("risk_changed", "danger")]
+
+
+def test_no_leds_flag_disables_the_gpio(run_main, monkeypatch):
+    seen = []
+    real_leds = cooper.main.Leds
+    monkeypatch.setattr(cooper.main, "Leds", lambda cfg, **k: seen.append(cfg.enabled) or real_leds(cfg, **k))
+    run_main(argv=("--no-leds",))
+    assert seen == [False]
 
 
 def test_main_shuts_down_cleanly(run_main):
@@ -125,43 +175,33 @@ def test_video_stream_waits_for_the_first_frame():
 
 
 def test_settings_file_is_loaded(run_main, tmp_path, monkeypatch):
-    path = tmp_path / "coop.toml"
-    path.write_text("[camera]\nhfov_deg = 50.0\n", encoding="utf-8")
-    monkeypatch.setattr("coop.settings.DEFAULT_PATH", path)
-    status = run_main().test_client().get("/api/status").get_json()
-    assert status["frame"]["hfov_deg"] == 50.0
+    path = tmp_path / "cooper.toml"
+    path.write_text("[risk]\nhorizon_s = 1.2\n", encoding="utf-8")
+    monkeypatch.setattr("cooper.settings.DEFAULT_PATH", path)
+    settings = run_main().test_client().get("/api/settings").get_json()
+    assert settings["settings"]["horizon_s"] == 1.2
 
 
-def test_config_flag_and_motor_port_flag(run_main, tmp_path, monkeypatch):
+def test_config_flag(run_main, tmp_path, monkeypatch):
     path = tmp_path / "bench.toml"
-    path.write_text("[camera]\nhfov_deg = 55.0\n", encoding="utf-8")
-    seen = {}
-    real_gimbal = coop.main.Gimbal
-
-    def spy_gimbal(cfg, **kwargs):
-        seen["port"] = cfg.port
-        return real_gimbal(cfg, **kwargs)
-
-    monkeypatch.setattr(coop.main, "Gimbal", spy_gimbal)
-    monkeypatch.setattr(sys, "argv", ["coop.main", "--no-motors", "--config", str(path),
-                                      "--motor-port", "socket://localhost:5555"])
-    status = run_main(argv=None).test_client().get("/api/status").get_json()
-    assert status["frame"]["hfov_deg"] == 55.0
-    assert seen["port"] == "socket://localhost:5555"
+    path.write_text("[risk]\nhorizon_s = 2.0\n", encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["cooper.main", "--config", str(path)])
+    settings = run_main(argv=None).test_client().get("/api/settings").get_json()
+    assert settings["settings"]["horizon_s"] == 2.0 and settings["file"] == str(path)
 
 
 def test_invalid_settings_file_exits_with_the_error(run_main, tmp_path, monkeypatch, capsys):
-    path = tmp_path / "coop.toml"
-    path.write_text("[motors]\npan_inverted = true\n", encoding="utf-8")
-    monkeypatch.setattr("coop.settings.DEFAULT_PATH", path)
+    path = tmp_path / "cooper.toml"
+    path.write_text("[detector]\nconfidence = 0.5\n", encoding="utf-8")
+    monkeypatch.setattr("cooper.settings.DEFAULT_PATH", path)
     with pytest.raises(SystemExit) as e:
         run_main()
     assert e.value.code == 2
-    assert "pan_inverted" in capsys.readouterr().err
+    assert "confidence" in capsys.readouterr().err
 
 
 def test_missing_explicit_config_exits(run_main, tmp_path, monkeypatch):
-    monkeypatch.setattr(sys, "argv", ["coop.main", "--config", str(tmp_path / "nope.toml")])
+    monkeypatch.setattr(sys, "argv", ["cooper.main", "--config", str(tmp_path / "nope.toml")])
     with pytest.raises(SystemExit):
         run_main(argv=None)
 
@@ -169,63 +209,14 @@ def test_missing_explicit_config_exits(run_main, tmp_path, monkeypatch):
 def test_main_serves_live_settings(run_main, tmp_path):
     client = run_main().test_client()
     body = client.get("/api/settings").get_json()
-    assert body["settings"]["lead_time_s"] == 0.15
-    assert body["file"].endswith("coop.toml")
-    resp = client.post("/api/settings", json={"lead_time_s": 0.3})
+    assert body["settings"]["conf"] == 0.4
+    assert body["file"].endswith("cooper.toml")
+    resp = client.post("/api/settings", json={"conf": 0.3})
     assert resp.status_code == 200
 
 
-def test_annotate_path_draws_the_lead_aim(run_main):
-    """--annotate projects the predictor's aim point into the frame (auto mode, a target)."""
-    client = run_main(argv=("--no-motors", "--annotate")).test_client()
-    assert client.get("/api/status").get_json()["target"]["id"] == 3
-
-
-class TimedCamera:
-    """Frames `period_s` apart; ends the run after `frames` frames."""
-
-    def __init__(self, frames, period_s):
-        self.frames, self.period_s, self.reads = frames, period_s, 0
-
-    def read(self):
-        import time
-
-        self.reads += 1
-        if self.reads > self.frames:
-            raise KeyboardInterrupt
-        if self.reads > 1:
-            time.sleep(self.period_s)
-        return np.full((480, 640, 3), 90, dtype=np.uint8)
-
-    def close(self):
-        pass
-
-
-def test_a_locked_target_that_disappears_is_lost_and_unlocked(run_main, monkeypatch):
-    """Lock #3, then it vanishes: after lost_timeout_s (1 s) of capture time, target_lost
-    fires and the lock clears. Exercises the loop's timing on FrameGrabber timestamps."""
-    controls = []
-    real_control = coop.main.Control
-
-    def capture_control(*a, **k):
-        controls.append(real_control(*a, **k))
-        return controls[-1]
-
-    class LockThenVanish:
-        def __init__(self, cfg):
-            self.calls = 0
-
-        def detect(self, frame):
-            self.calls += 1
-            if self.calls == 1:
-                controls[0].set_target(3)
-            return [Detection(3, "person", 0.9, (100, 60, 180, 260))] if self.calls <= 2 else []
-
-    monkeypatch.setattr(coop.main, "Control", capture_control)
-    monkeypatch.setattr(coop.main, "Camera", lambda cfg: TimedCamera(frames=8, period_s=0.25))
-    monkeypatch.setattr(coop.main, "Detector", LockThenVanish)
-    client = run_main().test_client()
-    types = [e["type"] for e in client.get("/api/events").get_json()["events"]]
-    assert "target_acquired" in types and "target_lost" in types
-    assert controls[0].locked_id is None
-    assert client.get("/api/status").get_json()["target"] is None
+def test_annotate_burns_the_boxes_into_the_frame(run_main, monkeypatch):
+    drawn = []
+    monkeypatch.setattr(cooper.main, "annotate", lambda frame, dets: drawn.append(dets) or frame)
+    run_main(argv=("--annotate",))
+    assert [d.track_id for d in drawn[0]] == [3]

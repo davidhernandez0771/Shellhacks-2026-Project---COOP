@@ -1,6 +1,6 @@
 # Credits
 
-Everything on this site (code, scene, copy, the point-cloud figures and the procedural hardware models) was written for COOP. Nothing was copied from another site. Third-party pieces, all shipped in this folder:
+Everything on this site (code, scene, copy, the point-cloud figures and the procedural hardware models) was written for COOPER. Nothing was copied from another site. Third-party pieces, all shipped in this folder:
 
 | What | Where | License |
 |---|---|---|

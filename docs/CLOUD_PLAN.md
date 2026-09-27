@@ -1,3 +1,5 @@
+> **Outdated: from the motorized-gimbal era.** COOPER is now a fixed dashcam; see README.md and docs/MATH.md.
+
 # Overnight cloud plan (2026-09-26)
 
 A brief for a Claude Code cloud session working unattended overnight. David is asleep. **Hardware (Pi 5, Uno, TMC2209, NEMA 17, OV5647) is assembled tomorrow.** When he wakes up he should find: the backend ready for hardware, and a showcase site that looks like a professional studio built it.
@@ -88,7 +90,7 @@ Same black/white/orange identity, but it's a tool: calm, legible, fast.
 ## Verification before the report
 - `pytest` passes on `cloud/hardware-ready`.
 - Run the full app headless against the fake Uno and a fake camera/detector: modes, jog, E-stop and reconnect all work.
-- Serve `site/` and `web/` locally and check with a headless browser if one is available (Playwright/Chromium): screenshots at 1440 and 390 px, the console clean, reduced-motion mode. Save screenshots in `docs/screenshots/` on the showcase branch.
+- Serve `site/` and `web/` locally and check with a headless browser if one is available (Playwright/Chromium): screenshots at 1440 and 390 px, the console clean, reduced-motion mode. Save screenshots in `docs/screenshots/` on the showcase branch. (These screenshots show the old gimbal dashboard and will be replaced.)
 
 ## Morning report
 Write `docs/MORNING_REPORT.md` on each branch:

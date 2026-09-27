@@ -1,3 +1,5 @@
+> **Outdated: from the motorized-gimbal era.** COOPER is now a fixed dashcam; see README.md and docs/MATH.md.
+
 # Morning report (2026-09-26)
 
 Two overnight cloud sessions, merged. Part A is the backend (`cloud/hardware-ready`); Parts B and C are the showcase and dashboard (`cloud/showcase`).
@@ -129,7 +131,7 @@ Overnight cloud session, 2026-09-26. Branch **`cloud/showcase`** (from `dev`), p
 ## TL;DR
 - **Showcase (`site/`)**: rebuilt from scratch as a cinematic WebGL site: dotted-ring loader with an Enter `>>>` gate, the "COOP" scrambleText decode (→ full name → tagline), and seven scroll-driven chapters in one persistent three.js scene. Reduced-motion and no-WebGL versions, phones, docs. **Preview:** `https://cloud-showcase.coop-224.pages.dev` (Cloudflare Pages branch alias for `cloud/showcase`; see "Previewing").
 - **Dashboard (`web/`)**: same black/white/orange identity; pan-only with the pan gauge as the hero instrument (click or drag it to aim), leader-line detection labels that decode in, E-stop / Arm / Zero, a diagnostics strip, live tuning, and a designed state for every failure. **Tested end to end against Part A's real backend** (`tools/rehearsal.py`: real loop + fake Uno + synthetic camera).
-- Screenshots of everything: `docs/screenshots/` (39 JPEGs: site at 1440 and 390 px, reduced motion, no WebGL; dashboard live, manual and every state).
+- Screenshots of everything: `docs/screenshots/` (39 JPEGs: site at 1440 and 390 px, reduced motion, no WebGL; dashboard live, manual and every state). (These screenshots show the old gimbal dashboard and will be replaced.)
 
 ## What was done
 

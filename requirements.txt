@@ -1,7 +1,6 @@
 ultralytics>=8.3
 lap>=0.5.12
 flask>=3.0
-pyserial>=3.5
 numpy
 opencv-python
 # On the Pi, picamera2 comes from apt (see scripts/setup_pi.sh), not pip.

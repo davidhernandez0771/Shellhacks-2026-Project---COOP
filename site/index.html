@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>COOP · Computer-vision Object Observation &amp; Prediction</title>
-  <meta name="description" content="COOP is a Raspberry Pi 5 tracking camera that detects people and cars, predicts where they're heading, and turns on a stepper motor to keep them in frame.">
+  <title>COOPER · the dashcam that sees it coming</title>
+  <meta name="description" content="COOPER is a Raspberry Pi 5 dashcam that detects people and vehicles, predicts where each one is heading, and lights a yellow or red LED before something enters your lane.">
   <meta name="theme-color" content="#060606">
   <link rel="canonical" href="https://coop.davidhernandez.work/">
-  <meta property="og:title" content="COOP · Computer-vision Object Observation & Prediction">
-  <meta property="og:description" content="COOP keeps an eye on the coop. A Pi 5 camera that detects, predicts and turns to follow.">
+  <meta property="og:title" content="COOPER · the dashcam that sees it coming">
+  <meta property="og:description" content="A Pi 5 dashcam that predicts every road user's path and warns you before one enters your lane.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://coop.davidhernandez.work/">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23060606'/%3E%3Cpath d='M6 12V6h6M26 12V6h-6M6 20v6h6M26 20v6h-6' fill='none' stroke='%23EEEDEA' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23FF5A1F'/%3E%3C/svg%3E">
@@ -44,7 +44,7 @@
 
   <!-- ───────── Loader + enter gate ───────── -->
   <div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
-    <h2 class="sr-only" id="gate-title">Loading COOP</h2>
+    <h2 class="sr-only" id="gate-title">Loading COOPER</h2>
     <div class="gate-ring" aria-hidden="true">
       <svg class="ring" viewBox="0 0 200 200" id="gate-ring"></svg>
       <span class="gate-pct" id="gate-pct">000</span>
@@ -66,13 +66,13 @@
 
   <!-- ───────── Floating pill nav ───────── -->
   <header class="nav" id="nav">
-    <a class="nav-mark" href="#top" aria-label="COOP, back to the top">COOP</a>
+    <a class="nav-mark" href="#top" aria-label="COOPER, back to the top">COOPER</a>
     <nav aria-label="Chapters">
       <ol class="nav-links" id="nav-links">
         <li><a href="#see" data-ch="1">See</a></li>
         <li><a href="#detect" data-ch="2">Detect</a></li>
         <li><a href="#predict" data-ch="3">Predict</a></li>
-        <li><a href="#move" data-ch="4">Move</a></li>
+        <li><a href="#move" data-ch="4">Warn</a></li>
         <li><a href="#build" data-ch="5">Build</a></li>
         <li><a href="#gallery" data-ch="6">Gallery</a></li>
         <li><a href="#team" data-ch="7">Team</a></li>
@@ -85,11 +85,11 @@
     </button>
   </header>
 
-  <!-- ───────── Bottom HUD: chapter scrubber + bearing tape ───────── -->
+  <!-- ───────── Bottom HUD: chapter scrubber + tape + frame counter ───────── -->
   <div class="hud" aria-hidden="true">
     <div class="hud-chapter mono"><span id="hud-ch">00</span><span class="hud-sep">/</span>07 <span class="hud-name" id="hud-name">Intro</span></div>
     <div class="tape" id="tape"><div class="tape-strip" id="tape-strip"></div><span class="tape-index"></span></div>
-    <div class="hud-pan mono"><span class="hud-pan-k">Pan</span> <span id="hud-pan">+000.0°</span></div>
+    <div class="hud-pan mono"><span class="hud-pan-k">Frame</span> <span id="hud-pan">000000</span></div>
   </div>
 
   <div class="cursor" id="cursor" aria-hidden="true"><span class="cursor-dot"></span><span class="cursor-ring"></span><span class="cursor-label" id="cursor-label"></span></div>
@@ -100,15 +100,16 @@
       <div class="pin">
         <div class="intro-lockup">
           <p class="intro-expansion mono" id="intro-expansion" aria-hidden="true"></p>
-          <h1 class="intro-word" id="intro-title" aria-label="COOP">
+          <h1 class="intro-word" id="intro-title" aria-label="COOPER">
             <span class="brackets" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-            <span class="intro-letters" id="intro-letters" aria-hidden="true"><span>C</span><span>O</span><span>O</span><span>P</span></span>
+            <span class="intro-letters" id="intro-letters" aria-hidden="true"><span>C</span><span>O</span><span>O</span><span>P</span><span>E</span><span>R</span></span>
           </h1>
           <p class="intro-readout" id="intro-readout" aria-hidden="true"></p>
-          <p class="sr-only">Computer-vision Object Observation &amp; Prediction. COOP keeps an eye on the coop.</p>
-          <p class="intro-lede" id="intro-lede">A Raspberry Pi&nbsp;5 camera that spots people and cars, predicts where they&rsquo;re heading, and turns on a stepper motor to keep them in frame.</p>
+          <!-- ✏️ PLACEHOLDER: the story behind the name COOPER (also NAME / NAME_HTML in js/intro.js) -->
+          <p class="sr-only">COOPER: the dashcam that sees it coming.</p>
+          <p class="intro-lede" id="intro-lede">A Raspberry Pi&nbsp;5 dashcam that spots people and vehicles, predicts where each one is heading, and lights a warning before one of them enters your lane.</p>
         </div>
-        <p class="scroll-cue mono" id="scroll-cue"><span>Scroll to pan</span><i aria-hidden="true"></i></p>
+        <p class="scroll-cue mono" id="scroll-cue"><span>Scroll to see</span><i aria-hidden="true"></i></p>
       </div>
     </section>
 
@@ -119,7 +120,7 @@
           <p class="ch-num mono" aria-hidden="true">01</p>
           <h2 class="ch-title" id="see-title">See</h2>
           <p class="ch-lead reveal-words">It starts with a frame: brightness values, and nothing that knows what they are.</p>
-          <p class="ch-body reveal-words">A 5&nbsp;MP OV5647 camera on the Raspberry Pi&nbsp;5 watches the street through a 3.6&nbsp;mm lens. COOP reads it 640&nbsp;&times;&nbsp;480 pixels at a time, and every frame goes through the same loop.</p>
+          <p class="ch-body reveal-words">A 5&nbsp;MP OV5647 camera on a Raspberry Pi&nbsp;5 looks down the road through the windshield, powered by the car, and never moves. COOPER reads it 640&nbsp;&times;&nbsp;480 pixels at a time, and every frame goes through the same loop.</p>
           <dl class="spec mono">
             <div><dt>Sensor</dt><dd>OV5647, 5&nbsp;MP</dd></div>
             <div><dt>Field of view</dt><dd>63° &times; 49°</dd></div>
@@ -136,7 +137,7 @@
           <p class="ch-num mono" aria-hidden="true">02</p>
           <h2 class="ch-title" id="detect-title">Detect</h2>
           <p class="ch-lead reveal-words">Boxes snap onto what matters, and each one keeps its name.</p>
-          <p class="ch-body reveal-words">YOLO11n runs on the Pi&nbsp;5&rsquo;s CPU at a 320&nbsp;px input, with no accelerator. It finds people and vehicles, and ByteTrack gives each one an ID that survives from frame to frame. COOP stays on its target while it&rsquo;s visible, and otherwise picks people first, then the biggest in view.</p>
+          <p class="ch-body reveal-words">YOLO11n runs on the Pi&nbsp;5&rsquo;s CPU at a 320&nbsp;px input, with no accelerator. It finds people and vehicles, and ByteTrack gives each one an ID that survives from frame to frame. COOPER doesn&rsquo;t pick a favourite: every object on the road gets its own track, its own motion model and its own predicted path.</p>
           <dl class="spec mono">
             <div><dt>Model</dt><dd>YOLO11n, 320&nbsp;px</dd></div>
             <div><dt>Tracker</dt><dd>ByteTrack</dd></div>
@@ -152,39 +153,38 @@
         <div class="copy">
           <p class="ch-num mono" aria-hidden="true">03</p>
           <h2 class="ch-title" id="predict-title">Predict</h2>
-          <p class="ch-lead reveal-words">Aim where it&rsquo;s going, not where it was.</p>
-          <p class="ch-body reveal-words">Every detection becomes a world angle: where the camera points, plus where the target sits in the frame. A constant-velocity Kalman filter estimates how fast that angle is changing, and COOP aims 150&nbsp;ms ahead to cancel its own latency.</p>
+          <p class="ch-lead reveal-words">Watch where it&rsquo;s going, not where it was.</p>
+          <p class="ch-body reveal-words">Every object gets its own constant-velocity Kalman filter, run in image space, so motion is relative to the car. Each frame it predicts (slide the object along its velocity), then updates (blend that guess with the new box, trusting whichever is less noisy). What&rsquo;s left is a smooth position and velocity for each one.</p>
+          <p class="ch-body reveal-words">The velocity draws a path 1.5&nbsp;s ahead, checked against my lane: a trapezoid over the road just in front of the car. Something coming straight at us barely moves sideways, so COOPER also watches its box grow: height over growth rate is the time to contact.</p>
         </div>
         <figure class="equations" aria-labelledby="eq-caption">
           <p class="eq-head ch-num mono" aria-hidden="true">The math</p>
-          <div class="eq" role="math" aria-label="theta target equals theta gimbal plus the arctangent of: x minus w over 2, divided by w over 2, times the tangent of half the horizontal field of view.">
+          <div class="eq" role="math" aria-label="p of t plus delta t equals p plus p dot times delta t, for delta t from 0 to 1.5 seconds.">
             <div class="eq-row" aria-hidden="true">
-              <span class="m"><i>θ</i><sub>target</sub></span>
+              <span class="m"><i>p</i><sub><i>t</i>+Δ<i>t</i></sub></span>
               <span class="o">=</span>
-              <span class="m term" data-term="a"><i>θ</i><sub>gimbal</sub></span>
+              <span class="m term" data-term="a"><i>p</i><sub><i>t</i></sub></span>
               <span class="o">+</span>
-              <span class="m term" data-term="b"><span class="fn">arctan</span><span class="paren">(</span><span class="frac"><span><i>x</i> − <i>w</i>/2</span><span><i>w</i>/2</span></span><span class="fn">tan</span><span class="frac"><span>FOV<sub><i>h</i></sub></span><span>2</span></span><span class="paren">)</span></span>
-            </div>
-            <div class="eq-notes mono" aria-hidden="true">
-              <span data-term="a">where the camera points</span>
-              <span data-term="b">where the target sits in the frame</span>
-            </div>
-          </div>
-          <div class="eq eq-aim" role="math" aria-label="theta aim equals theta plus theta dot times t lead, with t lead equal to 150 milliseconds.">
-            <div class="eq-row" aria-hidden="true">
-              <span class="m lock"><i>θ</i><sub>aim</sub></span>
-              <span class="o">=</span>
-              <span class="m"><i>θ</i></span>
-              <span class="o">+</span>
-              <span class="m"><i class="dot-acc">θ</i></span>
+              <span class="m term" data-term="b"><i class="dot-acc">p</i></span>
               <span class="o">·</span>
-              <span class="m"><i>t</i><sub>lead</sub></span>
+              <span class="m">Δ<i>t</i></span>
             </div>
             <div class="eq-notes mono" aria-hidden="true">
-              <span>Kalman estimate of angle and angular rate; <i>t</i><sub>lead</sub> = 150&nbsp;ms</span>
+              <span data-term="a">where its box meets the road now</span>
+              <span data-term="b">its Kalman velocity, in px/s</span>
             </div>
           </div>
-          <figcaption class="mono" id="eq-caption">Pixel to world angle (pinhole model), and the lead aim</figcaption>
+          <div class="eq eq-aim" role="math" aria-label="tau equals h divided by h dot. Under 2 seconds, in the lane's corridor, it warns.">
+            <div class="eq-row" aria-hidden="true">
+              <span class="m lock"><i>τ</i></span>
+              <span class="o">=</span>
+              <span class="m"><span class="frac"><span><i>h</i></span><span><i class="dot-acc">h</i></span></span></span>
+            </div>
+            <div class="eq-notes mono" aria-hidden="true">
+              <span>box height over its growth rate; <i>τ</i> &lt; 2&nbsp;s in the lane&rsquo;s corridor warns</span>
+            </div>
+          </div>
+          <figcaption class="mono" id="eq-caption">The path, sampled every 0.1&nbsp;s to 1.5&nbsp;s, and time to contact</figcaption>
         </figure>
       </div>
     </section>
@@ -194,9 +194,14 @@
       <div class="pin">
         <div class="copy">
           <p class="ch-num mono" aria-hidden="true">04</p>
-          <h2 class="ch-title" id="move-title">Move</h2>
-          <p class="ch-lead reveal-words">Then it turns to follow.</p>
-          <p class="ch-body reveal-words">The Pi sends a target angle over USB serial to an Arduino Uno, and AccelStepper ramps a NEMA&nbsp;17 through a TMC2209 driver, so the camera eases onto the target instead of jerking. If the Pi goes quiet for two seconds, a watchdog stops the motor.</p>
+          <h2 class="ch-title" id="move-title">Warn</h2>
+          <p class="ch-lead reveal-words">Two lights, before it happens.</p>
+          <p class="ch-body reveal-words">Yellow: a predicted path will enter my lane soon, like a car about to cut in, or something ahead is closing in under 2&nbsp;s. Red: something is in my lane now, and red overrides yellow. A level lights after two frames in a row and holds half a second, so one noisy box can&rsquo;t make it flicker. The dashboard shows the live video, every predicted path and the risk level.</p>
+          <dl class="spec mono">
+            <div><dt>Yellow</dt><dd>path enters my lane</dd></div>
+            <div><dt>Red</dt><dd>in my lane now</dd></div>
+            <div><dt>Horizon</dt><dd>1.5&nbsp;s</dd></div>
+          </dl>
         </div>
         <div class="gauge" aria-hidden="true">
           <svg viewBox="0 0 240 190" id="gauge-svg">
@@ -208,9 +213,9 @@
             <circle class="gauge-hub" cx="120" cy="122" r="3"/>
           </svg>
           <div class="gauge-read mono">
-            <div><span class="k">Pan</span><span class="v" id="gauge-pan">+0.0°</span></div>
-            <div><span class="k">Aim</span><span class="v lock" id="gauge-aim-v">+0.0°</span></div>
-            <div><span class="k">Limits</span><span class="v">±170°</span></div>
+            <div><span class="k">Now</span><span class="v" id="gauge-pan">+0.0°</span></div>
+            <div><span class="k">Path</span><span class="v lock" id="gauge-aim-v">+0.0°</span></div>
+            <div><span class="k">Warn</span><span class="v">τ &lt; 2&nbsp;s</span></div>
           </div>
         </div>
       </div>
@@ -222,15 +227,17 @@
         <div class="copy">
           <p class="ch-num mono" aria-hidden="true">05</p>
           <h2 class="ch-title" id="build-title">Build</h2>
-          <p class="ch-lead reveal-words">One 12&nbsp;V supply, two brains.</p>
-          <p class="ch-body reveal-words">The Pi&nbsp;5 does the seeing. An Arduino Uno makes the step pulses, because Linux can&rsquo;t time them reliably. The motor runs straight off 12&nbsp;V, and a buck converter feeds the Pi 5.1&nbsp;V.</p>
+          <p class="ch-lead reveal-words">One board, one camera, two lights.</p>
+          <p class="ch-body reveal-words">The Pi&nbsp;5 does all of it on its CPU: detection, tracking, prediction, the lane check and the video stream. The two LEDs sit on its GPIO pins, and the car powers everything. Nothing moves.</p>
+          <!-- The 3D exploded rig is a placeholder model (see models/README.md). Each data-part key
+               only chooses which placeholder solid the label is drawn next to. -->
           <ul class="parts mono" id="parts">
             <li data-part="camera"><span>OV5647 camera</span><span>5&nbsp;MP, 3.6&nbsp;mm, 75° diagonal</span></li>
-            <li data-part="pi"><span>Raspberry Pi 5</span><span>8&nbsp;GB, vision and control</span></li>
-            <li data-part="uno"><span>Arduino Uno</span><span>AccelStepper over USB serial</span></li>
-            <li data-part="driver"><span>TMC2209</span><span>STEP/DIR, 8 microsteps</span></li>
-            <li data-part="motor"><span>NEMA 17</span><span>pan axis</span></li>
-            <li data-part="power"><span>12&nbsp;V supply → buck</span><span>motor direct, Pi at 5.1&nbsp;V</span></li>
+            <li data-part="pi"><span>Raspberry Pi 5</span><span>8&nbsp;GB, vision and risk</span></li>
+            <li data-part="uno"><span>Yellow LED</span><span>a path will enter my lane</span></li>
+            <li data-part="driver"><span>Red LED</span><span>something is in my lane</span></li>
+            <li data-part="motor"><span>Windshield mount</span><span>fixed, facing the road</span></li>
+            <li data-part="power"><span>Car power</span><span>12&nbsp;V socket to 5&nbsp;V</span></li>
           </ul>
         </div>
       </div>
@@ -247,17 +254,17 @@
         </div>
         <!-- The media list. The 3D carousel is built from these items; without WebGL they show as a grid.
              ✏️ PLACEHOLDER media: replace each <li> with a real one, e.g.
-               <li data-src="media/build.jpg" data-alt="Inside COOP: Pi 5, Uno and TMC2209">Inside the build</li>
-               <li data-src="media/tracking.mp4" data-kind="video" data-alt="COOP following a person">Tracking a person</li>
+               <li data-src="media/build.jpg" data-alt="Inside COOPER: the Pi 5, camera and LEDs">Inside the build</li>
+               <li data-src="media/cut-in.mp4" data-kind="video" data-alt="COOPER lighting yellow as a car cuts in">A cut-in, caught early</li>
              See site/README.md. -->
         <ul class="gallery" id="gallery-list">
           <li data-placeholder="photo-hero">Finished unit</li>
           <li data-placeholder="photo-build">Inside the build</li>
-          <li data-placeholder="video-tracking" data-kind="video">Tracking a person</li>
-          <li data-placeholder="photo-dashboard">The dashboard</li>
-          <li data-placeholder="photo-mount">Pan mount</li>
-          <li data-placeholder="photo-wiring">Wiring</li>
-          <li data-placeholder="video-car" data-kind="video">Following a car</li>
+          <li data-placeholder="video-cut-in" data-kind="video">A cut-in, caught early</li>
+          <li data-placeholder="photo-dashboard">Every predicted path</li>
+          <li data-placeholder="photo-mount">On the windshield</li>
+          <li data-placeholder="photo-leds">The two LEDs</li>
+          <li data-placeholder="video-drive" data-kind="video">Yellow, then red</li>
           <li data-placeholder="photo-team">The team at work</li>
         </ul>
       </div>
@@ -270,12 +277,12 @@
           <p class="ch-num mono" aria-hidden="true">07</p>
           <h2 class="ch-title" id="team-title">Team</h2>
           <p class="ch-lead reveal-words">Two people, built in parallel.</p>
-          <p class="ch-body reveal-words">Everything runs on a laptop with a webcam and simulated motors, so the software and the hardware never had to wait for each other.</p>
+          <p class="ch-body reveal-words">Everything runs on a laptop with a webcam and mocked LEDs, so the software and the hardware never had to wait for each other.</p>
           <ul class="team">
             <li>
               <span class="team-name">David Hernandez</span>
               <span class="team-role mono">Software</span>
-              <span class="team-what">Vision, tracking, prediction, the control API and the dashboard.</span>
+              <span class="team-what">Vision, tracking, prediction, the lane risk check and the dashboard.</span>
             </li>
             <li>
               <!-- ✏️ PLACEHOLDER: teammate's name and a one-line description -->
@@ -291,8 +298,8 @@
           </div>
         </div>
         <footer class="footer mono">
-          <span>COOP · ShellHacks 2026</span>
-          <span>MIT licensed · runs on a laptop with <code>--source webcam --no-motors</code></span>
+          <span>COOPER · ShellHacks 2026</span>
+          <span>MIT licensed · runs on a laptop with <code>--source webcam --no-leds</code></span>
         </footer>
       </div>
     </section>

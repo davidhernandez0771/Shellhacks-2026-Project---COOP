@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#060606">
-  <title>COOP · live</title>
+  <title>COOPER · live</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23060606'/%3E%3Cpath d='M6 12V6h6M26 12V6h-6M6 20v6h6M26 20v6h-6' fill='none' stroke='%23EEEDEA' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23FF5A1F'/%3E%3C/svg%3E">
   <link rel="preload" href="fonts/archivo-var.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/martian-mono-var.woff2" as="font" type="font/woff2" crossorigin>
@@ -13,16 +13,11 @@
 </head>
 <body>
   <header class="bar">
-    <h1 class="brand">COOP</h1>
+    <h1 class="brand">COOPER</h1>
     <span class="conn" id="conn" role="status"><i aria-hidden="true"></i><span class="label">Connecting</span></span>
-    <div class="modes" role="group" aria-label="Mode">
-      <button type="button" data-mode="auto" aria-pressed="true" title="Auto (1)">Auto</button>
-      <button type="button" data-mode="manual" aria-pressed="false" title="Manual (2)">Manual</button>
-      <button type="button" data-mode="stop" aria-pressed="false" title="Stop (3)">Stop</button>
-    </div>
-    <div class="safety">
-      <button type="button" class="btn-zero" id="zero-btn" title="Make the current position pan 0">Zero here</button>
-      <button type="button" class="btn-estop" id="estop-btn" title="Emergency stop (X)"><span>E-stop</span></button>
+    <div class="status-pill" id="status-pill" data-level="clear" role="status" aria-live="polite">
+      <span class="lamps" aria-hidden="true"><i class="lamp y"></i><i class="lamp r"></i></span>
+      <span class="status-word" id="status-word">Clear</span>
     </div>
   </header>
 
@@ -38,24 +33,25 @@
   <main class="grid">
     <section class="feed-col" aria-label="Live feed">
       <div class="feed" id="feed">
-        <img class="feed-img" id="feed-img" alt="Live camera feed" hidden>
-        <canvas class="feed-mock" id="feed-mock" hidden></canvas>
-        <svg class="overlay" id="overlay" viewBox="0 0 640 480" preserveAspectRatio="xMidYMid meet"></svg>
+        <img class="feed-img" id="feed-img" alt="Live dashcam feed" hidden>
+        <canvas class="overlay" id="overlay" aria-label="Detections, predicted paths and the lane"></canvas>
         <div class="feed-state" id="feed-state" hidden>
           <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 16V8h8M40 16V8h-8M8 32v8h8M40 32v8h-8"/><circle cx="24" cy="24" r="7"/><path d="M14 34 34 14"/></svg>
           <strong id="feed-state-title">No camera</strong>
           <span id="feed-state-detail"></span>
         </div>
         <span class="feed-tag mono" id="feed-tag" hidden>Mock feed</span>
+        <span class="edit-tag mono" id="edit-tag" hidden>Editing lane · drag the corners</span>
         <button type="button" class="fs-btn" id="fs-btn" aria-label="Fullscreen (F)" title="Fullscreen (F)">
           <svg id="fs-enter" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
           <svg id="fs-exit" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" hidden><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
         </button>
       </div>
-      <div class="legend mono" id="legend" hidden>
-        <span><svg viewBox="0 0 24 10" width="24" height="10" aria-hidden="true"><line class="lg-vel" x1="1" y1="5" x2="17" y2="5"/><path class="lg-head" d="M15 1 L23 5 L15 9 z"/></svg>Velocity</span>
-        <span><svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true"><circle class="lg-aim" cx="7" cy="7" r="4.5"/></svg>Predicted aim</span>
-        <span><svg viewBox="0 0 24 8" width="24" height="8" aria-hidden="true"><circle class="lg-trail" cx="3" cy="4" r="1.4" fill-opacity="0.3"/><circle class="lg-trail" cx="11" cy="4" r="2" fill-opacity="0.55"/><circle class="lg-trail" cx="19" cy="4" r="2.8" fill-opacity="0.85"/></svg>Aim trail</span>
+      <div class="legend mono" id="legend">
+        <span><svg viewBox="0 0 24 10" width="24" height="10" aria-hidden="true"><path class="lg-lane" d="M1 9 L7 1 H17 L23 9 Z"/></svg>My lane</span>
+        <span><svg viewBox="0 0 28 10" width="28" height="10" aria-hidden="true"><path class="lg-path" d="M1 8 C 9 8, 16 5, 24 2"/><circle class="lg-end" cx="24.5" cy="2.5" r="2"/></svg>Predicted path (1.5 s)</span>
+        <span><i class="sw sw-y" aria-hidden="true"></i>Heading into the lane</span>
+        <span><i class="sw sw-r" aria-hidden="true"></i>In the lane</span>
       </div>
       <dl class="diag mono" id="diag" aria-label="Diagnostics">
         <div data-k="cpu"><dt>CPU</dt><dd>–</dd></div>
@@ -64,55 +60,39 @@
         <div data-k="capture"><dt>Camera</dt><dd>–</dd></div>
         <div data-k="infer"><dt>Inference</dt><dd>–</dd></div>
         <div data-k="latency"><dt>Latency</dt><dd>–</dd></div>
-        <div data-k="serial"><dt>Arduino</dt><dd>–</dd></div>
+        <div data-k="leds"><dt>LEDs</dt><dd>–</dd></div>
         <div data-k="uptime"><dt>Uptime</dt><dd>–</dd></div>
       </dl>
     </section>
 
     <aside class="rail">
-      <section class="panel pan-panel" aria-labelledby="pan-h">
+      <section class="panel risk-panel" id="risk-panel" data-level="clear" aria-labelledby="risk-h">
         <div class="panel-head">
-          <h2 id="pan-h">Pan</h2>
-          <span class="chip mono" id="motors-chip">Motors</span>
+          <h2 id="risk-h">Risk</h2>
+          <span class="chip mono" id="leds-chip">LEDs</span>
         </div>
-        <div class="gauge" id="gauge">
-          <svg viewBox="0 0 300 200" id="gauge-svg" role="img" aria-label="Pan gauge">
-            <path class="g-track" id="g-track"/>
-            <g id="g-ticks"></g>
-            <path class="g-sweep" id="g-sweep"/>
-            <path class="g-aim" id="g-aim"/>
-            <line class="g-needle" id="g-needle" x1="150" y1="70" x2="150" y2="36"/>
-            <text class="g-big" id="pan-num" x="150" y="146">+0.0°</text>
-            <text class="g-cap" x="150" y="166">pan</text>
-            <path class="g-hit" id="g-hit"/>
-          </svg>
-          <div class="gauge-read mono"><span>Aim <b class="lock tabular" id="aim-num">+0.0°</b></span><span id="limits-num">Limits ±170°</span></div>
-        </div>
-        <div class="manual" id="manual" hidden>
-          <button type="button" id="nudge-left" aria-label="Pan left 5° (←, Shift for 1°)">◀</button>
-          <button type="button" id="home-btn" class="home" aria-label="Home: pan 0 (H)">Home</button>
-          <button type="button" id="nudge-right" aria-label="Pan right 5° (→, Shift for 1°)">▶</button>
-          <p class="hint mono">Click or drag the dial to aim</p>
+        <div class="risk-word" id="risk-word">Clear</div>
+        <p class="risk-reason" id="risk-reason">Nothing in or heading into your lane.</p>
+        <div class="led-row">
+          <div class="led" id="led-y"><i class="lamp y" aria-hidden="true"></i><span><b>Yellow</b><em class="mono">Warning</em></span></div>
+          <div class="led" id="led-r"><i class="lamp r" aria-hidden="true"></i><span><b>Red</b><em class="mono">Danger</em></span></div>
         </div>
       </section>
 
-      <section class="panel" aria-labelledby="target-h">
+      <section class="panel" aria-labelledby="lane-h">
         <div class="panel-head">
-          <h2 id="target-h">Target</h2>
-          <span class="chip mono" id="target-chip" hidden>Auto</span>
+          <h2 id="lane-h">My lane</h2>
+          <span class="chip mono" id="lane-chip">Live</span>
         </div>
-        <div class="target" id="target">
-          <div class="target-name" id="target-name" hidden></div>
-          <div class="empty" id="target-empty">
-            <strong id="target-empty-title">No target</strong>
-            <span id="target-empty-detail">COOP is watching. Anyone who walks in, or any car, gets picked up here.</span>
-          </div>
-          <dl class="stats" id="target-stats" hidden>
-            <div><dt>Confidence</dt><dd><span class="meter" id="conf-meter"></span><span class="tabular" id="conf-num"></span></dd></div>
-            <div><dt>Velocity</dt><dd class="tabular" id="vel-num">–</dd></div>
-            <div id="lead-row" hidden><dt title="How far the predicted aim sits ahead of the target">Lead</dt><dd class="tabular lock" id="lead-num">–</dd></div>
-          </dl>
-          <button type="button" class="btn" id="lock-btn" disabled>Lock target</button>
+        <p class="lane-hint" id="lane-hint">The road right in front of the car. Something whose bottom edge is inside it is danger; a predicted path into it is a warning.</p>
+        <div class="lane-actions" id="lane-idle">
+          <button type="button" class="btn is-primary" id="lane-edit">Edit lane</button>
+        </div>
+        <div class="lane-actions" id="lane-editing" hidden>
+          <button type="button" class="btn is-primary" id="lane-apply">Apply</button>
+          <button type="button" class="btn" id="lane-save">Apply and save</button>
+          <button type="button" class="btn" id="lane-reset">Reset</button>
+          <button type="button" class="btn" id="lane-cancel">Cancel</button>
         </div>
       </section>
 
@@ -129,12 +109,11 @@
       <details class="panel tuning" id="tuning">
         <summary><h2>Tuning</h2><span class="mono" id="tuning-state">Live settings</span></summary>
         <form id="tuning-form" novalidate>
-          <label><span>Lead time</span><input type="range" name="lead_time_s" step="0.01"><output class="mono"></output></label>
-          <label><span>Deadband</span><input type="range" name="deadband_deg" step="0.1"><output class="mono"></output></label>
           <label><span>Confidence</span><input type="range" name="conf" step="0.01"><output class="mono"></output></label>
-          <label><span>Max speed</span><input type="range" name="max_steps_per_sec" step="10"><output class="mono"></output></label>
-          <label><span>Acceleration</span><input type="range" name="accel_steps_per_sec2" step="100"><output class="mono"></output></label>
-          <label class="toggle"><span>Invert pan</span><input type="checkbox" name="pan_invert"><em class="mono">Stop mode only</em></label>
+          <label><span>Horizon</span><input type="range" name="horizon_s" step="0.1"><output class="mono"></output></label>
+          <label><span>TTC warn</span><input type="range" name="ttc_warn_s" step="0.1"><output class="mono"></output></label>
+          <label><span>TTC clear</span><input type="range" name="ttc_clear_s" step="0.1"><output class="mono"></output></label>
+          <label><span>Hold</span><input type="range" name="hold_s" step="0.05"><output class="mono"></output></label>
           <div class="tuning-actions">
             <button type="button" class="btn" id="tuning-apply">Apply</button>
             <button type="button" class="btn" id="tuning-save">Apply and save</button>
@@ -146,8 +125,8 @@
   </main>
 
   <footer class="foot mono">
-    <span class="keys"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> mode &nbsp; <kbd>X</kbd> e-stop &nbsp; <kbd>←</kbd><kbd>→</kbd> nudge 5° (<kbd>Shift</kbd> 1°) &nbsp; <kbd>H</kbd> home &nbsp; <kbd>F</kbd> fullscreen</span>
-    <span id="source-note">COOP · Pi 5 tracking camera</span>
+    <span class="keys"><kbd>L</kbd> edit lane &nbsp; <kbd>Esc</kbd> cancel &nbsp; <kbd>F</kbd> fullscreen</span>
+    <span id="source-note">COOPER · Pi 5 dashcam</span>
   </footer>
 
   <div class="toast" id="toast" role="alert" hidden></div>

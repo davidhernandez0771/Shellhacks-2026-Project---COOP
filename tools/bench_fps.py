@@ -5,9 +5,9 @@
     python -m tools.bench_fps                        # benchmark 256/320/416, torch and ncnn
     python -m tools.bench_fps --imgsz 320 --backends ncnn --frames 100
 
-Each run times the same call COOP makes (model.track with ByteTrack, COOP's classes and
+Each run times the same call COOPER makes (model.track with ByteTrack, COOPER's classes and
 confidence) on a fixed image, after a warm-up, and prints a Markdown table to paste into
-docs/HARDWARE_TEST.md. To use a result, set in coop.toml:
+docs/HARDWARE_TEST.md. To use a result, set in cooper.toml:
 
     [detector]
     model = "yolo11n_imgsz320_ncnn_model"
@@ -107,7 +107,7 @@ def bench(model_path, imgsz, frame, frames, warmup, conf, classes):
 
 
 def main(argv=None):
-    from coop.config import DetectorConfig
+    from cooper.config import DetectorConfig
 
     det = DetectorConfig()
     parser = argparse.ArgumentParser(description="Benchmark YOLO (PyTorch vs NCNN) on this machine.")

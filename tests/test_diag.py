@@ -1,11 +1,12 @@
-"""Health readouts for /api/status.diag (coop/diag.py), with fake /sys files and vcgencmd."""
+"""Health readouts for /api/status.diag (cooper/diag.py), with fake /sys files and vcgencmd."""
 import subprocess
 import time
 
-from coop.config import MotorConfig
-from coop.control import Control
-from coop.diag import DIAG_KEYS, SystemMonitor, read_cpu_temp_c, read_throttled
-from coop.stream import SharedState, create_app
+import pytest
+
+from cooper.control import Control
+from cooper.diag import DIAG_KEYS, RateMeter, SystemMonitor, read_cpu_temp_c, read_throttled
+from cooper.stream import SharedState, create_app
 
 
 def test_cpu_temp_from_sysfs_millidegrees(tmp_path):
@@ -57,7 +58,7 @@ def test_throttled_survives_a_broken_vcgencmd(tmp_path):
 
 def test_monitor_caches_the_slow_readings():
     calls = []
-    mon = SystemMonitor(link_state=lambda: "connected", ttl_s=10,
+    mon = SystemMonitor(ttl_s=10,
                         temp_fn=lambda: calls.append("t") or 50.0, throttled_fn=lambda: calls.append("th") or 0)
     a = mon.snapshot()
     b = mon.snapshot()
@@ -74,39 +75,57 @@ def test_monitor_refreshes_after_the_ttl():
     assert mon.snapshot()["cpu_temp_c"] == 51.0
 
 
-def test_monitor_reports_link_state_live_and_uptime():
-    state = {"link": "reconnecting"}
-    mon = SystemMonitor(link_state=lambda: state["link"], temp_fn=lambda: None, throttled_fn=lambda: None)
+def test_monitor_reports_uptime_live():
+    mon = SystemMonitor(temp_fn=lambda: None, throttled_fn=lambda: None)
     first = mon.snapshot()
-    assert first["serial"] == "reconnecting"
-    state["link"] = "connected"
     time.sleep(0.15)  # uptime is reported to 0.1 s
     second = mon.snapshot()
-    assert second["serial"] == "connected"  # not cached: it's cheap and changes fast
     assert second["uptime_s"] > first["uptime_s"] >= 0
 
 
+def test_monitor_reports_the_led_mode():
+    mon = SystemMonitor(leds_mode=lambda: "gpio", temp_fn=lambda: None, throttled_fn=lambda: None)
+    assert mon.snapshot()["leds"] == "gpio"
+
+
+def test_rate_meter_is_the_inverse_of_the_mean_interval():
+    """Frames arriving in bursts (1 ms, then 65 ms) are 30 fps on average, not the ~500 fps
+    that averaging 1/dt gives."""
+    meter = RateMeter(alpha=0.1)
+    t = 0.0
+    for i in range(200):
+        t += 0.001 if i % 2 else 0.065
+        fps = meter.update(t)
+    # The EMA of dt swings between 31.3 and 34.9 ms here (a two-value cycle), i.e. 29-32 fps.
+    assert fps == pytest.approx(30.3, rel=0.1)
+
+
+def test_rate_meter_starts_at_zero_and_ignores_repeated_timestamps():
+    meter = RateMeter()
+    assert meter.update(1.0) == 0.0
+    assert meter.update(1.0) == 0.0
+    assert meter.update(1.1) == pytest.approx(10.0)
+
+
 def test_status_diag_has_every_key_even_before_the_first_frame():
-    mon = SystemMonitor(link_state=lambda: "mock", temp_fn=lambda: None, throttled_fn=lambda: None)
-    client = create_app(SharedState(), Control(MotorConfig()), diag=mon.snapshot).test_client()
+    mon = SystemMonitor(temp_fn=lambda: None, throttled_fn=lambda: None)
+    client = create_app(SharedState(), Control(), diag=mon.snapshot).test_client()
     diag = client.get("/api/status").get_json()["diag"]
     assert set(diag) == set(DIAG_KEYS)
     assert diag["fps"] is None and diag["latency_ms"] is None
-    assert diag["serial"] == "mock"
     assert diag["uptime_s"] >= 0
 
 
 def test_status_diag_merges_loop_timings_with_live_readings():
-    mon = SystemMonitor(link_state=lambda: "connected", temp_fn=lambda: 61.5, throttled_fn=lambda: 0x4)
+    mon = SystemMonitor(temp_fn=lambda: 61.5, throttled_fn=lambda: 0x4)
     state = SharedState()
     state.publish(b"x", {"diag": {"fps": 12.0, "capture_fps": 30.0, "infer_ms": 55.0, "latency_ms": 80.0}})
-    client = create_app(state, Control(MotorConfig()), diag=mon.snapshot).test_client()
+    client = create_app(state, Control(), diag=mon.snapshot).test_client()
     diag = client.get("/api/status").get_json()["diag"]
     assert diag == {"cpu_temp_c": 61.5, "throttled": 4, "fps": 12.0, "capture_fps": 30.0,
-                    "infer_ms": 55.0, "latency_ms": 80.0, "serial": "connected",
-                    "uptime_s": diag["uptime_s"]}
+                    "infer_ms": 55.0, "latency_ms": 80.0, "leds": None, "uptime_s": diag["uptime_s"]}
 
 
 def test_status_diag_without_a_monitor_still_has_every_key():
-    client = create_app(SharedState(), Control(MotorConfig())).test_client()
+    client = create_app(SharedState(), Control()).test_client()
     assert set(client.get("/api/status").get_json()["diag"]) == set(DIAG_KEYS)
