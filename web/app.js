@@ -754,8 +754,90 @@
     $("#fs-exit").hidden = !on;
   }
 
+  // ---------------------------------------------------------------- sound
+  // Beeps in step with the LEDs, like a parking sensor: yellow = one short beep a second,
+  // red = rapid high beeps for as long as it lasts. It follows risk.level (after the Pi's
+  // hysteresis, exactly what the LEDs show) and stays silent when the feed is stale, offline
+  // or signed out, so a frozen status can't keep beeping. Browsers block audio until the page
+  // is clicked, so it's off until the viewer turns it on; the choice is remembered, and a
+  // remembered "on" starts at the first click or key press.
+  const SOUND_KEY = "cooper.sound";
+  const BEEPS = {
+    warning: { freq: 880, ms: 140, every: 1000 },
+    danger: { freq: 1320, ms: 90, every: 240 },
+  };
+  let soundOn = false, audioCtx = null, lastBeepAt = 0, lastBeepLevel = "clear";
+
+  function soundWanted() {
+    try { return localStorage.getItem(SOUND_KEY) === "on"; } catch (e) { return false; }
+  }
+  function rememberSound(on) {
+    try { localStorage.setItem(SOUND_KEY, on ? "on" : "off"); } catch (e) { /* private mode */ }
+  }
+  function ensureAudio() {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    if (!audioCtx) audioCtx = new Ctx();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+  function beep(freq, ms) {
+    const ctx = audioCtx;
+    if (!ctx || ctx.state !== "running") return;
+    const t = ctx.currentTime, end = t + ms / 1000;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.value = freq;
+    // A 5 ms attack and release keep the beep from clicking.
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.12, t + 0.005);
+    gain.gain.setValueAtTime(0.12, end - 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(end + 0.01);
+  }
+  function setSound(on) {
+    soundOn = on;
+    rememberSound(on);
+    if (on) ensureAudio();
+    syncSoundButton();
+  }
+  function syncSoundButton() {
+    const btn = $("#sound-btn");
+    const blocked = soundOn && (!audioCtx || audioCtx.state !== "running");
+    btn.setAttribute("aria-pressed", soundOn ? "true" : "false");
+    btn.classList.toggle("is-blocked", blocked);
+    setText($("#sound-label"), !soundOn ? "Sound off" : blocked ? "Click to enable" : "Sound on");
+  }
+  function soundTick() {
+    const level = conn === "live" ? riskLevel() : "clear";
+    const pattern = soundOn && BEEPS[level];
+    if (!pattern) { lastBeepLevel = "clear"; return; }
+    const now = performance.now();
+    // Beep at once when the level rises (clear → yellow, yellow → red), then on its rhythm.
+    if (level !== lastBeepLevel || now - lastBeepAt >= pattern.every) {
+      beep(pattern.freq, pattern.ms);
+      lastBeepAt = now;
+    }
+    lastBeepLevel = level;
+  }
+  function wireSound() {
+    $("#sound-btn").addEventListener("click", () => setSound(!soundOn));
+    if (soundWanted()) {
+      soundOn = true;
+      // The remembered choice needs one user gesture before the browser lets audio play.
+      const unlock = () => { ensureAudio(); syncSoundButton(); };
+      document.addEventListener("pointerdown", unlock, { once: true });
+      document.addEventListener("keydown", unlock, { once: true });
+    }
+    syncSoundButton();
+    setInterval(soundTick, 60);
+  }
+
   // ---------------------------------------------------------------- controls
   function wireControls() {
+    wireSound();
     $("#fs-btn").addEventListener("click", toggleFullscreen);
     document.addEventListener("fullscreenchange", syncFullscreenButton);
     document.addEventListener("webkitfullscreenchange", syncFullscreenButton);
@@ -773,6 +855,7 @@
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target && e.target.isContentEditable)) return;
       if ((e.key === "l" || e.key === "L") && !e.repeat) { if (laneDraft) stopLaneEdit(); else startLaneEdit(); }
       else if ((e.key === "f" || e.key === "F") && !e.repeat) toggleFullscreen();
+      else if ((e.key === "s" || e.key === "S") && !e.repeat) setSound(!soundOn);
       else if (e.key === "Escape") {
         if (laneDraft) stopLaneEdit();
         else if ($("#feed").classList.contains("pseudo-fs")) setPseudoFullscreen(false);

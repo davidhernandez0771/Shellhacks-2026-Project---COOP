@@ -19,6 +19,10 @@
       <span class="lamps" aria-hidden="true"><i class="lamp y"></i><i class="lamp r"></i></span>
       <span class="status-word" id="status-word">Clear</span>
     </div>
+    <button type="button" class="sound-btn mono" id="sound-btn" aria-pressed="false" title="Beep with the LEDs (S)">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path class="spk" d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/><path class="mute" d="M16 9l6 6M22 9l-6 6"/></svg>
+      <span id="sound-label">Sound off</span>
+    </button>
   </header>
 
   <div class="banner" id="banner" role="status" hidden>
@@ -125,7 +129,7 @@
   </main>
 
   <footer class="foot mono">
-    <span class="keys"><kbd>L</kbd> edit lane &nbsp; <kbd>Esc</kbd> cancel &nbsp; <kbd>F</kbd> fullscreen</span>
+    <span class="keys"><kbd>L</kbd> edit lane &nbsp; <kbd>Esc</kbd> cancel &nbsp; <kbd>F</kbd> fullscreen &nbsp; <kbd>S</kbd> sound</span>
     <span id="source-note">COOPER · Pi 5 dashcam</span>
   </footer>
 

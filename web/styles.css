@@ -85,6 +85,27 @@ kbd {
 [data-level="warning"] .lamp.y, .led.is-on .lamp.y { background: var(--led-yellow); box-shadow: 0 0 10px var(--led-yellow); }
 [data-level="danger"] .lamp.r, .led.is-on .lamp.r { background: var(--led-red); box-shadow: 0 0 10px var(--led-red); }
 
+/* sound toggle: beeps in step with the LEDs (browsers only allow audio after a click) */
+.sound-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  font-size: 12px;
+  color: var(--paper-2);
+  cursor: pointer;
+}
+.sound-btn:hover { border-color: var(--paper); color: var(--paper); }
+.sound-btn svg path { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.sound-btn .wave { display: none; }
+.sound-btn[aria-pressed="true"] { border-color: var(--paper); color: var(--paper); }
+.sound-btn[aria-pressed="true"] .wave { display: inline; }
+.sound-btn[aria-pressed="true"] .mute { display: none; }
+.sound-btn.is-blocked { border-style: dashed; }
+
 /* ───────────── banner (connection, stalled camera) ───────────── */
 .banner {
   display: flex;
