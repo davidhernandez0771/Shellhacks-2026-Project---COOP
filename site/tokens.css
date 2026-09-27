@@ -63,12 +63,19 @@
   --lock: #FF5A1F;             /* the one orange: lock, aim, active, primary action */
   --lock-dim: rgba(255, 90, 31, 0.18);
   --lock-glow: rgba(255, 90, 31, 0.45);
+  /* COOPER's two physical LEDs. Only the LED indicator (chapter 04), the lane and the
+     model's LEDs use them; everything else stays black, white and orange. The red is kept
+     deeper than --lock so the two never read as the same colour. */
+  --led-yellow: #FFC21A;
+  --led-red: #E5212B;
   --scrim: rgba(6, 6, 6, 0.72);
   --scrim-0: rgba(6, 6, 6, 0);
 
   /* the same values as 0..1 RGB for WebGL (keep in sync with the hex above) */
   --gl-paper: 0.933 0.929 0.918;
   --gl-lock: 1.0 0.353 0.122;
+  --gl-led-yellow: 1.0 0.761 0.102;
+  --gl-led-red: 0.898 0.129 0.169;
 
   /* type */
   --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;

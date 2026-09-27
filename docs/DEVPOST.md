@@ -69,7 +69,7 @@ drops below 2.0 s while it's in the lane's corridor (released above 2.5 s). Hyst
 
 **Deployment.** A systemd unit runs COOPER as soon as the car powers the Pi and restarts it if it crashes. A second unit runs a **Cloudflare Tunnel**, which publishes the dashboard at an HTTPS subdomain through an outbound-only connection, so it works behind any NAT (a phone hotspot included) with no port forwarding. **Cloudflare Access** sits in front: only approved email addresses (one-time PIN login) can see the camera.
 
-**Showcase site.** The public page tells the story in scroll-driven chapters in one persistent three.js scene: a street of people and cars made of ~20,000 points. anime.js v4 drives the intro, the scroll timelines and the labels. It has no build step (native ES modules, vendored libraries, self-hosted fonts), a still version for reduced motion, and a 2D-canvas fallback for browsers without WebGL.
+**Showcase site.** The public page tells the story in scroll-driven chapters in one persistent three.js scene: a street of people and cars made of ~20,000 points. anime.js v4 drives the intro, the scroll timelines and the labels. The dashcam in it is our real CAD: a Blender script turns the Fusion 360 assembly into a 281 KB glTF with one node per part, so the Build chapter pulls apart the actual lid, LEDs, Pi, camera mount and camera module, and in the Warn chapter the model's two LEDs light with the scene's warning level. It has no build step (native ES modules, vendored libraries, self-hosted fonts), a still version for reduced motion, and a 2D-canvas fallback for browsers without WebGL.
 
 **Team.** David Hernandez Del Risco built the software: vision, tracking, prediction, risk, the site's first design, and the dashboard's backend. Diego Taberas shaped the pitch and the story of how COOPER came alive, and worked on part of the site's design. Diego Avila was the main designer and did the 3D CAD (Fusion 360), and wired all the hardware together.
 
@@ -84,6 +84,7 @@ drops below 2.0 s while it's in the lane's corridor (released above 2.5 s). Hyst
 - **A frame-rate readout that lied.** The dashboard showed 64 fps from a 31 fps camera: averaging \\( 1/\Delta t \\) overshoots whenever frames arrive unevenly. Inverting the average interval fixed it.
 - **A dashboard that doesn't lie.** A request-time timestamp always looks fresh, and the Pi's and a phone's clocks disagree. Staleness is detected from a per-frame counter timed on the client's own clock, and an expired Cloudflare Access session is told apart from a dead network by reading the login redirect instead of the opaque CORS error.
 - **A cinematic site that still runs on a judge's laptop.** The showcase animates ~20,000 points, so every person's walk cycle and every car's motion is computed in the vertex shader from a handful of uniforms: one draw call, and the CPU never touches the points.
+- **A 242,000-triangle CAD model on a laptop GPU.** The Fusion 360 assembly carries every resistor on the Pi. A plain decimation tore the case's flat faces and turned the Ethernet port into spikes, so the Blender script first dissolves coplanar faces (flat stays flat, and the case needs no further cuts), then treats the Pi board per component: the board and USB ports are decimated, chips and box-shaped connectors become boxes, the GPIO header is rebuilt as 40 pins, and tiny parts are dropped. The lens keeps its full detail. The result is 24,000 triangles and 281 KB, with no normals (the scene is unlit) and the second LED as an instance of the first.
 - ✏️ _Add anything that actually went wrong during the hackathon (wiring, power in the car, mounting, calibration, time pressure). Judges like real stories._
 
 ## Accomplishments that we're proud of
@@ -106,7 +107,7 @@ drops below 2.0 s while it's in the lane's corridor (released above 2.5 s). Hyst
 ---
 
 ## Built with
-_(up to 25 tags, currently 22. Type each one into the tag box)_
+_(up to 25 tags, currently 23. Type each one into the tag box)_
 ```
 python
 raspberry-pi
@@ -123,6 +124,7 @@ picamera2
 gpiozero
 three.js
 anime.js
+blender
 html
 css
 javascript
