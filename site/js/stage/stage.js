@@ -70,8 +70,12 @@ export function createStage({ still, webgl, scramble }) {
       renderer.setPixelRatio(ratio);
       renderer.setSize(W, H, false);
     }
-    if (fallback) fallback.resize(W, H, window.devicePixelRatio || 1);
-    overlay.resize(W, H, Math.min(window.devicePixelRatio || 1, 2));
+    // Match the 2D HUD/fallback resolution to the WebGL ratio cap (and its adaptive
+    // downgrade) instead of a hardcoded 2: a full-canvas 2D redraw every frame is
+    // fill-rate-bound the same way the WebGL draw is, and there's no reason for the
+    // overlay to be sharper than the scene it's drawn on top of.
+    if (fallback) fallback.resize(W, H, ratio);
+    overlay.resize(W, H, ratio);
     dirty = true;
   }
 
@@ -207,9 +211,11 @@ export function createStage({ still, webgl, scramble }) {
     for (const fn of listeners) fn(lastState);
     dirty = false;
 
-    // adaptive resolution
+    // adaptive resolution: react in ~1s of sustained slow frames, not ~90 frames worth of
+    // wall time (11s+ once frames are already down at ~8fps, long after a visitor has
+    // judged the page as laggy)
     if (animate && ratioCap > 1 && dt > 0.026) {
-      if (++slowFrames > 90) { ratioCap = Math.max(1, ratio - 0.5); slowFrames = 0; resize(); }
+      if (++slowFrames > 24) { ratioCap = Math.max(1, ratio - 0.5); slowFrames = 0; resize(); }
     } else if (slowFrames > 0) slowFrames--;
 
     requestAnimationFrame(frame);

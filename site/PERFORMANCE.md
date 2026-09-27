@@ -73,6 +73,40 @@ regardless of frame rate).
 
 Scroll performance is unaffected (this only touches the pre-"Enter" gate), as expected.
 
+### 2. Match the 2D HUD/fallback resolution to the WebGL ratio cap
+
+`overlay.resize()` and `fallback.resize()` were called with a hardcoded DPR cap of 2,
+independent of `MAX_DPR` (1.5) or its adaptive downgrade — so the full-canvas 2D redraw
+(`js/stage/overlay.js`, every frame it has anything to show) and the no-WebGL fallback
+render were consistently sharper, and more expensive per pixel, than the WebGL draw they
+sit on top of or replace. Pass the same `ratio` computed for WebGL instead.
+
+| Config | Scroll FPS before | Scroll FPS after | Task ms/frame before | after |
+|---|---|---|---|---|
+| WebGL, DPR 2 | 8.4 | 10.7 | 117 | 94 |
+| `?nogl`, DPR 2 | 17.3 | 22.1 | 58 | 43 |
+
+### 3. React to sustained slow frames in ~1s, not ~11s
+
+The existing adaptive-resolution step (drop the WebGL ratio cap after sustained slow
+frames) required 90 consecutive slow frames before acting. At the baseline's ~8 fps that's
+**~11 seconds** of visible lag before the page corrects itself — long past the point a
+visitor has judged it as laggy. Lowered the threshold to 24 frames (~1s at a healthy frame
+rate, ~3s even at the baseline's fps), so the page recovers quickly instead of staying
+pegged at the worst-case resolution for the whole first scroll.
+
+| Config | Scroll FPS before (fix 2 only) | Scroll FPS after (+ fix 3) | Task ms/frame before | after |
+|---|---|---|---|---|
+| WebGL, DPR 2 | 10.7 | 16.2 | 94 | 62 |
+| WebGL, DPR 1 | — | 16.1 | — | 63 |
+
+(`?nogl` never had this problem: it doesn't run the WebGL adaptive-resolution branch, so
+fix 3 doesn't apply there — its whole gain is fix 2.)
+
+Combined, fixes 2+3 take WebGL/DPR2 scroll from **8.4 fps / 117 ms per frame** (baseline)
+to **16.2 fps / 62 ms per frame** — essentially a 2× reduction in main-thread cost per
+scroll frame, with no change to the steady-state resolution when the page isn't struggling.
+
 ## Performance rules
 
 (filled in at the end, once the fixes are locked in)
