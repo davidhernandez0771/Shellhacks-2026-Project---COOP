@@ -40,7 +40,7 @@ export function createStage({ still, webgl, scramble }) {
   const pal = solids.pal;
   if (webgl) {
     points = createPoints(scene, pal);
-    carousel = createCarousel(scene, pal);
+    carousel = createCarousel(scene, pal, camera);   // the camera: for picking a tapped card
   } else {
     // the fallback only needs the point data, not GPU objects
     points = { data: null };

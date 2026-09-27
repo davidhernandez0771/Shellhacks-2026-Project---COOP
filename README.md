@@ -3,7 +3,7 @@
 
 > COOPER is a Raspberry Pi 5 dashcam that spots people and cars, predicts where each one is heading, and lights a yellow or red LED before something cuts into your lane.
 
-Built for **ShellHacks 2026**. The showcase site is live at [coop.davidhernandez.work](https://coop.davidhernandez.work); the Devpost submission text lives in [docs/DEVPOST.md](docs/DEVPOST.md).
+Built for **ShellHacks 2026**. The showcase site is live at [coop.davidhernandez.work](https://coop.davidhernandez.work) and the project page is on [Devpost](https://devpost.com/software/coop-l3s9ho); the Devpost submission text lives in [docs/DEVPOST.md](docs/DEVPOST.md).
 
 ```
 Pi camera ─► YOLO11n + ByteTrack ─► Kalman filter per object ─► lane risk ─► yellow / red LED

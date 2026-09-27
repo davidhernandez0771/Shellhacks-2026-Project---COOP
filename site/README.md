@@ -28,7 +28,6 @@ Search for `✏️ PLACEHOLDER` (HTML comments) and `data-placeholder` (elements
 | Placeholder | Where | What to put |
 |---|---|---|
 | `cost-comparison` | Problem block | COOPER's total parts cost vs. a newer car vs. an aftermarket system |
-| `devpost-url` | Team chapter | the Devpost project URL (until then `main.js` makes the link inert) |
 | gallery `<li>` items | Gallery chapter | photos and videos, see below |
 
 ## Add photos and videos to the gallery
@@ -42,6 +41,7 @@ The 3D carousel is built from the list in `index.html` (`<ul id="gallery-list">`
 - Any number of items works (the ring spaces them evenly). 6–10 looks best.
 - Images: JPG/WebP, 3:2, about 1600×1067, under 400 KB each. They're cover-cropped to 3:2.
 - Videos: MP4 (H.264), muted, 3:2 or 16:9, under 4 MB, a few seconds long. They loop silently and only play while facing the viewer.
+- A video card can open a longer cut with sound in the viewer: `data-src` is the short silent loop, `data-full` the full video (fetched only when the viewer opens it), `data-poster` the still shown until either plays. Cloudflare Pages rejects files over 25 MB. Card 1 (`media/gallery/demo*.{mp4,jpg}`) is the example.
 - Media only downloads when the visitor scrolls near the gallery. The no-WebGL grid picks up the same `data-src` files automatically.
 
 ## The 3D model (.glb)
@@ -77,6 +77,7 @@ The CAD files stay out of the repo. The script prints each part's triangle count
 | `js/stage/overlay.js` | detection brackets, leader-line labels, velocity vector, predicted path point, "my lane", the Build labels |
 | `js/stage/solids.js` | COOPER's 3D model (lazy .glb, box stand-in), its exploded view and lit LEDs, the view frustum |
 | `js/stage/carousel.js` | the gallery ring |
+| `js/lightbox.js` + `lightbox.css` | the full-screen gallery viewer: opens on the carousel's `cooper:gallery-open` event (detail `{ index }`) or a click/Enter on a `#gallery-list` item; reads `data-full` (else `data-src`), shows the card image until the full one has loaded, pinch/double-tap/wheel zoom with pan, swipe to change item or close, and fires `cooper:gallery-close` with the last index. Built on first open; nothing runs while closed |
 | `js/stage/fallback2d.js` | the no-WebGL renderer |
 | `tokens.css` | every color, font and timing |
 

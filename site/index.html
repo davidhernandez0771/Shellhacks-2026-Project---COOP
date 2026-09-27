@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="js/fx/tactile-button.css">
   <link rel="stylesheet" href="js/fx/scan-grid-button.css">
   <link rel="stylesheet" href="js/fx/interactive-grid.css">
+  <link rel="stylesheet" href="lightbox.css">
   <script>
     // Runs before first paint: pick the experience tier so CSS never flashes the wrong one.
     (function () {
@@ -309,20 +310,22 @@
           <p class="ch-lead reveal-words">From the bench.</p>
           <p class="ch-hint mono" id="gallery-hint">Drag or scroll to turn</p>
         </div>
-        <!-- The media list. The 3D carousel is built from these items; without WebGL they show as a grid.
-             ✏️ PLACEHOLDER media: replace each <li> with a real one, e.g.
-               <li data-src="media/build.jpg" data-alt="Inside COOPER: the Pi 5, camera and LEDs">Inside the build</li>
-               <li data-src="media/cut-in.mp4" data-kind="video" data-alt="COOPER lighting yellow as a car cuts in">A cut-in, caught early</li>
-             See site/README.md. -->
+        <!-- The media list. The 3D carousel is built from these items (data-src: the card texture;
+             data-full: the full image for the viewer); without WebGL they show as a grid.
+             Clicking a card fires "cooper:gallery-open" with its index in this list. See site/README.md. -->
         <ul class="gallery" id="gallery-list">
-          <li data-placeholder="photo-hero">Finished unit</li>
-          <li data-placeholder="photo-build">Inside the build</li>
-          <li data-placeholder="video-cut-in" data-kind="video">A cut-in, caught early</li>
-          <li data-placeholder="photo-dashboard">Every predicted path</li>
-          <li data-placeholder="photo-mount">On the windshield</li>
-          <li data-placeholder="photo-leds">The two LEDs</li>
-          <li data-placeholder="video-drive" data-kind="video">Yellow, then red</li>
-          <li data-placeholder="photo-team">The team at work</li>
+          <li data-src="media/gallery/demo-loop.mp4" data-full="media/gallery/demo.mp4" data-poster="media/gallery/demo-poster.jpg" data-kind="video" data-alt="COOPER's demo: detecting, predicting and warning on the road">COOPER in action</li>
+          <li data-src="media/gallery/01-cad-assembly-card.jpg" data-full="media/gallery/01-cad-assembly.jpg" data-alt="CAD render of COOPER: the Pi 5 case with the camera on its mount">The full design in CAD</li>
+          <li data-src="media/gallery/02-cad-camera-mount-card.jpg" data-full="media/gallery/02-cad-camera-mount.jpg" data-alt="CAD render of the OV5647 camera in its printed mount">CAD: the camera mount</li>
+          <li data-src="media/gallery/03-cad-pi-in-case-card.jpg" data-full="media/gallery/03-cad-pi-in-case.jpg" data-alt="CAD render of the Raspberry Pi 5 sitting in the open case">CAD: the Pi 5 in its case</li>
+          <li data-src="media/gallery/05-printed-case-open-card.jpg" data-full="media/gallery/05-printed-case-open.jpg" data-alt="The Raspberry Pi 5 with its cooler inside the 3D-printed case, lid beside it">The printed case, opened</li>
+          <li data-src="media/gallery/06-case-side-ports-card.jpg" data-full="media/gallery/06-case-side-ports.jpg" data-alt="Side of the printed case with openings for USB-C power and the two micro-HDMI ports">Cut-outs for power and HDMI</li>
+          <li data-src="media/gallery/07-case-front-ports-card.jpg" data-full="media/gallery/07-case-front-ports.jpg" data-alt="End of the printed case with openings for Ethernet and the four USB ports">Cut-outs for Ethernet and USB</li>
+          <li data-src="media/gallery/08-case-vents-card.jpg" data-full="media/gallery/08-case-vents.jpg" data-alt="Ventilation slots in the printed case">Vents over the Pi</li>
+          <li data-src="media/gallery/09-wiring-gpio-card.jpg" data-full="media/gallery/09-wiring-gpio.jpg" data-alt="The Pi 5 on the bench with jumper wires on its GPIO pins, next to the case and a breadboard">Wiring the GPIO</li>
+          <li data-src="media/gallery/10-camera-mounted-card.jpg" data-full="media/gallery/10-camera-mounted.jpg" data-alt="The assembled unit on the desk with the camera on its mount, powered on">Camera mounted, powered up</li>
+          <li data-src="media/gallery/11-test-danger-1-card.jpg" data-full="media/gallery/11-test-danger-1.jpg" data-alt="The dashboard on a monitor showing DANGER while a teammate stands in front of the camera">Testing: someone in the lane</li>
+          <li data-src="media/gallery/12-test-danger-2-card.jpg" data-full="media/gallery/12-test-danger-2.jpg" data-alt="A second live test: the dashboard shows DANGER for a person in the lane">Testing: red means now</li>
         </ul>
       </div>
     </section>
@@ -385,8 +388,7 @@
           <p class="team-copy-status" id="team-copy-status" role="status" aria-live="polite"></p>
           <div class="links">
             <a class="btn btn-lock" href="https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOPER">Read the code on GitHub</a>
-            <!-- ✏️ PLACEHOLDER link: Devpost project URL -->
-            <a class="btn" href="#" data-placeholder="devpost-url">Devpost page</a>
+            <a class="btn" href="https://devpost.com/software/coop-l3s9ho" target="_blank" rel="noopener">Devpost page</a>
           </div>
         </div>
         <footer class="footer mono">
