@@ -77,6 +77,7 @@ The CAD files stay out of the repo. The script prints each part's triangle count
 | `js/stage/overlay.js` | detection brackets, leader-line labels, velocity vector, predicted path point, "my lane", the Build labels |
 | `js/stage/solids.js` | COOPER's 3D model (lazy .glb, box stand-in), its exploded view and lit LEDs, the view frustum |
 | `js/stage/carousel.js` | the gallery ring |
+| `js/lightbox.js` + `lightbox.css` | the full-screen gallery viewer: opens on the carousel's `cooper:gallery-open` event (detail `{ index }`) or a click/Enter on a `#gallery-list` item; reads `data-full` (else `data-src`), shows the card image until the full one has loaded, pinch/double-tap/wheel zoom with pan, swipe to change item or close, and fires `cooper:gallery-close` with the last index. Built on first open; nothing runs while closed |
 | `js/stage/fallback2d.js` | the no-WebGL renderer |
 | `tokens.css` | every color, font and timing |
 

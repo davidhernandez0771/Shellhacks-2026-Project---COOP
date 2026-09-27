@@ -63,6 +63,9 @@ if (!webgl) {
   });
 }
 
+// Gallery viewer: opens from the carousel's "cooper:gallery-open" event or the list items.
+import("./js/lightbox.js").then(({ initLightbox }) => initLightbox({ still }));
+
 async function boot() {
   const deepLink = location.hash && location.hash !== "#top" ? location.hash : null;
   root.classList.add("is-entered");
