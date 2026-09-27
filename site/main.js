@@ -55,7 +55,7 @@ if (!webgl) {
     const video = li.dataset.kind === "video" || /\.(mp4|webm|mov)$/i.test(li.dataset.src);
     const media = document.createElement(video ? "video" : "img");
     media.src = li.dataset.src;
-    if (video) Object.assign(media, { muted: true, loop: true, playsInline: true, controls: true, preload: "metadata" });
+    if (video) Object.assign(media, { muted: true, loop: true, playsInline: true, controls: true, preload: "metadata", poster: li.dataset.poster || "" });
     else Object.assign(media, { alt: li.dataset.alt || li.textContent.trim(), loading: "lazy" });
     const cap = document.createElement("span");
     cap.textContent = li.textContent.trim();

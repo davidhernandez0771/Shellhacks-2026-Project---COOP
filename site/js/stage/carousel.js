@@ -71,15 +71,19 @@ function imageTexture(src, onReady) {
   });
 }
 
+// returns the element at once (update() plays it when it faces front, which is what starts
+// the download on browsers that ignore preload); the texture arrives on the first frame played,
+// so the poster stays up until then
 function videoTexture(src, onReady) {
   const v = document.createElement("video");
   Object.assign(v, { src, muted: true, loop: true, playsInline: true, preload: "metadata", crossOrigin: "anonymous" });
   v.setAttribute("muted", "");
-  v.addEventListener("loadeddata", () => {
+  v.addEventListener("playing", () => {
     const tex = new THREE.VideoTexture(v);
     tex.colorSpace = THREE.SRGBColorSpace;
     onReady(tex, v, v.videoWidth, v.videoHeight);
   }, { once: true });
+  return v;
 }
 
 export function createCarousel(scene, pal, camera) {
@@ -119,7 +123,7 @@ export function createCarousel(scene, pal, camera) {
     const edge = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: pal.paper, transparent: true, opacity: 0 }));
     holder.add(mesh, edge);
     group.add(holder);
-    const c = { item, holder, mesh, mat, edge, video: null };
+    const c = { item, holder, mesh, mat, edge, video: null, live: false };
     fit(c, DEFAULT_ASPECT);
     cards.push(c);
   });
@@ -142,9 +146,9 @@ export function createCarousel(scene, pal, camera) {
     for (const c of cards) {
       const { item } = c;
       if (item.kind === "video") {
-        if (item.poster) imageTexture(item.poster, (tex, _, w, h) => { if (!c.video) show(c, tex, w, h); else tex.dispose(); });
+        if (item.poster) imageTexture(item.poster, (tex, _, w, h) => { if (!c.live) show(c, tex, w, h); else tex.dispose(); });
         else show(c, placeholderTexture(item, n), 4, 3);
-        if (item.src) videoTexture(item.src, (tex, video, w, h) => { c.video = video; show(c, tex, w, h); });
+        if (item.src) c.video = videoTexture(item.src, (tex, _, w, h) => { c.live = true; show(c, tex, w, h); });
       } else if (item.src) {
         imageTexture(item.src, (tex, _, w, h) => show(c, tex, w, h));
       }
@@ -293,7 +297,8 @@ export function createCarousel(scene, pal, camera) {
         c.mat.opacity = vis * (0.12 + 0.88 * Math.pow(f, facePow));
         c.edge.material.opacity = vis * (0.18 + 0.6 * f * f);
         if (c.video) {
-          if (vis > 0.5 && facing > 0.3) { if (c.video.paused) c.video.play().catch(() => {}); }
+          // the front card only (within half a step of facing the viewer)
+          if (vis > 0.5 && facing > Math.cos(Math.PI / n)) { if (c.video.paused) c.video.play().catch(() => {}); }
           else if (!c.video.paused) c.video.pause();
         }
       });

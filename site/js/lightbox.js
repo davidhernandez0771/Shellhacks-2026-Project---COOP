@@ -2,7 +2,8 @@
 // (window event "cooper:gallery-open", detail { index }) or from the <li>s of #gallery-list
 // themselves (the no-WebGL grid and screen readers). Items are read from the list on every
 // open, so it follows whatever the list holds: data-full (else data-src) is the file,
-// data-kind="video" makes it a video, data-alt the description, the text the title; an item
+// data-kind="video" makes it a video (data-poster its still), data-alt the description, the
+// text the title; a video is only fetched when its item is shown. An item
 // with no file is a placeholder ("Coming soon").
 //
 // Zoom is the point: pinch, double-tap/double-click or the wheel zoom about the pointer, and a
@@ -60,7 +61,7 @@ function readItems() {
     const thumb = li.dataset.src || "";
     const title = li.textContent.trim();
     const video = li.dataset.kind === "video" || /\.(mp4|webm|mov)$/i.test(src);
-    return { li, src, thumb, title, alt: li.dataset.alt || title, video };
+    return { li, src, thumb, poster: li.dataset.poster || "", title, alt: li.dataset.alt || title, video };
   });
 }
 
@@ -77,7 +78,7 @@ function build() {
     <div class="lb-stage">
       <div class="lb-fig">
         <img class="lb-img" alt="" draggable="false" decoding="async">
-        <video class="lb-video" controls muted playsinline loop preload="metadata"></video>
+        <video class="lb-video" controls playsinline preload="metadata"></video>
         <div class="lb-soon"><span class="lb-soon-title"></span><span class="lb-soon-k mono">Coming soon</span></div>
         <span class="lb-brackets" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
       </div>
@@ -168,8 +169,7 @@ function close() {
     el.root.hidden = true;
     el.fig.style.transform = "";
     el.backdrop.style.opacity = "";
-    el.video.removeAttribute("src");
-    el.video.load();
+    unloadVideo();
     resetZoom();
     lockPage(false);
     if (returnFocus && returnFocus.isConnected) returnFocus.focus({ preventScroll: true });
@@ -222,17 +222,17 @@ function show(dir) {
   el.fig.dataset.kind = !it.src ? "soon" : it.video ? "video" : "image";
   if (!it.src) {
     el.img.removeAttribute("src");
-    el.video.removeAttribute("src");
+    unloadVideo();
     el.soonTitle.textContent = it.title;
   } else if (it.video) {
     el.img.removeAttribute("src");
     el.video.setAttribute("aria-label", it.alt);
+    el.video.poster = it.poster;
     if (el.video.getAttribute("src") !== it.src) el.video.src = it.src;
-    el.video.muted = true;
     el.video.currentTime = 0;
-    el.video.play().catch(() => {});
+    playVideo(it);
   } else {
-    el.video.removeAttribute("src");
+    unloadVideo();
     el.img.alt = it.alt;
     showImage(it);
   }
@@ -245,6 +245,25 @@ function show(dir) {
       { duration: DUR, easing: EASE },
     );
   }
+}
+
+// With sound when the browser allows it (opening is a tap or a key press, so it usually
+// does); muted only if unmuted autoplay is refused, and the controls can unmute it.
+function playVideo(it) {
+  el.video.muted = false;
+  el.video.play().catch((err) => {
+    if (err.name !== "NotAllowedError" || !isOpen || items[index] !== it) return;
+    el.video.muted = true;
+    el.video.play().catch(() => {});
+  });
+}
+
+// removing src alone doesn't stop a download in progress; load() does
+function unloadVideo() {
+  if (!el.video.hasAttribute("src")) return;
+  el.video.removeAttribute("src");
+  el.video.removeAttribute("poster");
+  el.video.load();
 }
 
 // The card image is already in the cache (the carousel or grid showed it) and has the same

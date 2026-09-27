@@ -42,6 +42,7 @@ The 3D carousel is built from the list in `index.html` (`<ul id="gallery-list">`
 - Any number of items works (the ring spaces them evenly). 6–10 looks best.
 - Images: JPG/WebP, 3:2, about 1600×1067, under 400 KB each. They're cover-cropped to 3:2.
 - Videos: MP4 (H.264), muted, 3:2 or 16:9, under 4 MB, a few seconds long. They loop silently and only play while facing the viewer.
+- A video card can open a longer cut with sound in the viewer: `data-src` is the short silent loop, `data-full` the full video (fetched only when the viewer opens it), `data-poster` the still shown until either plays. Cloudflare Pages rejects files over 25 MB. Card 1 (`media/gallery/demo*.{mp4,jpg}`) is the example.
 - Media only downloads when the visitor scrolls near the gallery. The no-WebGL grid picks up the same `data-src` files automatically.
 
 ## The 3D model (.glb)
