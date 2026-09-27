@@ -10,6 +10,25 @@ absolute number a real GPU would hit.
 Baseline was captured from `origin/dev`'s `site/` (before any fix in this doc), served
 on its own port so later edits on this branch don't move the baseline.
 
+**Since these measurements** the site changed around the numbers below, which have not been
+re-measured yet:
+
+- **The loader/Enter gate (`js/gate.js`) is gone.** The page boots straight into the hero
+  (fonts → anime.js → three.js + scene → intro, `main.js`), so "Loader end" in the tables
+  below measured a screen that no longer exists, and fix 1 is kept only as history (it's
+  where performance rule 6 comes from).
+- **The hero title is `js/fx/vector-wordmark.js`**, a second, small WebGL canvas (one quad,
+  DPR capped at 2). Its `requestAnimationFrame` loop runs only while it's on screen and the
+  tab is visible (IntersectionObserver + `visibilitychange`); under reduced motion it
+  draws one static frame and runs no loop.
+- **The hero CTAs (`js/fx/tactile-button.js`, `js/fx/scan-grid-button.js`) and the Build
+  chapter's stack grid (`js/fx/interactive-grid.js`)** do no per-frame work: they react to
+  pointer/focus events, and animate only `transform`, `opacity` and `filter` (the scan-grid
+  button with the Web Animations API, the others with CSS transitions).
+
+The next measurement should replace "Loader end" with time to first hero frame, and check
+scroll FPS with the wordmark on screen (two WebGL contexts at once) as well as past it.
+
 ## Baseline (origin/dev, before fixes)
 
 | Config | Loader end | Transfer | Requests | Scroll FPS | Frame p50/p95 | Task ms/frame | Long tasks (load) |
@@ -57,7 +76,7 @@ Largest transferred files (unchanged across configs, same HTML/JS/fonts/vendor):
 
 ## Fixes
 
-### 1. Loader ring: converge per elapsed time, not per animation frame
+### 1. Loader ring: converge per elapsed time, not per animation frame (the gate has since been removed)
 
 `js/gate.js`'s ring advanced `shown += (target - shown) * 0.12` once per
 `requestAnimationFrame` callback. That is a fixed fraction *per tick*, so its wall-clock

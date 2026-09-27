@@ -63,8 +63,12 @@ The CAD files stay out of the repo. The script prints each part's triangle count
 ## How it's put together
 | File | Role |
 |---|---|
-| `main.js` | boot: loads fonts → anime.js → three.js + scene, then the intro (no loader) |
+| `main.js` | boot, straight into the hero (no loader or Enter gate): fonts → anime.js → three.js + scene → intro; enhances the hero CTAs, the wordmark and the stack grid |
 | `js/intro.js` | the hero timeline: brackets lock onto the wordmark, the readout decodes into the tagline |
+| `js/fx/vector-wordmark.js` | the hero title: "COOPER" drawn as one WebGL quad, its glyphs revealed through a soft-to-sharp mask that follows the pointer (auto-sweeps with no pointer) |
+| `js/fx/tactile-button.js` + `.css` | the "See how it works" CTA: a keycap face that presses down onto its base and springs back |
+| `js/fx/scan-grid-button.js` + `.css` | the "View on GitHub" CTA: a looping scanline sweep and a staggered glitch on the label while hovered or focused |
+| `js/fx/interactive-grid.js` + `.css` | the tech-stack tile sheet at the end of the Build chapter (`#stack-grid`, logos in `media/logos/`): the hovered tile and its four neighbours lift and glow; the layout is pure CSS and works without JS |
 | `js/chapters.js` | anime.js `onScroll` per chapter, word reveals, nav, chapter scrubber, frame counter, the Warn LEDs |
 | `js/cursor.js` | the desktop cursor (ring → lock brackets on links, "Drag" in the gallery) |
 | `js/stage/world.js` | the street as data: people, cars, sampled point clouds (no three.js) |
@@ -76,7 +80,7 @@ The CAD files stay out of the repo. The script prints each part's triangle count
 | `js/stage/fallback2d.js` | the no-WebGL renderer |
 | `tokens.css` | every color, font and timing |
 
-Numbers in the copy are real where they describe COOPER (FOV, frame size, the 1.5 s horizon and 0.1 s path steps, the 2 s time-to-contact warning, two frames to light and 0.5 s hold; see `cooper/config.py` on the dashcam branch). The scene is an illustration, not live data: the detection confidences, figures, frame counter, "my lane" (a 1.6 m × 5.5 m strip ahead of the unit) and the `PATH · t + 1.6 s` tag (drawn further ahead than the real horizon so it's visible) are all made up.
+Numbers in the copy are real where they describe COOPER (FOV, frame size, the 1.5 s horizon and 0.1 s path steps, the 2 s time-to-contact warning, two frames to light and 0.5 s hold; see `cooper/config.py`). The scene is an illustration, not live data: the detection confidences, figures, frame counter, "my lane" (a 1.6 m × 5.5 m strip ahead of the unit) and the `PATH · t + 1.6 s` tag (drawn further ahead than the real horizon so it's visible) are all made up.
 
 **Updating the vendored libraries:** `vendor/three.module.min.js` is `three/build/three.module.js` bundled and minified with esbuild (`esbuild three.module.js --bundle --minify --format=esm`); `vendor/GLTFLoader.js` is `three/examples/jsm/loaders/GLTFLoader.js` bundled the same way with `--external:three`; `vendor/anime.esm.min.js` is copied from the `animejs` package's `dist/bundles/`.
 
