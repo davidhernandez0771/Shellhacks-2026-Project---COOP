@@ -240,7 +240,7 @@ export function createStage({ still, webgl, scramble }) {
   }
 
   window.addEventListener("resize", resize);
-  // Warm the GPU: compile shaders now, during the loader, not on the first scroll.
+  // Warm the GPU: compile shaders at boot, not on the first scroll.
   function warm() {
     if (!renderer) return;
     resize();
