@@ -105,7 +105,7 @@ python -m tools.rehearsal --timeline  # no dashboard: print one 20 s loop's risk
 
 ### On the Pi
 ```bash
-git clone https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP cooper
+git clone https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOPER cooper
 cd cooper
 bash scripts/setup_pi.sh
 source .venv/bin/activate

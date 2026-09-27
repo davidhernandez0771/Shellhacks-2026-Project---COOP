@@ -14,6 +14,24 @@ document.querySelectorAll('a[data-placeholder][href="#"]').forEach((a) => {
   a.addEventListener("click", (e) => e.preventDefault());
 });
 
+// Team Discord handles: click to copy (Discord has no public profile URL to link to).
+const copyStatus = document.getElementById("team-copy-status");
+document.querySelectorAll(".team-link-discord[data-discord]").forEach((btn) => {
+  let resetTimer = 0;
+  btn.addEventListener("click", async () => {
+    const handle = btn.dataset.discord;
+    try {
+      await navigator.clipboard.writeText(handle);
+    } catch (e) {
+      // clipboard API unavailable (insecure context, permissions): the handle is still visible as text
+    }
+    btn.classList.add("is-copied");
+    if (copyStatus) copyStatus.textContent = `Copied ${handle} to the clipboard`;
+    clearTimeout(resetTimer);
+    resetTimer = setTimeout(() => btn.classList.remove("is-copied"), 1600);
+  });
+});
+
 // Without WebGL the gallery list is shown as a grid: give its items their media.
 if (!webgl) {
   document.querySelectorAll("#gallery-list > li[data-src]").forEach((li) => {
