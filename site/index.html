@@ -85,10 +85,10 @@
     </button>
   </header>
 
-  <!-- ───────── Bottom HUD: chapter scrubber + tape + frame counter ───────── -->
+  <!-- ───────── Bottom HUD: chapter scrubber + frame counter ───────── -->
   <div class="hud" aria-hidden="true">
     <div class="hud-chapter mono"><span id="hud-ch">00</span><span class="hud-sep">/</span>07 <span class="hud-name" id="hud-name">Intro</span></div>
-    <div class="tape" id="tape"><div class="tape-strip" id="tape-strip"></div><span class="tape-index"></span></div>
+    <div class="hud-mid"></div>
     <div class="hud-pan mono"><span class="hud-pan-k">Frame</span> <span id="hud-pan">000000</span></div>
   </div>
 
@@ -204,7 +204,7 @@
       </div>
     </section>
 
-    <!-- ───────── 04 Move ───────── -->
+    <!-- ───────── 04 Warn ───────── -->
     <section class="chapter" id="move" data-ch="4" aria-labelledby="move-title">
       <div class="pin">
         <div class="copy">
@@ -218,18 +218,14 @@
             <div><dt>Horizon</dt><dd>1.5&nbsp;s</dd></div>
           </dl>
         </div>
-        <div class="gauge" aria-hidden="true">
-          <svg viewBox="0 0 240 190" id="gauge-svg">
-            <path class="gauge-track" id="gauge-track"/>
-            <g id="gauge-ticks"></g>
-            <path class="gauge-sweep" id="gauge-sweep"/>
-            <path class="gauge-aim" id="gauge-aim"/>
-            <line class="gauge-needle" id="gauge-needle" x1="120" y1="122" x2="120" y2="30"/>
-            <circle class="gauge-hub" cx="120" cy="122" r="3"/>
-          </svg>
-          <div class="gauge-read mono">
-            <div><span class="k">Now</span><span class="v" id="gauge-pan">+0.0°</span></div>
-            <div><span class="k">Path</span><span class="v lock" id="gauge-aim-v">+0.0°</span></div>
+        <!-- COOPER's two LEDs, lit by the scene's warning level (js/chapters.js). The level also
+             tints "my lane" in the scene and lights the model's LEDs. -->
+        <div class="leds" id="leds" data-level="0" aria-hidden="true">
+          <div class="led led-yellow"><i class="led-lamp"></i><span class="led-name mono">Yellow</span><span class="led-rule mono">path enters my lane</span></div>
+          <div class="led led-red"><i class="led-lamp"></i><span class="led-name mono">Red</span><span class="led-rule mono">in my lane now</span></div>
+          <div class="leds-read mono">
+            <div><span class="k">Level</span><span class="v" id="led-level">Clear</span></div>
+            <div><span class="k">Hold</span><span class="v">0.5&nbsp;s</span></div>
             <div><span class="k">Warn</span><span class="v">τ &lt; 2&nbsp;s</span></div>
           </div>
         </div>
@@ -244,15 +240,16 @@
           <h2 class="ch-title" id="build-title">Build</h2>
           <p class="ch-lead reveal-words">One board, one camera, two lights.</p>
           <p class="ch-body reveal-words">The Pi&nbsp;5 does all of it on its CPU: detection, tracking, prediction, the lane check and the video stream. The two LEDs sit on its GPIO pins, and the car powers everything. Nothing moves &mdash; COOPER started as COOP, a motorized tracking camera, and we removed the motor to point the same vision and prediction pipeline at collision warning instead.</p>
-          <!-- The 3D exploded rig is a placeholder model (see models/README.md). Each data-part key
-               only chooses which placeholder solid the label is drawn next to. -->
+          <!-- The exploded view is the team's CAD (models/cooper-camera.glb). Each data-part key
+               is a part of the model (PART_NODES in js/stage/solids.js); the label is drawn next to it. -->
           <ul class="parts mono" id="parts">
             <li data-part="camera"><span>OV5647 camera</span><span>5&nbsp;MP, 3.6&nbsp;mm, 75° diagonal</span></li>
+            <li data-part="mount"><span>Camera mount</span><span>fixed, facing the road</span></li>
+            <li data-part="yellow"><span>Yellow LED</span><span>a path will enter my lane</span></li>
+            <li data-part="red"><span>Red LED</span><span>something is in my lane</span></li>
+            <li data-part="lid"><span>Lid</span><span>the LEDs show through it</span></li>
             <li data-part="pi"><span>Raspberry Pi 5</span><span>8&nbsp;GB, vision and risk</span></li>
-            <li data-part="uno"><span>Yellow LED</span><span>a path will enter my lane</span></li>
-            <li data-part="driver"><span>Red LED</span><span>something is in my lane</span></li>
-            <li data-part="motor"><span>Windshield mount</span><span>fixed, facing the road</span></li>
-            <li data-part="power"><span>Car power</span><span>12&nbsp;V socket to 5&nbsp;V</span></li>
+            <li data-part="case"><span>Case</span><span>car power in over USB-C</span></li>
           </ul>
         </div>
       </div>

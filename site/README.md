@@ -45,13 +45,21 @@ The 3D carousel is built from the list in `index.html` (`<ul id="gallery-list">`
 - Videos: MP4 (H.264), muted, 3:2 or 16:9, under 4 MB, a few seconds long. They loop silently and only play while facing the viewer.
 - Media only downloads when the visitor scrolls near the gallery. The no-WebGL grid picks up the same `data-src` files automatically.
 
-## Swap in the real camera model (.glb)
-The Warn, Build and Team chapters show a **placeholder** 3D model: a procedural camera head on a turning base, with an exploded view whose solids were modelled for the old pan-tilt design. COOPER itself is fixed and nothing on it moves; the copy says so, and the Build labels (`#parts`) just borrow the placeholder solids to hang on (`data-part` picks the solid). To use a model of the actual dashcam:
-1. Export it as `.glb`: **facing −Z, +Y up, origin at the centre of the base (the axis the placeholder turns about), in metres** (the procedural head is about 0.3 m wide). Keep it small (under ~1 MB; Draco compression is *not* enabled).
-2. Put it at `site/models/cooper-camera.glb`.
-3. In `js/stage/solids.js`, set `export const CAMERA_MODEL_URL = "models/cooper-camera.glb";` (and `CAMERA_MODEL_SCALE` if it needs scaling).
+## The 3D model (.glb)
+The Warn, Build and Team chapters show COOPER itself: `models/cooper-camera.glb`, made from the team's Fusion 360 assembly by `tools/cad_to_glb.py` (Blender, headless). It has one node per part: `Pi_Case`, `Pi_Case_Lid`, `RASPBERRY_PI_5_1`, `Camera_Mount`, `Camera_Module`, `LED5mm_Yellow` and `LED5mm_Red` (an instance of the yellow one's mesh). It's in metres, with the lens facing −Z, +Y up and the origin at the centre of the case's bottom face. It has about 24k triangles and weighs 281 KB, with positions only (no normals, textures or Draco).
 
-That's the only switch. The model is restyled to match the scene (ink fill, paper edges), because the scene has no lights; `vendor/GLTFLoader.js` is only downloaded when the constant is set.
+To rebuild it after a CAD change, export the assembly from Fusion as **FBX** (it keeps the component names; the OBJ export loses them) and run from the repo root:
+
+```
+blender -b -P tools/cad_to_glb.py -- --src "path/to/Assembled Pi Case.fbx"
+blender -b -P tools/cad_to_glb.py -- --src "…fbx" --preview preview.png   # check the part grouping first
+```
+
+The CAD files stay out of the repo. The script prints each part's triangle count; the budgets are at the top of it. On the site:
+- `js/stage/solids.js` loads the model lazily, once the scroll nears the Warn chapter. Until then, or if it fails, a stand-in built from boxes (same parts, same places) is shown. `CAMERA_MODEL_URL = null` forces the stand-in.
+- The model is restyled to match the scene (ink fill, paper edges; the scene has no lights). The exploded view is the `EXPLODE` table there: the lid lifts off first and takes the LEDs with it, the Pi rises out of the tray, then the mount and the camera module slide forward.
+- The Build labels (`#parts` in `index.html`) hang on the parts through `data-part` → `PART_NODES`.
+- Nothing on COOPER moves in use: no turning base, no bearing readout. The Warn chapter shows its two LEDs, lit by the scene's warning level (`riskLevel` in `js/stage/director.js`, by the real rules: red when something is in "my lane" now, yellow when a predicted path enters it within 1.5 s, red overrides yellow, and a level holds 0.5 s). The same level tints the lane in the scene and lights the model's LEDs.
 
 ## How it's put together
 | File | Role |
@@ -59,18 +67,18 @@ That's the only switch. The model is restyled to match the scene (ink fill, pape
 | `main.js` | boot: loads fonts → anime.js → three.js + scene behind the gate, then the intro |
 | `js/gate.js` | the dotted progress ring and the Enter prompt |
 | `js/intro.js` | the scrambleText timeline (COOPER → name line → tagline) |
-| `js/chapters.js` | anime.js `onScroll` per chapter, word reveals, nav, chapter scrubber, bearing tape, the Warn gauge |
+| `js/chapters.js` | anime.js `onScroll` per chapter, word reveals, nav, chapter scrubber, frame counter, the Warn LEDs |
 | `js/cursor.js` | the desktop cursor (ring → lock brackets on links, "Drag" in the gallery) |
 | `js/stage/world.js` | the street as data: people, cars, sampled point clouds (no three.js) |
-| `js/stage/director.js` | chapter keyframes: camera, what's visible, the bearing; the HUD chapter names |
+| `js/stage/director.js` | chapter keyframes: camera and what's visible; the scene's warning level; the HUD chapter names |
 | `js/stage/points.js` | the point cloud shader (one draw call; motion computed on the GPU) |
-| `js/stage/overlay.js` | detection brackets, leader-line labels, velocity vector, predicted path point |
-| `js/stage/solids.js` | the placeholder rig and exploded hardware, and the `.glb` switch |
+| `js/stage/overlay.js` | detection brackets, leader-line labels, velocity vector, predicted path point, "my lane", the Build labels |
+| `js/stage/solids.js` | COOPER's 3D model (lazy .glb, box stand-in), its exploded view and lit LEDs, the view frustum |
 | `js/stage/carousel.js` | the gallery ring |
 | `js/stage/fallback2d.js` | the no-WebGL renderer |
 | `tokens.css` | every color, font and timing |
 
-Numbers in the copy are real where they describe COOPER (FOV, frame size, the 1.5 s horizon and 0.1 s path steps, the 2 s time-to-contact warning, two frames to light and 0.5 s hold; see `cooper/config.py` on the dashcam branch). The scene is an illustration, not live data: the detection confidences, figures, frame counter, gauge bearings and the `PATH · t + 1.6 s` tag (drawn further ahead than the real horizon so it's visible) are all made up.
+Numbers in the copy are real where they describe COOPER (FOV, frame size, the 1.5 s horizon and 0.1 s path steps, the 2 s time-to-contact warning, two frames to light and 0.5 s hold; see `cooper/config.py` on the dashcam branch). The scene is an illustration, not live data: the detection confidences, figures, frame counter, "my lane" (a 1.6 m × 5.5 m strip ahead of the unit) and the `PATH · t + 1.6 s` tag (drawn further ahead than the real horizon so it's visible) are all made up.
 
 **Updating the vendored libraries:** `vendor/three.module.min.js` is `three/build/three.module.js` bundled and minified with esbuild (`esbuild three.module.js --bundle --minify --format=esm`); `vendor/GLTFLoader.js` is `three/examples/jsm/loaders/GLTFLoader.js` bundled the same way with `--external:three`; `vendor/anime.esm.min.js` is copied from the `animejs` package's `dist/bundles/`.
 

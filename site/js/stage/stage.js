@@ -3,7 +3,7 @@
 
 import * as THREE from "three";
 import { OBJECTS, FOCUS_INDEX, objectState, edgeFade } from "./world.js";
-import { stateAt, GHOST_S, SCAN_PERIOD } from "./director.js";
+import { stateAt, riskLevel, GHOST_S, SCAN_PERIOD } from "./director.js";
 
 // rolling-shutter band position in NDC (top to bottom, then a short pause off-screen)
 const scanY = (t) => 1.15 - ((t % SCAN_PERIOD) / SCAN_PERIOD) * 2.9;
@@ -14,7 +14,7 @@ import { createOverlay, LOCK_AT } from "./overlay.js";
 import { createFallback } from "./fallback2d.js";
 
 const STILL_T = 7.4;        // the frozen moment used for reduced motion and the fallback
-const MAX_DPR = 1.75;
+const MAX_DPR = 1.5;         // integrated GPUs: 1.5 is sharp enough and a third fewer pixels than 2
 
 function damp(a, b, lambda, dt) { return b + (a - b) * Math.exp(-lambda * dt); }
 
@@ -81,13 +81,24 @@ export function createStage({ still, webgl, scramble }) {
   let dirty = true;
   function setScroll(c, h, l) {
     chapter = c; holds = h; local = l;
+    if (c > 2.5) solids.loadModel();   // the model is first seen in chapter 04 (Warn)
     dirty = true;
+  }
+
+  // don't draw what nobody can see: a hidden tab, or the canvas scrolled out of view
+  // (e.g. the page embedded in a frame)
+  let onScreen = true;
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver((entries) => {
+      onScreen = entries[entries.length - 1].isIntersecting;
+      dirty = true;
+    }).observe(glCanvas);
   }
   function setPointer(x, y) { pointer.x = x; pointer.y = y; }
 
   // ── state ────────────────────────────────────────────────
   let t = still || !webgl ? STILL_T : 0;
-  const cur = { pos: new THREE.Vector3(0, 1.7, 11.5), look: new THREE.Vector3(0, 1.4, 0), fov: 42, pan: 0 };
+  const cur = { pos: new THREE.Vector3(0, 1.7, 11.5), look: new THREE.Vector3(0, 1.4, 0), fov: 42 };
   let first = true;
   let last = performance.now();
   let lastState = null;
@@ -116,6 +127,7 @@ export function createStage({ still, webgl, scramble }) {
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
+    if (!onScreen || document.hidden) { requestAnimationFrame(frame); return; }
     const animate = !still && webgl;
     if (animate) t += dt;
 
@@ -131,14 +143,12 @@ export function createStage({ still, webgl, scramble }) {
       cur.pos.copy(tgtPos);
       cur.look.set(...s.look);
       cur.fov = s.fov;
-      cur.pan = s.pan;
       first = false;
     } else {
       const k = 2.6;
       cur.pos.set(damp(cur.pos.x, tgtPos.x, k, dt), damp(cur.pos.y, tgtPos.y, k, dt), damp(cur.pos.z, tgtPos.z, k, dt));
       cur.look.set(damp(cur.look.x, s.look[0], k, dt), damp(cur.look.y, s.look[1], k, dt), damp(cur.look.z, s.look[2], k, dt));
       cur.fov = damp(cur.fov, s.fov, k, dt);
-      cur.pan = damp(cur.pan, s.pan, 3.2, dt);
     }
     camera.position.copy(cur.pos);
     camera.lookAt(cur.look);
@@ -147,10 +157,10 @@ export function createStage({ still, webgl, scramble }) {
     const fov = Math.max(cur.fov, Math.min(minFov, 88));
     if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
 
-    const eased = { ...s, pan: cur.pan };
-    solids.update(eased, t);
+    // COOPER's warning level (0 clear, 1 yellow, 2 red), only where the unit is on stage
+    const level = s.rig > 0.05 ? riskLevel(t) : 0;
+    solids.update(s, t, level);
 
-    let bearing = cur.pan;
     if (webgl) {
       const u = points.uniforms;
       u.uTime.value = t;
@@ -178,8 +188,7 @@ export function createStage({ still, webgl, scramble }) {
       });
       if (carousel) {
         if (carousel.moving) dirty = true;
-        const cb = carousel.update(s, local[6], dt, still);
-        if (s.carousel > 0.5) bearing = cb;
+        carousel.update(s, local[6], dt, still);
       }
       if (animate || dirty) renderer.render(scene, camera);
     } else if (fallback && dirty) {
@@ -191,12 +200,10 @@ export function createStage({ still, webgl, scramble }) {
         const w = solids.partAnchor(p.key);
         return { ...p, screen: project([w.x, w.y, w.z]) };
       }) : null;
-      let lensScreen = null;
-      if (s.rig > 0.05) { const l = solids.lensWorld(); lensScreen = project([l.x, l.y, l.z]); }
-      overlay.draw(s, { t, local, project, partAnchors, lensScreen, scan: scanY(t), center: opticalCenter() });
+      overlay.draw(s, { t, local, project, partAnchors, level, scan: scanY(t), center: opticalCenter() });
     }
 
-    lastState = { ...s, pan: cur.pan, aim: s.pan, bearing, t };
+    lastState = { ...s, level, t };
     for (const fn of listeners) fn(lastState);
     dirty = false;
 
