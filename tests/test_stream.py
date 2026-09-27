@@ -1,17 +1,16 @@
-"""Flask MJPEG stream + control API (coop/stream.py), via the Flask test client.
+"""Flask MJPEG stream + status API (cooper/stream.py), via the Flask test client.
 
 /video's body is an unbounded MJPEG generator that only ends when the client disconnects,
 so tests only assert on the response's status/mimetype and never read the streamed body
 (resp.data / resp.get_data() would block forever waiting for a frame that never comes).
 """
-from coop.config import MotorConfig
-from coop.control import Control
-from coop.stream import SharedState, create_app
+from cooper.control import Control
+from cooper.stream import SharedState, create_app
 
 
-def make_client(motors_cfg=None):
+def make_client():
     state = SharedState()
-    control = Control(motors_cfg or MotorConfig())
+    control = Control()
     return state, control, create_app(state, control).test_client()
 
 
@@ -22,8 +21,11 @@ def test_shared_state_starts_with_empty_status():
 def test_publish_updates_status_and_frame_sequence():
     state = SharedState()
     state.publish(b"jpeg-bytes", {"fps": 12.3})
-    assert state.status == {"fps": 12.3}
+    assert state.status == {"fps": 12.3, "frame_seq": 1}
     assert state._seq == 1
+
+    state.publish(b"jpeg-bytes", {"fps": 12.3})
+    assert state.status["frame_seq"] == 2
 
 
 def test_frames_generator_yields_an_mjpeg_chunk_with_the_published_frame():
@@ -34,17 +36,16 @@ def test_frames_generator_yields_an_mjpeg_chunk_with_the_published_frame():
     assert b"jpeg-bytes-1" in chunk
 
 
-def test_status_endpoint_merges_state_with_server_time_and_live_mode():
-    state, control, client = make_client()
-    state.publish(b"x", {"fps": 9.0, "target": None})
-    control.set_mode("manual")
+def test_status_endpoint_merges_state_with_server_time():
+    state, _, client = make_client()
+    state.publish(b"x", {"fps": 9.0, "detections": []})
 
     resp = client.get("/api/status")
     assert resp.status_code == 200
     body = resp.get_json()
     assert body["fps"] == 9.0
-    assert body["target"] is None
-    assert body["mode"] == "manual"
+    assert body["detections"] == []
+    assert body["frame_seq"] == 1
     assert "server_time" in body
 
 
@@ -63,80 +64,10 @@ def test_video_route_is_an_mjpeg_stream():
     assert resp.mimetype == "multipart/x-mixed-replace"
 
 
-def test_set_mode_endpoint_updates_control():
-    _, control, client = make_client()
-    resp = client.post("/api/mode", json={"mode": "stop"})
-    assert resp.status_code == 200
-    assert resp.get_json() == {"ok": True}
-    assert control.mode == "stop"
-
-
-def test_set_mode_endpoint_rejects_unknown_mode():
-    _, control, client = make_client()
-    resp = client.post("/api/mode", json={"mode": "orbit"})
-    assert resp.status_code == 400
-    body = resp.get_json()
-    assert body["ok"] is False
-    assert control.mode == "auto"
-
-
-def test_set_target_endpoint_requires_id_field():
-    _, _, client = make_client()
-    resp = client.post("/api/target", json={})
-    assert resp.status_code == 400
-
-
-def test_set_target_endpoint_locks_target_and_switches_to_auto():
-    _, control, client = make_client()
-    resp = client.post("/api/target", json={"id": 7})
-    assert resp.status_code == 200
-    assert control.locked_id == 7
-    assert control.mode == "auto"
-
-
-def test_aim_endpoint_rejects_outside_manual_mode():
-    _, control, client = make_client()
-    assert control.mode == "auto"
-    resp = client.post("/api/aim", json={"pan": 10.0, "tilt": 0.0})
-    assert resp.status_code == 400
-
-
-def test_aim_endpoint_clamps_within_configured_limits():
-    _, control, client = make_client(MotorConfig(pan_limits_deg=(-20.0, 20.0)))
-    control.set_mode("manual")
-    resp = client.post("/api/aim", json={"pan": 999.0, "tilt": 0.0})
-    assert resp.status_code == 200
-    assert control.manual_aim == (20.0, 0.0)
-
-
-def test_aim_endpoint_rejects_non_numeric_body():
-    _, control, client = make_client()
-    control.set_mode("manual")
-    resp = client.post("/api/aim", json={"pan": "far", "tilt": 0.0})
-    assert resp.status_code == 400
-
-
-def test_nudge_endpoint_accumulates_aim():
-    _, control, client = make_client()
-    control.set_mode("manual")
-    control.set_aim(5.0, 0.0)
-    resp = client.post("/api/nudge", json={"dpan": 2.0, "dtilt": 0.0})
-    assert resp.status_code == 200
-    assert control.manual_aim == (7.0, 0.0)
-
-
-def test_home_endpoint_switches_to_manual_and_zeroes_aim():
-    _, control, client = make_client()
-    resp = client.post("/api/home", json={})
-    assert resp.status_code == 200
-    assert control.mode == "manual"
-    assert control.manual_aim == (0.0, 0.0)
-
-
 def test_events_endpoint_filters_by_since():
     _, control, client = make_client()
-    control.set_mode("manual")
-    control.set_mode("stop")
+    control.log_event("settings_changed", changed={}, saved=False)
+    control.log_event("settings_changed", changed={}, saved=True)
 
     all_events = client.get("/api/events").get_json()["events"]
     assert len(all_events) == 2
@@ -144,3 +75,9 @@ def test_events_endpoint_filters_by_since():
     last_seq = all_events[-1]["seq"]
     resp = client.get(f"/api/events?since={last_seq}")
     assert resp.get_json()["events"] == []
+
+
+def test_status_before_the_first_frame_is_just_server_time_and_diag():
+    _, _, client = make_client()
+    body = client.get("/api/status").get_json()
+    assert set(body) == {"server_time", "diag"}

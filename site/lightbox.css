@@ -1,0 +1,163 @@
+/* Gallery viewer (js/lightbox.js): a full-screen dialog over the page. HUD look: corner
+   brackets, the mono telemetry font, orange for the active edge. Only transform and opacity
+   animate; the open/close fade and scale are run from JS (none under reduced motion). */
+
+html.lb-locked, html.lb-locked body { overflow: hidden; }
+
+.lb {
+  --lb-top: 68px;
+  --lb-bottom: 56px;
+  --lb-side: 92px;
+  position: fixed;
+  inset: 0;
+  z-index: 250;                     /* over the nav and HUD, under the custom cursor (300) */
+  overscroll-behavior: contain;
+  color: var(--paper);
+}
+.lb[hidden] { display: none; }
+
+.lb-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 6, 6, 0.92);  /* --ink at 92% */
+}
+
+/* the gesture surface: the whole viewport, so pinch, pan and swipe work anywhere */
+.lb-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--lb-top) var(--lb-side) var(--lb-bottom);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.lb-fig { position: relative; display: grid; place-items: center; }
+
+/* contained, never cropped or stretched: the element's box is the media's own aspect ratio
+   (--lb-ar, set from the file) fitted to the free area, so the brackets hug the picture */
+.lb-fig {
+  --lb-w: calc(100vw - 2 * var(--lb-side));
+  --lb-h: calc(100vh - var(--lb-top) - var(--lb-bottom));
+  --lb-ar: 1.5;
+}
+@supports (height: 100dvh) { .lb-fig { --lb-h: calc(100dvh - var(--lb-top) - var(--lb-bottom)); } }
+.lb-img, .lb-video {
+  display: block;
+  width: min(var(--lb-w), var(--lb-h) * var(--lb-ar));
+  height: auto;
+  aspect-ratio: var(--lb-ar);
+  object-fit: contain;
+  background: var(--ink-2);
+}
+.lb-img { transform-origin: 50% 50%; -webkit-user-drag: none; }
+.lb-img.is-settling { transition: transform var(--dur-fast) var(--ease-out); }
+.lb-fig:not([data-kind="image"]) .lb-img,
+.lb-fig:not([data-kind="video"]) .lb-video,
+.lb-fig:not([data-kind="soon"]) .lb-soon { display: none; }
+
+/* placeholder (no file yet) */
+.lb-soon {
+  width: min(var(--lb-w), 960px, var(--lb-h) * 1.5);
+  aspect-ratio: 3 / 2;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  background: var(--ink-2);
+  text-align: center;
+}
+.lb-soon-title {
+  font: 800 var(--step-2) / 1.1 var(--font-display);
+  font-stretch: var(--stretch-display);
+  letter-spacing: -0.01em;
+}
+.lb-soon-k { color: var(--lock); text-transform: uppercase; letter-spacing: 0.12em; }
+
+/* acquisition brackets hugging the media; they let go once zoomed in */
+.lb-brackets { position: absolute; inset: -8px; pointer-events: none; transition: opacity var(--dur-fast) linear; }
+.lb-brackets i { position: absolute; width: 18px; height: 18px; border: 0 solid var(--lock); }
+.lb-brackets i:nth-child(1) { left: 0; top: 0; border-width: 2px 0 0 2px; }
+.lb-brackets i:nth-child(2) { right: 0; top: 0; border-width: 2px 2px 0 0; }
+.lb-brackets i:nth-child(3) { left: 0; bottom: 0; border-width: 0 0 2px 2px; }
+.lb-brackets i:nth-child(4) { right: 0; bottom: 0; border-width: 0 2px 2px 0; }
+.lb.is-zoomed .lb-brackets { opacity: 0; }
+
+/* top bar: NN / NN · title · zoom readout */
+.lb-bar {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: var(--lb-top);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 calc(var(--gutter) + 56px) 0 var(--gutter);
+  pointer-events: none;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.lb.is-zoomed .lb-bar { background: linear-gradient(var(--scrim), var(--scrim-0)); }
+.lb-count { color: var(--lock); flex: none; }
+.lb-title {
+  margin: 0;
+  font: inherit;
+  color: var(--paper);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.lb-title::before { content: "·"; margin-right: 14px; color: var(--paper-3); }
+.lb-zoom { margin-left: auto; flex: none; color: var(--paper-2); text-transform: none; letter-spacing: 0.02em; }
+.lb.is-zoomed .lb-zoom { color: var(--lock); }
+
+/* buttons: square keys with a hairline, orange corners on hover/focus */
+.lb-btn {
+  position: absolute;
+  width: 44px; height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  background: rgba(6, 6, 6, 0.6);
+  color: var(--paper);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) linear, color var(--dur-fast) linear;
+}
+.lb-btn[hidden] { display: none; }
+.lb-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: square; }
+.lb-btn:hover, .lb-btn:focus-visible { border-color: var(--lock); color: var(--lock); }
+.lb-btn:focus-visible { outline: 2px solid var(--lock); outline-offset: 3px; }
+.lb-close { top: calc((var(--lb-top) - 44px) / 2); right: var(--gutter); }
+.lb-prev, .lb-next { top: 50%; margin-top: -22px; }
+.lb-prev { left: calc((var(--lb-side) - 44px) / 2); }
+.lb-next { right: calc((var(--lb-side) - 44px) / 2); }
+.lb.is-zoomed .lb-prev, .lb.is-zoomed .lb-next { opacity: 0.35; }
+
+.lb-video:focus-visible { outline: 2px solid var(--lock); outline-offset: 3px; }
+
+/* the list items open the viewer too (no-WebGL grid, screen readers) */
+.gallery li.lb-trigger { cursor: pointer; }
+.gallery li.lb-trigger:focus-visible { outline: 2px solid var(--lock); outline-offset: 2px; }
+.gallery li.lb-trigger:hover { border-color: var(--line-strong); }
+
+/* phones: media edge to edge, arrows move to the bottom corners */
+@media (max-width: 720px) {
+  .lb { --lb-top: 60px; --lb-bottom: 76px; --lb-side: 10px; }
+  .lb-bar { padding-right: calc(var(--gutter) + 52px); gap: 10px; }
+  .lb-title::before { margin-right: 10px; }
+  .lb-zoom { position: fixed; left: 50%; bottom: max(30px, calc(env(safe-area-inset-bottom) + 14px)); transform: translateX(-50%); white-space: nowrap; }
+  .lb-prev, .lb-next { top: auto; bottom: max(16px, env(safe-area-inset-bottom)); margin-top: 0; }
+  .lb-prev { left: var(--gutter); }
+  .lb-next { right: var(--gutter); }
+  .lb-soon-title { font-size: var(--step-1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-img.is-settling, .lb-brackets, .lb-btn { transition: none; }
+}
+html.still .lb-img.is-settling, html.still .lb-brackets { transition: none; }

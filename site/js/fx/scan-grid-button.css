@@ -1,0 +1,123 @@
+/* Scan Grid Button
+   A link/button whose hover (and keyboard-focus) state sweeps a scanline
+   band across the fill and briefly glitch-slices the label into an RGB-split
+   jitter, then settles into a flat color swap. Values below are the
+   project owner's chosen settings for this instance (see the module's
+   header comment for the full spec); swap the custom properties on
+   `.scangrid-btn` per-instance if another button ever needs different
+   colors/timing.
+
+   Classes:
+     .scangrid-btn        the enhanced <a>/<button> itself
+     .scangrid-btn-scan   the sweeping highlight band (absolute, clipped)
+     .scangrid-btn-label  wrapper around the per-character glitch spans
+     .scangrid-char       one character of the label (glitch target)
+     .scangrid-btn--reduced  applied by the JS module when reduced motion
+                             is active: transitions become near-instant and
+                             the scan/glitch layers stay inert.
+*/
+
+.scangrid-btn {
+  /* component tokens -- reuse site tokens where the value matches exactly */
+  --scangrid-fill: var(--ink);           /* #060606 */
+  --scangrid-text: var(--paper);         /* #EEEDEA */
+  --scangrid-hover-fill: var(--lock);    /* #FF5A1F */
+  --scangrid-hover-text: var(--ink);     /* #060606 */
+  --scangrid-border: var(--paper);       /* border matches resting text color */
+  --scangrid-hover-border: var(--ink);   /* border matches hover text color */
+  --scangrid-scan-color: var(--lock);    /* #FF5A1F (preset default #FF5722 overridden) */
+  --scangrid-glitch: 2px;                /* glitch intensity, David's setting: 2 */
+  --scangrid-dur: 0.4s;                  /* David's setting: 0.4s (site default is 320ms) */
+  --scangrid-ease: var(--ease-in-out);
+  --scangrid-scan-duration: 2000ms;      /* one sweep loop cycle */
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 16px 28px;
+  border: 1px solid var(--scangrid-border);
+  border-radius: 0;
+  background-color: var(--scangrid-fill);
+  color: var(--scangrid-text);
+  font-family: var(--font-mono);
+  font-stretch: var(--stretch-mono);
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 1.5em;
+  letter-spacing: 0;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--scangrid-dur) var(--scangrid-ease),
+    color var(--scangrid-dur) var(--scangrid-ease),
+    border-color var(--scangrid-dur) var(--scangrid-ease);
+}
+
+.scangrid-btn:hover,
+.scangrid-btn:focus-visible {
+  background-color: var(--scangrid-hover-fill);
+  color: var(--scangrid-hover-text);
+  border-color: var(--scangrid-hover-border);
+}
+
+.scangrid-btn:focus-visible {
+  outline: 2px solid var(--scangrid-hover-fill);
+  outline-offset: 2px;
+}
+
+/* the sweeping band: a soft gradient wash with a bright leading edge,
+   translated top-to-bottom by the JS module via WAAPI (transform + opacity
+   only -- cheap, compositable properties). Idle at opacity 0 above the
+   button so it never flashes before JS starts the loop. */
+.scangrid-btn-scan {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 65%;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+  transform: translateY(-100%);
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--scangrid-scan-color) 45%, transparent) 100%
+  );
+}
+
+.scangrid-btn-scan::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--scangrid-scan-color);
+  box-shadow: 0 0 6px 0 var(--scangrid-scan-color);
+}
+
+.scangrid-btn-label {
+  position: relative;
+  z-index: 2;
+  display: inline-block;
+  white-space: pre;
+}
+
+.scangrid-char {
+  display: inline-block;
+}
+
+/* Reduced-motion mode: JS skips the scan loop and glitch bursts entirely
+   and adds this class so the color swap becomes effectively instant. */
+.scangrid-btn.scangrid-btn--reduced {
+  transition-duration: 1ms;
+}
+
+.scangrid-btn.scangrid-btn--reduced .scangrid-btn-scan {
+  display: none;
+}

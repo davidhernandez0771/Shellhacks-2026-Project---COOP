@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>COOPER · the dashcam that sees it coming</title>
+  <meta name="description" content="COOPER is a Raspberry Pi 5 dashcam that detects people and vehicles, predicts where each one is heading, and lights a yellow or red LED before something enters your lane.">
+  <meta name="theme-color" content="#060606">
+  <link rel="canonical" href="https://coop.davidhernandez.work/">
+  <meta property="og:title" content="COOPER · the dashcam that sees it coming">
+  <meta property="og:description" content="A Pi 5 dashcam that predicts every road user's path and warns you before one enters your lane.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://coop.davidhernandez.work/">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23060606'/%3E%3Cpath d='M6 12V6h6M26 12V6h-6M6 20v6h6M26 20v6h-6' fill='none' stroke='%23EEEDEA' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23FF5A1F'/%3E%3C/svg%3E">
+  <link rel="preload" href="fonts/archivo-var.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/martian-mono-var.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="tokens.css?v=2">
+  <link rel="stylesheet" href="styles.css?v=2">
+  <link rel="stylesheet" href="js/fx/tactile-button.css">
+  <link rel="stylesheet" href="js/fx/scan-grid-button.css">
+  <link rel="stylesheet" href="js/fx/interactive-grid.css">
+  <link rel="stylesheet" href="lightbox.css">
+  <script>
+    // Runs before first paint: pick the experience tier so CSS never flashes the wrong one.
+    (function () {
+      var d = document.documentElement;
+      d.classList.add("js");
+      var rm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (rm || /[?&]still\b/.test(location.search)) d.classList.add("still");
+      var gl = false;
+      try {
+        var c = document.createElement("canvas");
+        gl = !!(window.WebGLRenderingContext && (c.getContext("webgl2") || c.getContext("webgl")));
+      } catch (e) { gl = false; }
+      if (!gl || /[?&]nogl\b/.test(location.search)) d.classList.add("no-webgl");
+    })();
+  </script>
+  <script type="importmap">
+    { "imports": {
+        "three": "./vendor/three.module.min.js",
+        "animejs": "./vendor/anime.esm.min.js"
+    } }
+  </script>
+  <script type="module" src="main.js?v=2"></script>
+</head>
+<body>
+  <a class="skip" href="#see">Skip to content</a>
+
+  <!-- ───────── Persistent stage (WebGL, or the 2D fallback) ───────── -->
+  <div class="stage" aria-hidden="true">
+    <canvas class="stage-gl" id="stage-gl"></canvas>
+    <canvas class="stage-hud" id="stage-hud"></canvas>
+    <div class="stage-labels" id="stage-labels"></div>
+    <div class="stage-scrim"></div>
+  </div>
+
+  <!-- ───────── Floating pill nav ───────── -->
+  <header class="nav" id="nav">
+    <a class="nav-mark" href="#top" aria-label="COOPER, back to the top">COOPER</a>
+    <nav aria-label="Chapters">
+      <ol class="nav-links" id="nav-links">
+        <li><a href="#see" data-ch="1">See</a></li>
+        <li><a href="#detect" data-ch="2">Detect</a></li>
+        <li><a href="#predict" data-ch="3">Predict</a></li>
+        <li><a href="#move" data-ch="4">Warn</a></li>
+        <li><a href="#build" data-ch="5">Build</a></li>
+        <li><a href="#gallery" data-ch="6">Gallery</a></li>
+        <li><a href="#team" data-ch="7">Team</a></li>
+      </ol>
+    </nav>
+    <a class="nav-gh" href="https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOPER">GitHub</a>
+    <button type="button" class="nav-menu" id="nav-menu" aria-expanded="false" aria-controls="nav-links">
+      <span class="nav-menu-ch mono" id="nav-menu-ch">00</span>
+      <span>Menu</span>
+    </button>
+  </header>
+
+  <!-- ───────── Bottom HUD: chapter scrubber + frame counter ───────── -->
+  <div class="hud" aria-hidden="true">
+    <div class="hud-chapter mono"><span id="hud-ch">00</span><span class="hud-sep">/</span>07 <span class="hud-name" id="hud-name">Intro</span></div>
+    <div class="hud-mid"></div>
+    <div class="hud-pan mono"><span class="hud-pan-k">Frame</span> <span id="hud-pan">000000</span></div>
+  </div>
+
+  <div class="cursor" id="cursor" aria-hidden="true"><span class="cursor-dot"></span><span class="cursor-ring"></span><span class="cursor-label" id="cursor-label"></span></div>
+
+  <main id="main">
+    <!-- ───────── Intro ───────── -->
+    <section class="chapter intro" id="top" data-ch="0" aria-labelledby="intro-title">
+      <div class="pin">
+        <div class="intro-lockup">
+          <h1 class="intro-word" id="intro-title" aria-label="COOPER">
+            <span class="brackets" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <span class="intro-word-text" id="intro-word-text" aria-hidden="true">COOPER</span>
+            <!-- JS + WebGL only: the Vector Wordmark canvas overlays intro-word-text (site/js/fx/vector-wordmark.js) -->
+            <div class="vector-wordmark-host" id="vector-wordmark-host" aria-hidden="true"></div>
+          </h1>
+          <p class="intro-readout" id="intro-readout" aria-hidden="true"></p>
+          <p class="sr-only">COOPER: the dashcam that sees it coming.</p>
+          <p class="intro-lede" id="intro-lede">A Raspberry Pi&nbsp;5 dashcam that spots people and vehicles, predicts where each one is heading, and lights a warning before one of them enters your lane.</p>
+          <div class="intro-ctas" id="intro-ctas">
+            <a class="cta-tactile" id="cta-how" href="#see">SEE HOW IT WORKS</a>
+            <a class="cta-scangrid" id="cta-github" href="https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOPER" target="_blank" rel="noopener">VIEW ON GITHUB</a>
+          </div>
+        </div>
+        <p class="scroll-cue mono" id="scroll-cue"><span>Scroll to see</span><i aria-hidden="true"></i></p>
+      </div>
+    </section>
+
+    <!-- ───────── Problem (static block, not part of the scroll-driven chapter sequence) ───────── -->
+    <section class="info-block" id="problem" aria-labelledby="problem-title">
+      <div class="copy">
+        <h2 class="ch-title" id="problem-title">Problem</h2>
+        <p class="ch-lead">Forward-collision warning is standard on new cars. Millions of older ones have none.</p>
+        <p class="ch-body">Rear-end and pedestrian collisions often come down to a second or two of inattention. Getting that warning usually means buying a newer car or paying for an aftermarket system that may need professional installation. COOPER closes that gap: a Raspberry&nbsp;Pi, a camera and two LEDs that watch the road and warn the driver before a collision, for <!-- ✏️ PLACEHOLDER: cost comparison (COOPER's total parts cost vs. a newer car vs. an aftermarket system) --><span data-placeholder="cost-comparison">far less than either costs</span>. It plugs into the car&rsquo;s power and mounts on the windshield or dash, with no wiring into the car&rsquo;s systems.</p>
+        <p class="ch-body">It doesn&rsquo;t drive, brake or steer, and it doesn&rsquo;t record footage &mdash; it&rsquo;s a warning light, not a replacement for an attentive driver.</p>
+        <dl class="spec mono">
+          <div><dt>Detects</dt><dd>people &amp; vehicles ahead</dd></div>
+          <div><dt>Predicts</dt><dd>collision risk, live</dd></div>
+          <div><dt>Runs</dt><dd>on-device, no internet needed</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- ───────── 01 See ───────── -->
+    <section class="chapter" id="see" data-ch="1" aria-labelledby="see-title">
+      <div class="pin">
+        <div class="copy">
+          <p class="ch-num mono" aria-hidden="true">01</p>
+          <h2 class="ch-title" id="see-title">See</h2>
+          <p class="ch-lead reveal-words">It starts with a frame: brightness values, and nothing that knows what they are.</p>
+          <p class="ch-body reveal-words">A 5&nbsp;MP OV5647 camera on a Raspberry Pi&nbsp;5 looks down the road through the windshield, powered by the car, and never moves. COOPER reads it 640&nbsp;&times;&nbsp;480 pixels at a time, and every frame goes through the same loop.</p>
+          <dl class="spec mono">
+            <div><dt>Sensor</dt><dd>OV5647, 5&nbsp;MP</dd></div>
+            <div><dt>Field of view</dt><dd>63° &times; 49°</dd></div>
+            <div><dt>Frame</dt><dd>640 &times; 480</dd></div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────── 02 Detect ───────── -->
+    <section class="chapter" id="detect" data-ch="2" aria-labelledby="detect-title">
+      <div class="pin">
+        <div class="copy">
+          <p class="ch-num mono" aria-hidden="true">02</p>
+          <h2 class="ch-title" id="detect-title">Detect</h2>
+          <p class="ch-lead reveal-words">Boxes snap onto what matters, and each one keeps its name.</p>
+          <p class="ch-body reveal-words">YOLO11n runs on the Pi&nbsp;5&rsquo;s CPU at a 320&nbsp;px input, with no accelerator. It finds people and vehicles, and ByteTrack gives each one an ID that survives from frame to frame. COOPER doesn&rsquo;t pick a favourite: every object on the road gets its own track, its own motion model and its own predicted path.</p>
+          <dl class="spec mono">
+            <div><dt>Model</dt><dd>YOLO11n, 320&nbsp;px</dd></div>
+            <div><dt>Tracker</dt><dd>ByteTrack</dd></div>
+            <div><dt>Classes</dt><dd>people, cars, buses, trucks, motorcycles</dd></div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────── 03 Predict ───────── -->
+    <section class="chapter chapter-long" id="predict" data-ch="3" aria-labelledby="predict-title">
+      <div class="pin">
+        <div class="copy">
+          <p class="ch-num mono" aria-hidden="true">03</p>
+          <h2 class="ch-title" id="predict-title">Predict</h2>
+          <p class="ch-lead reveal-words">Watch where it&rsquo;s going, not where it was.</p>
+          <p class="ch-body reveal-words">Every object gets its own constant-velocity Kalman filter, run in image space, so motion is relative to the car. Each frame it predicts (slide the object along its velocity), then updates (blend that guess with the new box, trusting whichever is less noisy). What&rsquo;s left is a smooth position and velocity for each one.</p>
+          <p class="ch-body reveal-words">The velocity draws a path 1.5&nbsp;s ahead, checked against my lane: a trapezoid over the road just in front of the car. Something coming straight at us barely moves sideways, so COOPER also watches its box grow: height over growth rate is the time to contact.</p>
+        </div>
+        <figure class="equations" aria-labelledby="eq-caption">
+          <p class="eq-head ch-num mono" aria-hidden="true">The math</p>
+          <div class="eq" role="math" aria-label="p of t plus delta t equals p plus p dot times delta t, for delta t from 0 to 1.5 seconds.">
+            <div class="eq-row" aria-hidden="true">
+              <span class="m"><i>p</i><sub><i>t</i>+Δ<i>t</i></sub></span>
+              <span class="o">=</span>
+              <span class="m term" data-term="a"><i>p</i><sub><i>t</i></sub></span>
+              <span class="o">+</span>
+              <span class="m term" data-term="b"><i class="dot-acc">p</i></span>
+              <span class="o">·</span>
+              <span class="m">Δ<i>t</i></span>
+            </div>
+            <div class="eq-notes mono" aria-hidden="true">
+              <span data-term="a">where its box meets the road now</span>
+              <span data-term="b">its Kalman velocity, in px/s</span>
+            </div>
+          </div>
+          <div class="eq eq-aim" role="math" aria-label="tau equals h divided by h dot. Under 2 seconds, in the lane's corridor, it warns.">
+            <div class="eq-row" aria-hidden="true">
+              <span class="m lock"><i>τ</i></span>
+              <span class="o">=</span>
+              <span class="m"><span class="frac"><span><i>h</i></span><span><i class="dot-acc">h</i></span></span></span>
+            </div>
+            <div class="eq-notes mono" aria-hidden="true">
+              <span>box height over its growth rate; <i>τ</i> &lt; 2&nbsp;s in the lane&rsquo;s corridor warns</span>
+            </div>
+          </div>
+          <figcaption class="mono" id="eq-caption">The path, sampled every 0.1&nbsp;s to 1.5&nbsp;s, and time to contact</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ───────── 04 Warn ───────── -->
+    <section class="chapter" id="move" data-ch="4" aria-labelledby="move-title">
+      <div class="pin">
+        <div class="copy">
+          <p class="ch-num mono" aria-hidden="true">04</p>
+          <h2 class="ch-title" id="move-title">Warn</h2>
+          <p class="ch-lead reveal-words">Two lights, before it happens.</p>
+          <p class="ch-body reveal-words">Yellow: a predicted path will enter my lane soon, like a car about to cut in, or something ahead is closing in under 2&nbsp;s. Red: something is in my lane now, and red overrides yellow. A level lights after two frames in a row and holds half a second, so one noisy box can&rsquo;t make it flicker. The dashboard shows the live video, every predicted path and the risk level, and can beep in step with the LEDs.</p>
+          <dl class="spec mono">
+            <div><dt>Yellow</dt><dd>path enters my lane</dd></div>
+            <div><dt>Red</dt><dd>in my lane now</dd></div>
+            <div><dt>Horizon</dt><dd>1.5&nbsp;s</dd></div>
+          </dl>
+        </div>
+        <!-- COOPER's two LEDs, lit by the scene's warning level (js/chapters.js). The level also
+             tints "my lane" in the scene and lights the model's LEDs. -->
+        <div class="leds" id="leds" data-level="0" aria-hidden="true">
+          <div class="led led-yellow"><i class="led-lamp"></i><span class="led-name mono">Yellow</span><span class="led-rule mono">path enters my lane</span></div>
+          <div class="led led-red"><i class="led-lamp"></i><span class="led-name mono">Red</span><span class="led-rule mono">in my lane now</span></div>
+          <div class="leds-read mono">
+            <div><span class="k">Level</span><span class="v" id="led-level">Clear</span></div>
+            <div><span class="k">Hold</span><span class="v">0.5&nbsp;s</span></div>
+            <div><span class="k">Warn</span><span class="v">τ &lt; 2&nbsp;s</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────── 05 Build ───────── -->
+    <section class="chapter chapter-long" id="build" data-ch="5" aria-labelledby="build-title">
+      <div class="pin">
+        <div class="copy">
+          <p class="ch-num mono" aria-hidden="true">05</p>
+          <h2 class="ch-title" id="build-title">Build</h2>
+          <p class="ch-lead reveal-words">One board, one camera, two lights.</p>
+          <p class="ch-body reveal-words">The Pi&nbsp;5 does all of it on its CPU: detection, tracking, prediction, the lane check and the video stream. The two LEDs sit on its GPIO pins, and the car powers everything. Nothing moves &mdash; COOPER started as COOP, a motorized tracking camera, and we removed the motor to point the same vision and prediction pipeline at collision warning instead.</p>
+          <!-- The exploded view is the team's CAD (models/cooper-camera.glb). Each data-part key
+               is a part of the model (PART_NODES in js/stage/solids.js); the label is drawn next to it. -->
+          <ul class="parts mono" id="parts">
+            <li data-part="camera"><span>OV5647 camera</span><span>5&nbsp;MP, 3.6&nbsp;mm, 75° diagonal</span></li>
+            <li data-part="mount"><span>Camera mount</span><span>fixed, facing the road</span></li>
+            <li data-part="yellow"><span>Yellow LED</span><span>a path will enter my lane</span></li>
+            <li data-part="red"><span>Red LED</span><span>something is in my lane</span></li>
+            <li data-part="lid"><span>Lid</span><span>the LEDs show through it</span></li>
+            <li data-part="pi"><span>Raspberry Pi 5</span><span>8&nbsp;GB, vision and risk</span></li>
+            <li data-part="case"><span>Case</span><span>car power in over USB-C</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Build, continued: the tools COOPER is built with (js/fx/interactive-grid.js adds the hover).
+         Only tools really used; keep in step with docs/DEVPOST.md "Built with". -->
+    <div class="build-stack">
+      <div class="build-stack-inner">
+        <p class="build-stack-head mono"><span aria-hidden="true">05</span> <span id="build-stack-title">Built with: board to browser</span></p>
+        <ul class="stack-grid" id="stack-grid" aria-labelledby="build-stack-title">
+          <li><img src="media/logos/raspberry-pi.svg" alt="Raspberry Pi 5 logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">Raspberry Pi 5</span></li>
+          <li><img src="media/logos/python.svg" alt="Python logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">Python</span></li>
+          <li><img src="media/logos/picamera2.svg" alt="Picamera2 logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">Picamera2</span></li>
+          <li><img src="media/logos/yolo.svg" alt="YOLO11 · Ultralytics logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">YOLO11 · Ultralytics</span></li>
+          <li><img src="media/logos/pytorch.svg" alt="PyTorch logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">PyTorch</span></li>
+          <li><img src="media/logos/ncnn.svg" alt="NCNN logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">NCNN</span></li>
+          <li><img src="media/logos/opencv.svg" alt="OpenCV logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">OpenCV</span></li>
+          <li><img src="media/logos/numpy.svg" alt="NumPy logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">NumPy</span></li>
+          <li><img src="media/logos/flask.svg" alt="Flask logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">Flask</span></li>
+          <li><img src="media/logos/gpiozero.svg" alt="gpiozero logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">gpiozero</span></li>
+          <li><img src="media/logos/systemd.svg" alt="systemd logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">systemd</span></li>
+          <li><img src="media/logos/cloudflare.svg" alt="Cloudflare logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">Cloudflare</span></li>
+          <li><img src="media/logos/three-js.svg" alt="three.js logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">three.js</span></li>
+          <li><img src="media/logos/anime-js.svg" alt="anime.js logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">anime.js</span></li>
+          <li><img src="media/logos/javascript.svg" alt="JavaScript logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">JavaScript</span></li>
+          <li><img src="media/logos/blender.svg" alt="Blender logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">Blender</span></li>
+          <li><img src="media/logos/pytest.svg" alt="pytest logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">pytest</span></li>
+          <li><img src="media/logos/github-actions.svg" alt="GitHub Actions logo" width="32" height="32" loading="lazy" decoding="async"><span class="ig-name mono">GitHub Actions</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ───────── Privacy (static block, not part of the scroll-driven chapter sequence) ───────── -->
+    <section class="info-block" id="privacy" aria-labelledby="privacy-title">
+      <div class="copy">
+        <h2 class="ch-title" id="privacy-title">Privacy</h2>
+        <p class="ch-lead">Everything runs on the Pi. Nothing is recorded.</p>
+        <p class="ch-body">Detection, tracking, prediction and risk all run on the device, and the warnings never depend on an internet connection. Each frame is processed, sent to any open dashboard, and discarded &mdash; no video recording, no saved images. COOPER knows a person or a car is there, not who they are: it doesn&rsquo;t read faces or license plates.</p>
+        <p class="ch-body">By default the dashboard is reachable only from devices on the same network as the Pi. Making it reachable over HTTPS from anywhere is opt-in, sits behind Cloudflare Access so only approved email addresses can see it, and only passes video while someone is actually watching.</p>
+        <dl class="spec mono">
+          <div><dt>Stored</dt><dd>nothing, ever</dd></div>
+          <div><dt>Dashboard</dt><dd>same network, by default</dd></div>
+          <div><dt>Remote view</dt><dd>opt-in, behind login</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- ───────── Next (static block, not part of the scroll-driven chapter sequence) ───────── -->
+    <section class="info-block" id="next" aria-labelledby="next-title">
+      <div class="copy">
+        <h2 class="ch-title" id="next-title">Next</h2>
+        <p class="ch-lead">A rehearsal tool already proves the logic. The next step is real driving.</p>
+        <p class="ch-body">A synthetic road already tests COOPER end to end: a car cutting in, a pedestrian crossing, the car ahead braking, and a car in the next lane that must never light an LED. Next: validate against the Waymo Open Dataset, comparing COOPER&rsquo;s time-to-collision estimates against lidar ground truth; add a buzzer on the unit alongside the LEDs (the dashboard already beeps); detect the lane from road markings instead of calibrating it by hand; improve detection at night and in rain; and road-test the thresholds in real cars.</p>
+      </div>
+    </section>
+
+    <!-- ───────── 06 Gallery ───────── -->
+    <section class="chapter chapter-long" id="gallery" data-ch="6" aria-labelledby="gallery-title">
+      <div class="pin">
+        <div class="copy">
+          <p class="ch-num mono" aria-hidden="true">06</p>
+          <h2 class="ch-title" id="gallery-title">Gallery</h2>
+          <p class="ch-lead reveal-words">From the bench.</p>
+          <p class="ch-hint mono" id="gallery-hint">Drag or scroll to turn</p>
+        </div>
+        <!-- The media list. The 3D carousel is built from these items (data-src: the card texture;
+             data-full: the full image for the viewer); without WebGL they show as a grid.
+             Clicking a card fires "cooper:gallery-open" with its index in this list. See site/README.md. -->
+        <ul class="gallery" id="gallery-list">
+          <li data-src="media/gallery/demo-loop.mp4" data-full="media/gallery/demo.mp4" data-poster="media/gallery/demo-poster.jpg" data-kind="video" data-alt="COOPER's demo: detecting, predicting and warning on the road">COOPER in action</li>
+          <li data-src="media/gallery/01-cad-assembly-card.jpg" data-full="media/gallery/01-cad-assembly.jpg" data-alt="CAD render of COOPER: the Pi 5 case with the camera on its mount">The full design in CAD</li>
+          <li data-src="media/gallery/02-cad-camera-mount-card.jpg" data-full="media/gallery/02-cad-camera-mount.jpg" data-alt="CAD render of the OV5647 camera in its printed mount">CAD: the camera mount</li>
+          <li data-src="media/gallery/03-cad-pi-in-case-card.jpg" data-full="media/gallery/03-cad-pi-in-case.jpg" data-alt="CAD render of the Raspberry Pi 5 sitting in the open case">CAD: the Pi 5 in its case</li>
+          <li data-src="media/gallery/05-printed-case-open-card.jpg" data-full="media/gallery/05-printed-case-open.jpg" data-alt="The Raspberry Pi 5 with its cooler inside the 3D-printed case, lid beside it">The printed case, opened</li>
+          <li data-src="media/gallery/06-case-side-ports-card.jpg" data-full="media/gallery/06-case-side-ports.jpg" data-alt="Side of the printed case with openings for USB-C power and the two micro-HDMI ports">Cut-outs for power and HDMI</li>
+          <li data-src="media/gallery/07-case-front-ports-card.jpg" data-full="media/gallery/07-case-front-ports.jpg" data-alt="End of the printed case with openings for Ethernet and the four USB ports">Cut-outs for Ethernet and USB</li>
+          <li data-src="media/gallery/08-case-vents-card.jpg" data-full="media/gallery/08-case-vents.jpg" data-alt="Ventilation slots in the printed case">Vents over the Pi</li>
+          <li data-src="media/gallery/09-wiring-gpio-card.jpg" data-full="media/gallery/09-wiring-gpio.jpg" data-alt="The Pi 5 on the bench with jumper wires on its GPIO pins, next to the case and a breadboard">Wiring the GPIO</li>
+          <li data-src="media/gallery/10-camera-mounted-card.jpg" data-full="media/gallery/10-camera-mounted.jpg" data-alt="The assembled unit on the desk with the camera on its mount, powered on">Camera mounted, powered up</li>
+          <li data-src="media/gallery/11-test-danger-1-card.jpg" data-full="media/gallery/11-test-danger-1.jpg" data-alt="The dashboard on a monitor showing DANGER while a teammate stands in front of the camera">Testing: someone in the lane</li>
+          <li data-src="media/gallery/12-test-danger-2-card.jpg" data-full="media/gallery/12-test-danger-2.jpg" data-alt="A second live test: the dashboard shows DANGER for a person in the lane">Testing: red means now</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ───────── 07 Team + links ───────── -->
+    <section class="chapter chapter-end" id="team" data-ch="7" aria-labelledby="team-title">
+      <div class="pin">
+        <div class="copy">
+          <p class="ch-num mono" aria-hidden="true">07</p>
+          <h2 class="ch-title" id="team-title">Team</h2>
+          <p class="ch-lead reveal-words">Three people, built in parallel.</p>
+          <p class="ch-body reveal-words">Everything runs on a laptop with a webcam and mocked LEDs, so the software and the hardware never had to wait for each other.</p>
+          <ul class="team">
+            <li>
+              <span class="team-name">David Hernandez</span>
+              <span class="team-role mono">Backend</span>
+              <span class="team-what">Backend development including vision, tracking, and prediction.</span>
+              <div class="team-links">
+                <a class="team-link" href="https://www.linkedin.com/in/david-hernandez-del-risco" target="_blank" rel="noopener" aria-label="David Hernandez on LinkedIn">
+                  <svg class="team-link-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8.5V16M6 4.6v.01M10 16V8.5M10 11.5c0-1.66 1-3 2.75-3S16 9.84 16 11.5V16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                  <span>LinkedIn</span>
+                </a>
+                <button type="button" class="team-link team-link-discord" data-discord="davidd.hdr07" aria-label="Copy David Hernandez's Discord handle, davidd.hdr07">
+                  <svg class="team-link-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 6.2C6 5.3 7.7 4.8 9.5 4.8h1c1.8 0 3.5.5 5 1.4.9 2 1.4 4.3 1.2 6.7-1.3 1.1-2.9 1.8-4.6 2.1l-.5-1.1M4.5 6.2C3.6 8.2 3.1 10.5 3.3 12.9c1.3 1.1 2.9 1.8 4.6 2.1l.5-1.1M7.4 12.4c-.66 0-1.2-.63-1.2-1.4s.54-1.4 1.2-1.4 1.2.63 1.2 1.4-.54 1.4-1.2 1.4Zm5.2 0c-.66 0-1.2-.63-1.2-1.4s.54-1.4 1.2-1.4 1.2.63 1.2 1.4-.54 1.4-1.2 1.4Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span class="team-link-handle">davidd.hdr07</span>
+                </button>
+              </div>
+            </li>
+            <li>
+              <span class="team-name">Diego Avila</span>
+              <span class="team-role mono">CAD &amp; hardware</span>
+              <span class="team-what">CAD and hardware. Also put together and wired the finished project.</span>
+              <div class="team-links">
+                <a class="team-link" href="https://www.linkedin.com/in/diego-avila-8b474a383/" target="_blank" rel="noopener" aria-label="Diego Avila on LinkedIn">
+                  <svg class="team-link-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8.5V16M6 4.6v.01M10 16V8.5M10 11.5c0-1.66 1-3 2.75-3S16 9.84 16 11.5V16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                  <span>LinkedIn</span>
+                </a>
+                <button type="button" class="team-link team-link-discord" data-discord="dryed" aria-label="Copy Diego Avila's Discord handle, dryed">
+                  <svg class="team-link-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 6.2C6 5.3 7.7 4.8 9.5 4.8h1c1.8 0 3.5.5 5 1.4.9 2 1.4 4.3 1.2 6.7-1.3 1.1-2.9 1.8-4.6 2.1l-.5-1.1M4.5 6.2C3.6 8.2 3.1 10.5 3.3 12.9c1.3 1.1 2.9 1.8 4.6 2.1l.5-1.1M7.4 12.4c-.66 0-1.2-.63-1.2-1.4s.54-1.4 1.2-1.4 1.2.63 1.2 1.4-.54 1.4-1.2 1.4Zm5.2 0c-.66 0-1.2-.63-1.2-1.4s.54-1.4 1.2-1.4 1.2.63 1.2 1.4-.54 1.4-1.2 1.4Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span class="team-link-handle">dryed</span>
+                </button>
+              </div>
+            </li>
+            <li>
+              <span class="team-name">Diego Tabares</span>
+              <span class="team-role mono">Presentation &amp; design</span>
+              <span class="team-what">Presentation, pitch, and elements of website design.</span>
+              <div class="team-links">
+                <a class="team-link" href="https://www.linkedin.com/in/diegomtabares" target="_blank" rel="noopener" aria-label="Diego Tabares on LinkedIn">
+                  <svg class="team-link-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8.5V16M6 4.6v.01M10 16V8.5M10 11.5c0-1.66 1-3 2.75-3S16 9.84 16 11.5V16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                  <span>LinkedIn</span>
+                </a>
+                <button type="button" class="team-link team-link-discord" data-discord="egg0480" aria-label="Copy Diego Tabares's Discord handle, egg0480">
+                  <svg class="team-link-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 6.2C6 5.3 7.7 4.8 9.5 4.8h1c1.8 0 3.5.5 5 1.4.9 2 1.4 4.3 1.2 6.7-1.3 1.1-2.9 1.8-4.6 2.1l-.5-1.1M4.5 6.2C3.6 8.2 3.1 10.5 3.3 12.9c1.3 1.1 2.9 1.8 4.6 2.1l.5-1.1M7.4 12.4c-.66 0-1.2-.63-1.2-1.4s.54-1.4 1.2-1.4 1.2.63 1.2 1.4-.54 1.4-1.2 1.4Zm5.2 0c-.66 0-1.2-.63-1.2-1.4s.54-1.4 1.2-1.4 1.2.63 1.2 1.4-.54 1.4-1.2 1.4Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span class="team-link-handle">egg0480</span>
+                </button>
+              </div>
+            </li>
+          </ul>
+          <p class="team-copy-status" id="team-copy-status" role="status" aria-live="polite"></p>
+          <div class="links">
+            <a class="btn btn-lock" href="https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOPER">Read the code on GitHub</a>
+            <a class="btn" href="https://devpost.com/software/coop-l3s9ho" target="_blank" rel="noopener">Devpost page</a>
+          </div>
+        </div>
+        <footer class="footer mono">
+          <span>COOPER · ShellHacks 2026</span>
+          <span>MIT licensed · runs on a laptop with <code>--source webcam --no-leds</code></span>
+        </footer>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

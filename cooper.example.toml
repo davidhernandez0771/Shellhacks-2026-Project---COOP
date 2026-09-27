@@ -1,0 +1,63 @@
+# COOPER settings. Copy this file to cooper.toml (next to it, in the repo root) and change what
+# you need; delete the lines you don't change. cooper.toml is gitignored, so each machine
+# (the Pi, a laptop) keeps its own. Every value below is the built-in default.
+#
+# Precedence: cooper/config.py defaults < cooper.toml < command-line flags.
+# Use another file with:  python -m cooper.main --config path/to/file.toml
+# Unknown keys or wrong types stop COOPER at startup with an error naming the key.
+#
+# Live-tunable from the dashboard / POST /api/settings (and saved back here with
+# "save": true): conf, horizon_s, ttc_warn_s, ttc_clear_s, hold_s. The lane too, from the
+# dashboard's lane editor. Everything else needs a restart. docs/MATH.md explains the risk
+# and prediction settings.
+
+[risk]
+# "My lane": the road right in front of the car, as 4 corners in fractions of the frame
+# (0..1, origin top-left): x, y of top-left, top-right, bottom-right, bottom-left.
+lane = [0.44, 0.60, 0.56, 0.60, 0.79, 1.00, 0.21, 1.00]
+horizon_s = 1.5            # predict each object's path this far ahead (0.1..5)
+step_s = 0.1               # path sample spacing
+min_overlap = 0.2          # share of an object's bottom edge that must be inside the lane
+lane_margin = 0.25         # TTC corridor = lane extended to the horizon, widened by this share each side
+ttc_warn_s = 2.0           # time to contact below this: yellow...
+ttc_clear_s = 2.5          # ...until it's back above this (must be > ttc_warn_s)
+ttc_min_height_px = 24.0   # ignore TTC for smaller boxes (their scale rate is jitter)
+enter_frames = 2           # frames in a row before a level lights
+hold_s = 0.5               # a level stays lit this long after its condition ends
+
+[leds]
+enabled = true             # false = mock LEDs even on the Pi (same as --no-leds)
+yellow_pin = 17            # BCM GPIO. TODO: placeholder, confirm with the wiring
+red_pin = 27               # BCM GPIO. TODO: placeholder, confirm with the wiring
+
+[prediction]
+accel_std_px_s2 = 400.0         # how hard objects may accelerate in the image (u, v)
+height_accel_std_px_s2 = 150.0  # same for the box height
+meas_std_px = 3.0               # YOLO box jitter
+init_vel_std_px_s = 300.0       # a new track's velocity uncertainty
+lost_timeout_s = 0.5            # forget a track unseen this long
+min_hits = 3                    # measurements before a track's velocity is trusted (>= 2)
+growth_min_sigma = 2.0          # TTC only when h' exceeds this many of its standard deviations
+gate_sigma = 4.0                # a measurement this many std devs off the prediction is corrupt (occluded box): coast
+max_coast_s = 1.0               # ...for at most this long, then accept the new value
+
+[detector]
+conf = 0.4              # YOLO confidence threshold (0.05..0.95)
+model = "yolo11n.pt"    # after tools/bench_fps.py --export: e.g. "yolo11n_imgsz320_ncnn_model"
+imgsz = 320             # multiple of 32; an NCNN model must be run at the size it was exported at
+classes = [0, 2, 3, 5, 7]  # COCO ids: person, car, motorcycle, bus, truck
+
+[camera]
+source = "auto"         # "auto" (Pi camera, else webcam), "picamera" or "webcam"
+webcam_index = 0
+width = 640
+height = 480
+fps = 30
+hfov_deg = 63.0         # OV5647 3.6 mm lens: 75 deg diagonal = about 63 x 49 at 4:3
+vfov_deg = 49.0
+
+[stream]
+host = "0.0.0.0"
+port = 8000
+jpeg_quality = 70
+annotate = false        # burn boxes into /video (the dashboard draws its own)

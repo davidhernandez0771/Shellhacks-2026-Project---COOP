@@ -1,0 +1,36 @@
+name: tests
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: .github/requirements-ci.txt
+
+      # Minimal deps, not requirements.txt: ultralytics/torch and picamera2 are never
+      # installed, so any test that starts importing them fails here instead of silently
+      # making CI slow.
+      - name: Install test dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+
+      - name: Run pytest
+        run: python -m pytest -q

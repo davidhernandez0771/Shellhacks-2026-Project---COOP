@@ -1,0 +1,9 @@
+# Cloudflare Pages response headers (https://developers.cloudflare.com/pages/configuration/headers/).
+#
+# The site's JS and CSS keep fixed URLs between deploys (main.js?v=2, js/intro.js...), so the
+# default 4-hour browser cache served visitors a mix of old scripts and new HTML after each
+# deploy. "no-cache" still lets browsers keep the files, but makes them revalidate with the
+# ETag on every load: an unchanged file costs a tiny 304, and a new deploy shows up at once.
+# If the site moves to content-hashed filenames, those can get a long immutable cache instead.
+/*
+  Cache-Control: no-cache

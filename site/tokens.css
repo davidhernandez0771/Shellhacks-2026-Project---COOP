@@ -1,0 +1,112 @@
+/* COOP showcase tokens. Every color, font, size and timing the site uses lives here.
+   Identity (docs/DESIGN_DIRECTIONS.md): black, white and one orange. Orange means "lock". */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("fonts/archivo-var.woff2") format("woff2");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Martian Mono";
+  src: url("fonts/martian-mono-var.woff2") format("woff2");
+  font-weight: 100 800;
+  font-stretch: 75% 112.5%;
+  font-display: swap;
+}
+/* STIX Two is only used for the equation figure in chapter 03 (math convention: italic serif variables). */
+@font-face {
+  font-family: "STIX Two Text";
+  src: url("fonts/stix-two-text-latin-400-italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+2000-206F, U+2212;
+}
+@font-face {
+  font-family: "STIX Two Text";
+  src: url("fonts/stix-two-text-greek-400-italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0370-03FF;
+}
+@font-face {
+  font-family: "STIX Two Text";
+  src: url("fonts/stix-two-text-latin-400-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+2000-206F, U+2212;
+}
+@font-face {
+  font-family: "STIX Two Text";
+  src: url("fonts/stix-two-text-greek-400-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0370-03FF;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* color: black, white, orange. Greys are only tints of paper on ink. */
+  --ink: #060606;
+  --ink-2: #0E0E0D;            /* raised ink: sheets, menus */
+  --paper: #EEEDEA;
+  --paper-2: #9C9B98;          /* secondary text, 7:1 on ink */
+  --paper-3: #62615F;          /* ticks, dividers, never body text */
+  --line: rgba(238, 237, 234, 0.14);
+  --line-strong: rgba(238, 237, 234, 0.32);
+  --lock: #FF5A1F;             /* the one orange: lock, aim, active, primary action */
+  --lock-dim: rgba(255, 90, 31, 0.18);
+  --lock-glow: rgba(255, 90, 31, 0.45);
+  /* COOPER's two physical LEDs. Only the LED indicator (chapter 04), the lane and the
+     model's LEDs use them; everything else stays black, white and orange. The red is kept
+     deeper than --lock so the two never read as the same colour. */
+  --led-yellow: #FFC21A;
+  --led-red: #E5212B;
+  --scrim: rgba(6, 6, 6, 0.72);
+  --scrim-0: rgba(6, 6, 6, 0);
+
+  /* the same values as 0..1 RGB for WebGL (keep in sync with the hex above) */
+  --gl-paper: 0.933 0.929 0.918;
+  --gl-lock: 1.0 0.353 0.122;
+  --gl-led-yellow: 1.0 0.761 0.102;
+  --gl-led-red: 0.898 0.129 0.169;
+
+  /* type */
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Martian Mono", ui-monospace, Menlo, Consolas, monospace;
+  --font-math: "STIX Two Text", "Times New Roman", serif;
+  --stretch-display: 125%;     /* Archivo at its widest: the lens-shaped O's */
+  --stretch-body: 100%;
+  --stretch-mono: 87.5%;
+
+  /* type scale: perfect fourth from 16 px */
+  --step--1: 0.75rem;          /* 12 */
+  --step-0: 1rem;              /* 16 */
+  --step-1: 1.333rem;          /* 21 */
+  --step-2: 1.777rem;          /* 28 */
+  --step-3: 2.369rem;          /* 38 */
+  --step-4: 3.157rem;          /* 50 */
+  --step-5: 4.209rem;          /* 67 */
+  --mono-size: 0.6875rem;      /* 11: telemetry labels */
+
+  /* layout */
+  --gutter: clamp(16px, 4vw, 56px);
+  --measure: 34ch;
+  --measure-body: 58ch;
+  --nav-h: 52px;
+  --radius-pill: 999px;
+
+  /* motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 160ms;
+  --dur-med: 320ms;
+  --dur-slow: 700ms;
+}

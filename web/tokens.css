@@ -1,30 +1,69 @@
-/* COOP design tokens — the single source of color, radius, spacing and motion.
-   Nothing outside this file should hard-code a color. See docs/DESIGN_BRIEF.md. */
+/* COOPER dashboard tokens: the single source of color, type, spacing and motion.
+   Same identity as the showcase (site/tokens.css): black, white and one orange.
+   Orange means "active / needs you". The two LED colors are the only other hues: they
+   mirror the physical warning LEDs, so they're used only for the risk level (status, LED
+   lamps, and objects and paths at that level). Nothing outside this file hard-codes a color.
+   See docs/DESIGN_BRIEF.md. */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("fonts/archivo-var.woff2") format("woff2");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Martian Mono";
+  src: url("fonts/martian-mono-var.woff2") format("woff2");
+  font-weight: 100 800;
+  font-stretch: 75% 112.5%;
+  font-display: swap;
+}
+
 :root {
+  color-scheme: dark;
+
   /* color */
-  --bg-0: #0B0807;
-  --bg-glow: #2A130A;
-  --surface: rgba(255, 255, 255, 0.045);
-  --surface-strong: rgba(255, 255, 255, 0.075);
-  --surface-border: rgba(255, 255, 255, 0.09);
-  --surface-highlight: rgba(255, 255, 255, 0.08);
-  --text: #F4F0EC;
-  --text-muted: #8E837B;
-  --text-dim: #5C5450;
-  --accent: #35F0D0;
-  --accent-soft: rgba(53, 240, 208, 0.35);
-  --accent-wash: rgba(53, 240, 208, 0.12);
-  --warm: #FF9A2E;
-  --warm-wash: rgba(255, 154, 46, 0.14);
-  --danger: #FF5A5F;
-  --danger-wash: rgba(255, 90, 95, 0.14);
-  --muted-line: rgba(244, 240, 236, 0.35);
+  --ink: #060606;
+  --ink-2: #0E0E0D;              /* panels */
+  --ink-3: #161615;              /* pressed / hover fills */
+  --paper: #EEEDEA;
+  --paper-2: #9C9B98;            /* secondary text, 7:1 on ink */
+  --paper-3: #62615F;            /* ticks, disabled, never body text */
+  --line: rgba(238, 237, 234, 0.12);
+  --line-strong: rgba(238, 237, 234, 0.3);
+  --lock: #FF5A1F;
+  --lock-dim: rgba(255, 90, 31, 0.16);
+  --lock-line: rgba(255, 90, 31, 0.55);
+  --hazard: repeating-linear-gradient(-45deg, var(--lock) 0 5px, var(--ink) 5px 10px);
+
+  /* the physical LEDs: yellow = warning, red = danger */
+  --led-yellow: #FFC53D;
+  --led-yellow-dim: rgba(255, 197, 61, 0.16);
+  --led-red: #E8202A;
+  --led-red-dim: rgba(232, 32, 42, 0.2);
+  --led-off: #1E1E1C;
+
+  /* live feed */
+  --feed-bg: #000000;
+  --feed-grid: rgba(238, 237, 234, 0.06);
+  --feed-grid-strong: rgba(238, 237, 234, 0.16);
+  --feed-grid-label: rgba(238, 237, 234, 0.3);
+  --box-line: rgba(238, 237, 234, 0.7);
+  --halo: rgba(0, 0, 0, 0.7);
+  --scrim: rgba(6, 6, 6, 0.8);
+
+  /* type */
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Martian Mono", ui-monospace, Menlo, Consolas, monospace;
+  --stretch-display: 125%;
+  --stretch-mono: 87.5%;
 
   /* shape */
-  --radius-card: 26px;
-  --radius-sm: 14px;
+  --radius: 10px;
+  --radius-sm: 6px;
   --radius-pill: 999px;
-  --border-width: 1px;
 
   /* spacing */
   --space-1: 4px;
@@ -34,16 +73,8 @@
   --space-5: 20px;
   --space-6: 28px;
 
-  /* type */
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
-  --font-mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, Consolas, monospace;
-
   /* motion */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-fast: 150ms;
-  --dur-med: 250ms;
-  --dur-slow: 350ms;
-
-  /* blur */
-  --blur-card: 20px;
+  --dur-fast: 140ms;
+  --dur-med: 240ms;
 }

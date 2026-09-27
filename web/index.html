@@ -3,113 +3,137 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>COOP</title>
+  <meta name="theme-color" content="#060606">
+  <title>COOPER · live</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23060606'/%3E%3Cpath d='M6 12V6h6M26 12V6h-6M6 20v6h6M26 20v6h-6' fill='none' stroke='%23EEEDEA' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23FF5A1F'/%3E%3C/svg%3E">
+  <link rel="preload" href="fonts/archivo-var.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/martian-mono-var.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <h1 class="wordmark">COOP</h1>
-    <div class="topbar-status">
-      <span class="pill" id="live-pill"><span class="dot"></span><span class="label">CONNECTING</span></span>
-      <div class="mode-switch" role="group" aria-label="Mode">
-        <button type="button" data-mode="auto" class="active">Auto</button>
-        <button type="button" data-mode="manual">Manual</button>
-        <button type="button" data-mode="stop">Stop</button>
-      </div>
+  <header class="bar">
+    <h1 class="brand">COOPER</h1>
+    <span class="conn" id="conn" role="status"><i aria-hidden="true"></i><span class="label">Connecting</span></span>
+    <div class="status-pill" id="status-pill" data-level="clear" role="status" aria-live="polite">
+      <span class="lamps" aria-hidden="true"><i class="lamp y"></i><i class="lamp r"></i></span>
+      <span class="status-word" id="status-word">Clear</span>
     </div>
+    <button type="button" class="sound-btn mono" id="sound-btn" aria-pressed="false" title="Beep with the LEDs (S)">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path class="spk" d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/><path class="mute" d="M16 9l6 6M22 9l-6 6"/></svg>
+      <span id="sound-label">Sound off</span>
+    </button>
   </header>
 
-  <main class="layout">
-    <section class="card hero">
-      <div class="hero-frame" id="hero-frame">
-        <img class="feed" id="feed-img" src="/video" alt="Live camera feed" hidden>
-        <canvas class="feed-mock" id="feed-mock-canvas" hidden></canvas>
-        <div class="no-signal" id="no-signal" hidden>No signal</div>
-        <svg class="overlay" id="overlay-svg" viewBox="0 0 640 480" preserveAspectRatio="none"></svg>
-        <span class="pill state-mock mock-badge" id="mock-badge" hidden><span class="dot"></span><span class="label">MOCK FEED</span></span>
-      </div>
+  <div class="banner" id="banner" role="status" hidden>
+    <i class="banner-mark" aria-hidden="true"></i>
+    <div class="banner-text">
+      <strong id="banner-title"></strong>
+      <span id="banner-detail"></span>
+    </div>
+    <button type="button" class="banner-action" id="banner-action" hidden></button>
+  </div>
 
-      <div class="dpad-wrap" id="dpad-wrap" hidden>
-        <div class="dpad">
-          <button type="button" class="up" id="dpad-up" aria-label="Tilt up">&#9650;</button>
-          <button type="button" class="left" id="dpad-left" aria-label="Pan left">&#9664;</button>
-          <button type="button" class="home" id="dpad-home" aria-label="Home">&#8982;</button>
-          <button type="button" class="right" id="dpad-right" aria-label="Pan right">&#9654;</button>
-          <button type="button" class="down" id="dpad-down" aria-label="Tilt down">&#9660;</button>
+  <main class="grid">
+    <section class="feed-col" aria-label="Live feed">
+      <div class="feed" id="feed">
+        <img class="feed-img" id="feed-img" alt="Live dashcam feed" hidden>
+        <canvas class="overlay" id="overlay" aria-label="Detections, predicted paths and the lane"></canvas>
+        <div class="feed-state" id="feed-state" hidden>
+          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 16V8h8M40 16V8h-8M8 32v8h8M40 32v8h-8"/><circle cx="24" cy="24" r="7"/><path d="M14 34 34 14"/></svg>
+          <strong id="feed-state-title">No camera</strong>
+          <span id="feed-state-detail"></span>
         </div>
+        <span class="feed-tag mono" id="feed-tag" hidden>Mock feed</span>
+        <span class="edit-tag mono" id="edit-tag" hidden>Editing lane · drag the corners</span>
+        <button type="button" class="fs-btn" id="fs-btn" aria-label="Fullscreen (F)" title="Fullscreen (F)">
+          <svg id="fs-enter" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+          <svg id="fs-exit" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" hidden><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+        </button>
       </div>
+      <div class="legend mono" id="legend">
+        <span><svg viewBox="0 0 24 10" width="24" height="10" aria-hidden="true"><path class="lg-lane" d="M1 9 L7 1 H17 L23 9 Z"/></svg>My lane</span>
+        <span><svg viewBox="0 0 28 10" width="28" height="10" aria-hidden="true"><path class="lg-path" d="M1 8 C 9 8, 16 5, 24 2"/><circle class="lg-end" cx="24.5" cy="2.5" r="2"/></svg>Predicted path (1.5 s)</span>
+        <span><i class="sw sw-y" aria-hidden="true"></i>Heading into the lane</span>
+        <span><i class="sw sw-r" aria-hidden="true"></i>In the lane</span>
+      </div>
+      <dl class="diag mono" id="diag" aria-label="Diagnostics">
+        <div data-k="cpu"><dt>CPU</dt><dd>–</dd></div>
+        <div data-k="throttled"><dt>Power</dt><dd>–</dd></div>
+        <div data-k="fps"><dt>Vision</dt><dd>–</dd></div>
+        <div data-k="capture"><dt>Camera</dt><dd>–</dd></div>
+        <div data-k="infer"><dt>Inference</dt><dd>–</dd></div>
+        <div data-k="latency"><dt>Latency</dt><dd>–</dd></div>
+        <div data-k="leds"><dt>LEDs</dt><dd>–</dd></div>
+        <div data-k="uptime"><dt>Uptime</dt><dd>–</dd></div>
+      </dl>
     </section>
 
     <aside class="rail">
-      <section class="card">
-        <h2 class="card-title">Target</h2>
-        <div class="target-head">
-          <span class="target-label" id="target-label" hidden></span>
-          <span class="target-empty" id="target-empty">No target</span>
-          <span class="pill" id="target-lock-pill">AUTO</span>
+      <section class="panel risk-panel" id="risk-panel" data-level="clear" aria-labelledby="risk-h">
+        <div class="panel-head">
+          <h2 id="risk-h">Risk</h2>
+          <span class="chip mono" id="leds-chip">LEDs</span>
         </div>
-        <div id="target-stats" hidden>
-          <div class="stat-row">
-            <span class="k">Confidence</span>
-            <span class="v"><span class="dot-meter" id="conf-meter"></span> <span id="conf-num" class="tabular"></span></span>
-          </div>
-          <div class="stat-row">
-            <span class="k">Velocity</span>
-            <span class="v tabular" id="vel-num">–</span>
-          </div>
-        </div>
-        <button type="button" class="btn" id="lock-btn" disabled>No target</button>
-      </section>
-
-      <section class="card">
-        <h2 class="card-title">Gimbal</h2>
-        <div class="dial-wrap">
-          <svg id="dial-svg" viewBox="0 0 200 130" width="100%">
-            <path id="dial-track" fill="none" stroke="var(--surface-border)" stroke-width="10" stroke-linecap="round"></path>
-            <path id="dial-target-tick" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" opacity="0.85"></path>
-            <line id="dial-needle" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"></line>
-            <circle id="dial-pivot" cx="100" cy="110" r="3" fill="var(--text-muted)"></circle>
-            <circle id="dial-needle-dot" r="5" fill="var(--accent)"></circle>
-            <text id="dial-min-label" x="6" y="126" class="mono"></text>
-            <text id="dial-max-label" x="194" y="126" text-anchor="end" class="mono"></text>
-          </svg>
-          <div class="dial-readout">
-            <div class="item">
-              <div class="num tabular" id="pan-current-num">0.0°</div>
-              <div class="lbl">Pan</div>
-            </div>
-            <div class="item">
-              <div class="num tabular" id="pan-target-num">0.0°</div>
-              <div class="lbl">Target</div>
-            </div>
-            <div class="item" id="tilt-readout" hidden>
-              <div class="num tabular" id="tilt-num">0.0°</div>
-              <div class="lbl">Tilt</div>
-            </div>
-          </div>
-          <div class="tilt-note" id="tilt-note">Tilt fixed</div>
-        </div>
-        <div class="motors-chip">
-          <span class="pill" id="motors-chip"><span class="dot"></span><span class="label">Motors</span></span>
+        <div class="risk-word" id="risk-word">Clear</div>
+        <p class="risk-reason" id="risk-reason">Nothing in or heading into your lane.</p>
+        <div class="led-row">
+          <div class="led" id="led-y"><i class="lamp y" aria-hidden="true"></i><span><b>Yellow</b><em class="mono">Warning</em></span></div>
+          <div class="led" id="led-r"><i class="lamp r" aria-hidden="true"></i><span><b>Red</b><em class="mono">Danger</em></span></div>
         </div>
       </section>
 
-      <section class="card">
-        <h2 class="card-title">Detections</h2>
-        <div class="det-list" id="det-list">
-          <div class="empty-note">Nothing in view</div>
+      <section class="panel" aria-labelledby="lane-h">
+        <div class="panel-head">
+          <h2 id="lane-h">My lane</h2>
+          <span class="chip mono" id="lane-chip">Live</span>
+        </div>
+        <p class="lane-hint" id="lane-hint">The road right in front of the car. Something whose bottom edge is inside it is danger; a predicted path into it is a warning.</p>
+        <div class="lane-actions" id="lane-idle">
+          <button type="button" class="btn is-primary" id="lane-edit">Edit lane</button>
+        </div>
+        <div class="lane-actions" id="lane-editing" hidden>
+          <button type="button" class="btn is-primary" id="lane-apply">Apply</button>
+          <button type="button" class="btn" id="lane-save">Apply and save</button>
+          <button type="button" class="btn" id="lane-reset">Reset</button>
+          <button type="button" class="btn" id="lane-cancel">Cancel</button>
         </div>
       </section>
 
-      <section class="card">
-        <h2 class="card-title">Event log</h2>
-        <div class="event-list" id="event-list"></div>
+      <section class="panel" aria-labelledby="det-h">
+        <div class="panel-head"><h2 id="det-h">In view</h2><span class="count mono" id="det-count">0</span></div>
+        <div class="det-list" id="det-list"></div>
       </section>
+
+      <section class="panel" aria-labelledby="log-h">
+        <div class="panel-head"><h2 id="log-h">Event log</h2></div>
+        <ol class="log" id="log"></ol>
+      </section>
+
+      <details class="panel tuning" id="tuning">
+        <summary><h2>Tuning</h2><span class="mono" id="tuning-state">Live settings</span></summary>
+        <form id="tuning-form" novalidate>
+          <label><span>Confidence</span><input type="range" name="conf" step="0.01"><output class="mono"></output></label>
+          <label><span>Horizon</span><input type="range" name="horizon_s" step="0.1"><output class="mono"></output></label>
+          <label><span>TTC warn</span><input type="range" name="ttc_warn_s" step="0.1"><output class="mono"></output></label>
+          <label><span>TTC clear</span><input type="range" name="ttc_clear_s" step="0.1"><output class="mono"></output></label>
+          <label><span>Hold</span><input type="range" name="hold_s" step="0.05"><output class="mono"></output></label>
+          <div class="tuning-actions">
+            <button type="button" class="btn" id="tuning-apply">Apply</button>
+            <button type="button" class="btn" id="tuning-save">Apply and save</button>
+          </div>
+          <p class="tuning-msg mono" id="tuning-msg" role="status"></p>
+        </form>
+      </details>
     </aside>
   </main>
 
-  <p class="footer-note">COOP · Pi 5 tracking camera</p>
+  <footer class="foot mono">
+    <span class="keys"><kbd>L</kbd> edit lane &nbsp; <kbd>Esc</kbd> cancel &nbsp; <kbd>F</kbd> fullscreen &nbsp; <kbd>S</kbd> sound</span>
+    <span id="source-note">COOPER · Pi 5 dashcam</span>
+  </footer>
+
+  <div class="toast" id="toast" role="alert" hidden></div>
 
   <script src="mock.js"></script>
   <script src="app.js"></script>

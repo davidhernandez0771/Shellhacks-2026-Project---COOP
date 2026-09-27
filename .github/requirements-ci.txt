@@ -1,0 +1,7 @@
+# Only what the pytest suite imports. The suite never loads ultralytics/torch or
+# picamera2 (both are imported lazily inside functions the tests don't call), so CI
+# skips the multi-GB install. Headless OpenCV avoids needing libGL on the runner.
+flask>=3.0
+numpy
+opencv-python-headless
+pytest>=8.0
