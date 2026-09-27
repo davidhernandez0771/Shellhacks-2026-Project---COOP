@@ -32,15 +32,22 @@ export function createGate() {
     dots.push(c);
   }
 
-  let target = 0, shown = 0, raf = 0;
+  let target = 0, shown = 0, raf = 0, last = 0;
   const reduce = root.classList.contains("still");
-  function tick() {
-    shown += (target - shown) * (reduce ? 1 : 0.12);
+  // Converge at a fixed rate per elapsed *time*, not per animation frame: a fixed
+  // fraction-per-tick (the old behaviour) makes the ring's wall-clock fill time scale
+  // with however slow the main thread is making requestAnimationFrame fire, so a busy
+  // page (importing three.js, compiling shaders) visibly stretches the loader.
+  const LAMBDA = 14; // 1/s; ~99.999% converged in ~0.8s regardless of frame rate
+  function tick(now) {
+    const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
+    last = now;
+    shown += (target - shown) * (reduce ? 1 : 1 - Math.exp(-LAMBDA * dt));
     if (Math.abs(target - shown) < 0.002) shown = target;
     const on = Math.round(shown * DOTS);
     dots.forEach((d, i) => d.classList.toggle("on", i < on));
     pctEl.textContent = String(Math.round(shown * 100)).padStart(3, "0");
-    raf = shown < target ? requestAnimationFrame(tick) : 0;
+    raf = shown < target ? requestAnimationFrame(tick) : (last = 0);
   }
 
   return {

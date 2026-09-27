@@ -57,7 +57,21 @@ Largest transferred files (unchanged across configs, same HTML/JS/fonts/vendor):
 
 ## Fixes
 
-(filled in below as each is measured)
+### 1. Loader ring: converge per elapsed time, not per animation frame
+
+`js/gate.js`'s ring advanced `shown += (target - shown) * 0.12` once per
+`requestAnimationFrame` callback. That is a fixed fraction *per tick*, so its wall-clock
+fill time is proportional to how often rAF actually fires — on a busy main thread (module
+imports, shader compile under `stage.warm()`, font layout) a real machine can see rAF at a
+fraction of 60 Hz, and the ring visibly crawls even after loading has actually finished.
+Changed to a fixed fraction per elapsed *second* (`1 - exp(-14·dt)`, ~0.8 s to converge
+regardless of frame rate).
+
+| Config | Loader end before | Loader end after |
+|---|---|---|
+| WebGL, DPR 2 | 2.8 s | 2.0 s |
+
+Scroll performance is unaffected (this only touches the pre-"Enter" gate), as expected.
 
 ## Performance rules
 
