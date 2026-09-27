@@ -32,6 +32,14 @@ document.querySelectorAll(".team-link-discord[data-discord]").forEach((btn) => {
   });
 });
 
+// Hero CTAs: progressively enhance the two plain links with their press/hover mechanics.
+Promise.all([import("./js/fx/tactile-button.js"), import("./js/fx/scan-grid-button.js")]).then(([tactile, scangrid]) => {
+  const how = document.getElementById("cta-how");
+  const gh = document.getElementById("cta-github");
+  if (how) tactile.createTactileButton(how, { reducedMotion: still });
+  if (gh) scangrid.createScanGridButton(gh, { reducedMotion: still });
+});
+
 // Without WebGL the gallery list is shown as a grid: give its items their media.
 if (!webgl) {
   document.querySelectorAll("#gallery-list > li[data-src]").forEach((li) => {
@@ -52,6 +60,15 @@ async function boot() {
   const gate = createGate();
   if (gated) root.classList.add("is-gated");
   else gate.close();
+
+  // The hero title: the Vector Wordmark, WebGL only (the plain "COOPER" text is the fallback
+  // everywhere else, see styles.css).
+  if (webgl) {
+    import("./js/fx/vector-wordmark.js").then(({ createVectorWordmark }) => {
+      const host = document.getElementById("vector-wordmark-host");
+      if (host) createVectorWordmark(host, { text: "COOPER", textColor: "#EEEDEA", shade: "#9C9B98", accent: "#FF5A1F", reducedMotion: still });
+    });
+  }
 
   gate.progress(0.04, "Acquiring");
   const fonts = Promise.all([

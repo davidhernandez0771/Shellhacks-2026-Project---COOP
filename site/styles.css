@@ -356,13 +356,6 @@ main { position: relative; z-index: 1; }
 /* ───────────────────────── intro ───────────────────────── */
 .intro .pin { align-content: center; }
 .intro-lockup { display: grid; justify-items: start; }
-.intro-expansion {
-  min-height: 1.3em;
-  margin: 0 0 clamp(22px, 3.2vw, 46px) 0.4vw;
-  color: var(--paper-2);
-  font-size: clamp(10px, 0.9vw, 12px);
-}
-.intro-expansion b { color: var(--paper); font-weight: 500; }
 .intro-word {
   position: relative;
   margin: 0;
@@ -373,10 +366,20 @@ main { position: relative; z-index: 1; }
   line-height: 0.8;
   letter-spacing: -0.04em;
 }
-.intro-letters { display: inline-flex; }
-.intro-letters span { display: inline-block; text-align: center; }
-.intro-letters.is-scrambling span { color: var(--paper-2); }
-.intro-letters span.is-set { color: var(--paper); }
+/* the plain text is the no-JS/no-WebGL wordmark; JS+WebGL hides it in favour of the
+   Vector Wordmark canvas (js/fx/vector-wordmark.js), which overlays the same box so the
+   layout and font sizing never shift between the two. */
+.intro-word-text { display: inline-block; }
+html.js:not(.no-webgl) .intro-word-text { visibility: hidden; }
+.vector-wordmark-host {
+  display: none;
+  position: absolute;
+  inset: -0.08em -0.06em;
+  opacity: 0;
+  transition: opacity var(--dur-slow) var(--ease-out);
+}
+html.js:not(.no-webgl) .vector-wordmark-host { display: block; }
+html.still .vector-wordmark-host { opacity: 1; transition: none; }
 /* acquisition brackets around the word */
 .brackets { position: absolute; inset: -0.08em -0.1em -0.02em -0.1em; pointer-events: none; }
 .brackets i {
@@ -405,7 +408,9 @@ main { position: relative; z-index: 1; }
   margin: 22px 0 0 0.4vw;
   color: var(--paper-2);
 }
-html.js:not(.still):not(.boot-failed) .intro-lede { opacity: 0; }
+.intro-ctas { display: flex; flex-wrap: wrap; gap: 14px; margin: 30px 0 0 0.4vw; }
+html.js:not(.still):not(.boot-failed) .intro-lede,
+html.js:not(.still):not(.boot-failed) .intro-ctas { opacity: 0; }
 .scroll-cue {
   position: absolute;
   left: var(--gutter);

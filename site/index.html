@@ -16,6 +16,8 @@
   <link rel="preload" href="fonts/martian-mono-var.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="tokens.css?v=2">
   <link rel="stylesheet" href="styles.css?v=2">
+  <link rel="stylesheet" href="js/fx/tactile-button.css">
+  <link rel="stylesheet" href="js/fx/scan-grid-button.css">
   <script>
     // Runs before first paint: pick the experience tier so CSS never flashes the wrong one.
     (function () {
@@ -99,15 +101,19 @@
     <section class="chapter intro" id="top" data-ch="0" aria-labelledby="intro-title">
       <div class="pin">
         <div class="intro-lockup">
-          <p class="intro-expansion mono" id="intro-expansion" aria-hidden="true"></p>
           <h1 class="intro-word" id="intro-title" aria-label="COOPER">
             <span class="brackets" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-            <span class="intro-letters" id="intro-letters" aria-hidden="true"><span>C</span><span>O</span><span>O</span><span>P</span><span>E</span><span>R</span></span>
+            <span class="intro-word-text" id="intro-word-text" aria-hidden="true">COOPER</span>
+            <!-- JS + WebGL only: the Vector Wordmark canvas overlays intro-word-text (site/js/fx/vector-wordmark.js) -->
+            <div class="vector-wordmark-host" id="vector-wordmark-host" aria-hidden="true"></div>
           </h1>
           <p class="intro-readout" id="intro-readout" aria-hidden="true"></p>
-          <!-- ✏️ PLACEHOLDER: the story behind the name COOPER (also NAME / NAME_HTML in js/intro.js) -->
           <p class="sr-only">COOPER: the dashcam that sees it coming.</p>
           <p class="intro-lede" id="intro-lede">A Raspberry Pi&nbsp;5 dashcam that spots people and vehicles, predicts where each one is heading, and lights a warning before one of them enters your lane.</p>
+          <div class="intro-ctas" id="intro-ctas">
+            <a class="cta-tactile" id="cta-how" href="#see">SEE HOW IT WORKS</a>
+            <a class="cta-scangrid" id="cta-github" href="https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOPER" target="_blank" rel="noopener">VIEW ON GITHUB</a>
+          </div>
         </div>
         <p class="scroll-cue mono" id="scroll-cue"><span>Scroll to see</span><i aria-hidden="true"></i></p>
       </div>
