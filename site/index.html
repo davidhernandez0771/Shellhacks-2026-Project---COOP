@@ -113,6 +113,21 @@
       </div>
     </section>
 
+    <!-- ───────── Problem (static block, not part of the scroll-driven chapter sequence) ───────── -->
+    <section class="info-block" id="problem" aria-labelledby="problem-title">
+      <div class="copy">
+        <h2 class="ch-title" id="problem-title">Problem</h2>
+        <p class="ch-lead">Forward-collision warning is standard on new cars. Millions of older ones have none.</p>
+        <p class="ch-body">Rear-end and pedestrian collisions often come down to a second or two of inattention. Getting that warning usually means buying a newer car or paying for an aftermarket system that may need professional installation. COOPER closes that gap: a Raspberry&nbsp;Pi, a camera and two LEDs that watch the road and warn the driver before a collision, for <!-- ✏️ PLACEHOLDER: cost comparison (COOPER's total parts cost vs. a newer car vs. an aftermarket system) --><span data-placeholder="cost-comparison">far less than either costs</span>. It plugs into the car&rsquo;s power and mounts on the windshield or dash, with no wiring into the car&rsquo;s systems.</p>
+        <p class="ch-body">It doesn&rsquo;t drive, brake or steer, and it doesn&rsquo;t record footage &mdash; it&rsquo;s a warning light, not a replacement for an attentive driver.</p>
+        <dl class="spec mono">
+          <div><dt>Detects</dt><dd>people &amp; vehicles ahead</dd></div>
+          <div><dt>Predicts</dt><dd>collision risk, live</dd></div>
+          <div><dt>Runs</dt><dd>on-device, no internet needed</dd></div>
+        </dl>
+      </div>
+    </section>
+
     <!-- ───────── 01 See ───────── -->
     <section class="chapter" id="see" data-ch="1" aria-labelledby="see-title">
       <div class="pin">
@@ -228,7 +243,7 @@
           <p class="ch-num mono" aria-hidden="true">05</p>
           <h2 class="ch-title" id="build-title">Build</h2>
           <p class="ch-lead reveal-words">One board, one camera, two lights.</p>
-          <p class="ch-body reveal-words">The Pi&nbsp;5 does all of it on its CPU: detection, tracking, prediction, the lane check and the video stream. The two LEDs sit on its GPIO pins, and the car powers everything. Nothing moves.</p>
+          <p class="ch-body reveal-words">The Pi&nbsp;5 does all of it on its CPU: detection, tracking, prediction, the lane check and the video stream. The two LEDs sit on its GPIO pins, and the car powers everything. Nothing moves &mdash; COOPER started as COOP, a motorized tracking camera, and we removed the motor to point the same vision and prediction pipeline at collision warning instead.</p>
           <!-- The 3D exploded rig is a placeholder model (see models/README.md). Each data-part key
                only chooses which placeholder solid the label is drawn next to. -->
           <ul class="parts mono" id="parts">
@@ -240,6 +255,30 @@
             <li data-part="power"><span>Car power</span><span>12&nbsp;V socket to 5&nbsp;V</span></li>
           </ul>
         </div>
+      </div>
+    </section>
+
+    <!-- ───────── Privacy (static block, not part of the scroll-driven chapter sequence) ───────── -->
+    <section class="info-block" id="privacy" aria-labelledby="privacy-title">
+      <div class="copy">
+        <h2 class="ch-title" id="privacy-title">Privacy</h2>
+        <p class="ch-lead">Everything runs on the Pi. Nothing is recorded.</p>
+        <p class="ch-body">Detection, tracking, prediction and risk all run on the device, and the warnings never depend on an internet connection. Each frame is processed, sent to any open dashboard, and discarded &mdash; no video recording, no saved images. COOPER knows a person or a car is there, not who they are: it doesn&rsquo;t read faces or license plates.</p>
+        <p class="ch-body">By default the dashboard is reachable only from devices on the same network as the Pi. Making it reachable over HTTPS from anywhere is opt-in, sits behind Cloudflare Access so only approved email addresses can see it, and only passes video while someone is actually watching.</p>
+        <dl class="spec mono">
+          <div><dt>Stored</dt><dd>nothing, ever</dd></div>
+          <div><dt>Dashboard</dt><dd>same network, by default</dd></div>
+          <div><dt>Remote view</dt><dd>opt-in, behind login</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- ───────── Next (static block, not part of the scroll-driven chapter sequence) ───────── -->
+    <section class="info-block" id="next" aria-labelledby="next-title">
+      <div class="copy">
+        <h2 class="ch-title" id="next-title">Next</h2>
+        <p class="ch-lead">A rehearsal tool already proves the logic. The next step is real driving.</p>
+        <p class="ch-body">A synthetic road already tests COOPER end to end: a car cutting in, a pedestrian crossing, the car ahead braking, and a car in the next lane that must never light an LED. Next: validate against the Waymo Open Dataset, comparing COOPER&rsquo;s time-to-collision estimates against lidar ground truth; add an audible warning alongside the LEDs; detect the lane from road markings instead of calibrating it by hand; improve detection at night and in rain; and road-test the thresholds in real cars.</p>
       </div>
     </section>
 
@@ -276,19 +315,23 @@
         <div class="copy">
           <p class="ch-num mono" aria-hidden="true">07</p>
           <h2 class="ch-title" id="team-title">Team</h2>
-          <p class="ch-lead reveal-words">Two people, built in parallel.</p>
+          <p class="ch-lead reveal-words">Three people, built in parallel.</p>
           <p class="ch-body reveal-words">Everything runs on a laptop with a webcam and mocked LEDs, so the software and the hardware never had to wait for each other.</p>
           <ul class="team">
             <li>
-              <span class="team-name">David Hernandez</span>
+              <span class="team-name">David Hernandez Del Risco</span>
               <span class="team-role mono">Software</span>
-              <span class="team-what">Vision, tracking, prediction, the lane risk check and the dashboard.</span>
+              <span class="team-what">Vision, tracking, prediction, the lane risk check, the site's first design, and the dashboard's backend.</span>
             </li>
             <li>
-              <!-- ✏️ PLACEHOLDER: teammate's name and a one-line description -->
-              <span class="team-name" data-placeholder="teammate-name">Teammate name</span>
+              <span class="team-name">Diego Taberas</span>
+              <span class="team-role mono">Presentation &amp; story</span>
+              <span class="team-what">The pitch, the story of how COOPER came alive, and part of the site's design.</span>
+            </li>
+            <li>
+              <span class="team-name">Diego Avila</span>
               <span class="team-role mono">Design &amp; hardware</span>
-              <span class="team-what" data-placeholder="teammate-what">✏️ One line about what they built.</span>
+              <span class="team-what">Main designer and 3D CAD (Fusion 360), and wired all the hardware together.</span>
             </li>
           </ul>
           <div class="links">
