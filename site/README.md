@@ -1,6 +1,6 @@
 # COOPER showcase site
 
-A cinematic one-page site for COOPER, a fixed, car-mounted Raspberry Pi 5 dashcam that predicts every road user's path and lights a yellow or red LED before something enters your lane. A loader, the "COOPER" decode intro, and seven chapters (See, Detect, Predict, Warn, Build, Gallery, Team) played out in one persistent WebGL scene that scroll drives. Design rationale: `docs/DESIGN_DIRECTIONS.md`.
+A cinematic one-page site for COOPER, a fixed, car-mounted Raspberry Pi 5 dashcam that predicts every road user's path and lights a yellow or red LED before something enters your lane. Live at [coop.davidhernandez.work](https://coop.davidhernandez.work). An intro (a field of glyphs forms "COOPER", then hands off to the hero title), and seven chapters (See, Detect, Predict, Warn, Build, Gallery, Team) played out in one persistent WebGL scene that scroll drives. Design rationale: `docs/DESIGN_DIRECTIONS.md`.
 
 **No build step.** Plain HTML, CSS and native ES modules. three.js and anime.js are vendored in `vendor/` and mapped with an import map in `index.html`, and the fonts are self-hosted in `fonts/`, so the page makes no third-party requests and deploys as-is.
 
@@ -63,18 +63,19 @@ The CAD files stay out of the repo. The script prints each part's triangle count
 ## How it's put together
 | File | Role |
 |---|---|
-| `main.js` | boot: loads fonts → anime.js → three.js + scene behind the gate, then the intro |
-| `js/gate.js` | the dotted progress ring and the Enter prompt |
-| `js/intro.js` | the scrambleText timeline (COOPER → name line → tagline) |
+| `main.js` | boot: loads fonts → anime.js → three.js + scene behind the gate, mounts the hero fx, then the intro |
+| `js/gate.js` | the intro: a field of glyphs (`js/fx/morphing-glyph-cloud.js`) forms "COOPER", holds, then hands off. No Enter button; skippable by a click or a key; once per `sessionStorage`; skipped entirely under reduced motion or on a repeat visit (`gate.alreadySeen`) |
+| `js/intro.js` | the acquisition-bracket timeline around the hero title, then the tagline scramble |
 | `js/chapters.js` | anime.js `onScroll` per chapter, word reveals, nav, chapter scrubber, frame counter, the Warn LEDs |
 | `js/cursor.js` | the desktop cursor (ring → lock brackets on links, "Drag" in the gallery) |
 | `js/stage/world.js` | the street as data: people, cars, sampled point clouds (no three.js) |
 | `js/stage/director.js` | chapter keyframes: camera and what's visible; the scene's warning level; the HUD chapter names |
-| `js/stage/points.js` | the point cloud shader (one draw call; motion computed on the GPU) |
+| `js/stage/points.js` | the point cloud shader (one draw call; motion, size falloff and depth colour computed on the GPU) |
 | `js/stage/overlay.js` | detection brackets, leader-line labels, velocity vector, predicted path point, "my lane", the Build labels |
 | `js/stage/solids.js` | COOPER's 3D model (lazy .glb, box stand-in), its exploded view and lit LEDs, the view frustum |
 | `js/stage/carousel.js` | the gallery ring |
 | `js/stage/fallback2d.js` | the no-WebGL renderer |
+| `js/fx/*.js` + matching `.css` | ten small, self-contained components, each lazy-mounted from `main.js` once its section nears the viewport (except the two hero ones, mounted at boot) and gated on WebGL, an `IntersectionObserver` and `document.hidden`: `vector-wordmark` (the hero title), `particle-gimbal` (the small orb by the title), `morphing-glyph-cloud` (the intro), `tactile-button` / `scan-grid-button` (the two hero CTAs), `neon-border` (frames the Warn chapter's LED readout), `predictive-arc` (the Predict chapter's background), `mask-text-reveal` (every `.ch-title`), `dither-reveal` (the pipeline diagram in Build), `interactive-grid` (the Built-with tile grid, `media/logos/*.svg`) |
 | `tokens.css` | every color, font and timing |
 
 Numbers in the copy are real where they describe COOPER (FOV, frame size, the 1.5 s horizon and 0.1 s path steps, the 2 s time-to-contact warning, two frames to light and 0.5 s hold; see `cooper/config.py` on the dashcam branch). The scene is an illustration, not live data: the detection confidences, figures, frame counter, "my lane" (a 1.6 m × 5.5 m strip ahead of the unit) and the `PATH · t + 1.6 s` tag (drawn further ahead than the real horizon so it's visible) are all made up.

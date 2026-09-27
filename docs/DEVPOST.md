@@ -10,7 +10,7 @@ Copy each section into the matching Devpost field. This file is kept up to date 
 ```
 COOPER
 ```
-✏️ _The story behind the name, and a tagline for the video and pitch, are yours to write._
+✏️ _A tagline for the video and pitch is yours to write._
 
 ## Elevator pitch
 _(max 200 characters, currently 167)_
@@ -69,7 +69,7 @@ drops below 2.0 s while it's in the lane's corridor (released above 2.5 s). Hyst
 
 **Deployment.** A systemd unit runs COOPER as soon as the car powers the Pi and restarts it if it crashes. A second unit runs a **Cloudflare Tunnel**, which publishes the dashboard at an HTTPS subdomain through an outbound-only connection, so it works behind any NAT (a phone hotspot included) with no port forwarding. **Cloudflare Access** sits in front: only approved email addresses (one-time PIN login) can see the camera.
 
-**Showcase site.** The public page tells the story in scroll-driven chapters in one persistent three.js scene: a street of people and cars made of ~20,000 points. anime.js v4 drives the intro, the scroll timelines and the labels. The dashcam in it is our real CAD: a Blender script turns the Fusion 360 assembly into a 281 KB glTF with one node per part, so the Build chapter pulls apart the actual lid, LEDs, Pi, camera mount and camera module, and in the Warn chapter the model's two LEDs light with the scene's warning level. It has no build step (native ES modules, vendored libraries, self-hosted fonts), a still version for reduced motion, and a 2D-canvas fallback for browsers without WebGL.
+**Showcase site.** The public page tells the story in scroll-driven chapters in one persistent three.js scene: a street of people and cars made of ~20,000 points, each one a soft round sprite with a size and colour that shift with depth. anime.js v4 drives the intro, the scroll timelines and the labels. A visitor arrives to a field of glyphs assembling into "COOPER" (skippable, once per session, off entirely under reduced motion), which hands off into a WebGL hero title that reveals itself as a lens finding focus. A dozen small hand-built components carry the rest of the page: two press/hover-driven buttons, a border that sweeps light around the live LED readout, a field of drifting arcs behind the prediction math, headings that unmask on scroll, a dithered pipeline diagram, and a pointer-reactive tile grid for the real tools in "Built with" (as local SVGs, not hotlinked logos). The dashcam in the scene is our real CAD: a Blender script turns the Fusion 360 assembly into a 281 KB glTF with one node per part, so the Build chapter pulls apart the actual lid, LEDs, Pi, camera mount and camera module, and in the Warn chapter the model's two LEDs light with the scene's warning level. It has no build step (native ES modules, vendored libraries, self-hosted fonts), a still version for reduced motion, and a 2D-canvas fallback for browsers without WebGL.
 
 **Team.** David Hernandez Del Risco built the software: vision, tracking, prediction, risk, the site's first design, and the dashboard's backend. Diego Tabares shaped the pitch and the story of how COOPER came alive, and worked on part of the site's design. Diego Avila was the main designer and did the 3D CAD (Fusion 360), and wired all the hardware together.
 
@@ -139,7 +139,7 @@ github-actions
 ## "Try it out" links
 ```
 https://coop.davidhernandez.work
-https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOP
+https://github.com/davidhernandez0771/Shellhacks-2026-Project---COOPER
 ```
 Don't list the live dashboard: it's behind Cloudflare Access, so judges would hit a login wall.
 

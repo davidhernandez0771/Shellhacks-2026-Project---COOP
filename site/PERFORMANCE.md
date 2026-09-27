@@ -191,6 +191,39 @@ subsets by `unicode-range` (`tokens.css`) so the Greek weights only download if 
 actually paints a Greek character (the overlay's `ω` label does, but it's a few KB and
 not on the critical path to the loader closing).
 
+## OriginKit components: performance notes
+
+Ten new components (`js/fx/*.js`) were added for the hero, intro and several sections
+(see `site/README.md`'s "How it's put together" for the full list). Each follows the
+rules below, established for the existing scene:
+
+- **Lazy-mounted**, not loaded eagerly. `main.js`'s `lazyMount()` helper dynamic-`import()`s
+  a component's module and calls its factory only once its host is within `600px` of the
+  viewport (`IntersectionObserver`, `rootMargin: "600px 0px"`), except the two hero
+  components (Vector Wordmark, Particle Gimbal), which are above the fold from the first
+  frame and load as soon as the gate's own module chain resolves, same as the main scene.
+- **Skipped entirely without WebGL** (`html.no-webgl`): every fx host is `display: none`
+  under that class in `styles.css`, and `main.js` never calls `import()` for them when
+  `webgl` is false, so a no-WebGL visitor downloads none of this code.
+- **Paused off-screen and when the tab is hidden.** Every component that runs a
+  `requestAnimationFrame` loop (all but the two CSS-transition-driven buttons and the
+  one-shot mask-text-reveal) gates it on its own `IntersectionObserver` and a
+  `visibilitychange` listener on `document.hidden`, the same pattern `stage.js` already
+  used for the main scene.
+- **devicePixelRatio capped at 2** in every canvas/WebGL component, matching the site-wide
+  rule (the main scene caps at 1.5; these are much smaller/cheaper canvases so 2 was kept).
+- **Static under reduced motion.** Every component accepts `reducedMotion` and renders one
+  frame (or, for the two CTA buttons, an instant state change) instead of animating.
+- **Neon Border and Predictive Arc** were flagged in review as doing real per-frame work
+  (a conic-gradient rebuild and a WebGL arch/dot-field draw respectively) — both are small
+  relative to the main scene's ~20k-point draw and are gated exactly like it, but they're
+  the ones to profile first if a future change to their section feels heavier than the rest
+  of the page.
+- Not yet measured with `tools/site_perf/` (that harness measures full-page loader/scroll
+  numbers; these components mostly affect sections reached well after the loader closes).
+  If a future change to this area needs numbers, run `tools/site_perf/measure.mjs` the same
+  way section "Performance rules" below describes, before and after.
+
 ## Performance rules
 
 Keep these in mind for future work on `site/`:

@@ -1,9 +1,8 @@
-# COOP
-✏️ _The story behind the name COOPER goes here (the team's to write)._
+# COOPER
 
 > COOPER is a Raspberry Pi 5 dashcam that spots people and cars, predicts where each one is heading, and lights a yellow or red LED before something cuts into your lane.
 
-Built for **ShellHacks 2026**. Devpost submission text lives in [docs/DEVPOST.md](docs/DEVPOST.md).
+Built for **ShellHacks 2026**. Devpost submission text lives in [docs/DEVPOST.md](docs/DEVPOST.md). The showcase site is live at [coop.davidhernandez.work](https://coop.davidhernandez.work).
 
 ```
 Pi camera ─► YOLO11n + ByteTrack ─► Kalman filter per object ─► lane risk ─► yellow / red LED
@@ -14,9 +13,9 @@ Pi camera ─► YOLO11n + ByteTrack ─► Kalman filter per object ─► lane
 ## Team
 | Who | Area |
 |---|---|
-| David Hernandez Del Risco | Software: vision, tracking, prediction, risk, the site's first design, and the dashboard's backend |
-| Diego Tabares | Presentation & story: the pitch, how COOPER came alive, and part of the site's design |
-| Diego Avila | Design & hardware: main designer and 3D CAD (Fusion 360), wired all the hardware together |
+| David Hernandez | Backend development including vision, tracking, and prediction |
+| Diego Avila | CAD and hardware. Also put together and wired the finished project |
+| Diego Tabares | Presentation, pitch, and elements of website design |
 
 ## What it does
 COOPER is a fixed, car-mounted dashcam: it doesn't move, and it's powered by the car. Every frame, it:
@@ -113,12 +112,13 @@ python -m cooper.main            # add --no-leds to keep the LEDs off
 ```
 Then open `http://<pi-hostname>.local:8000` from a laptop or phone on the same network.
 
-- **Run on boot:** `sudo bash scripts/install_service.sh` installs a systemd service that starts COOPER when the car powers the Pi and restarts it if it crashes.
+- **SSH in** from the same network with `ssh <user>@<pi-hostname>.local` (or the Pi's IP) to run the commands above, follow logs, or edit `cooper.toml`; enable SSH first in `raspi-config` or with Raspberry Pi Imager's advanced options if it isn't already on.
+- **Run on boot:** `sudo bash scripts/install_service.sh` installs a systemd service (`cooper.service`) that starts COOPER when the car powers the Pi and restarts it if it crashes; `sudo systemctl status cooper` / `journalctl -u cooper -f` to check on it over SSH.
 - **Remote access:** to reach the dashboard over HTTPS from anywhere, with an email login in front, see [scripts/setup_tunnel.md](scripts/setup_tunnel.md).
 - **Calibrate the lane** once the camera is mounted: in the dashboard, **Edit lane**, drag the corners onto your lane out to about 15 m, then **Apply and save**. Step by step: [docs/HARDWARE_TEST.md](docs/HARDWARE_TEST.md).
 
 ## The dashboard
-The live video with, on one canvas: the lane (tinted yellow or red with the risk), every object's corner brackets, its predicted path with a tick every 0.5 s, and the bottom edge the lane test uses. The side panel shows the risk level and the reason ("car #201 heading into your lane in 0.8 s"), the two LEDs and whether they're real (GPIO) or mocked, the lane editor, every object by risk, the event log, and live tuning. Diagnostics: CPU temperature, throttling, vision and camera fps, inference time, camera-to-LED latency. With no backend it plays a mock of the same road (`?demo=warning`, `?demo=danger`, …, listed in `web/mock.js`).
+The live video with, on one canvas: the lane (tinted yellow or red with the risk), every object's corner brackets, its predicted path with a tick every 0.5 s, and the bottom edge the lane test uses. The side panel shows the risk level and the reason ("car #201 heading into your lane in 0.8 s"), the two LEDs and whether they're real (GPIO) or mocked, the lane editor, every object by risk, the event log, and live tuning. A **beep** follows the same risk level, like a parking sensor: yellow is one short beep a second, red is rapid high beeps, muted until you turn sound on (browsers block audio until the page is interacted with). Diagnostics: CPU temperature, throttling, vision and camera fps, inference time, camera-to-LED latency. With no backend it plays a mock of the same road (`?demo=warning`, `?demo=danger`, …, listed in `web/mock.js`).
 
 ## Settings
 Every tunable lives in `cooper/config.py`. To change one without editing code, copy `cooper.example.toml` to `cooper.toml` in the repo root and edit it (it's gitignored, so the Pi and each laptop keep their own). Unknown keys and wrong types stop COOPER at startup with the key named. `--config other.toml` picks another file.
