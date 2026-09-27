@@ -1,6 +1,6 @@
 # COOPER: project context
 
-ShellHacks 2026 hackathon project. A two-person team: David (software) and a teammate (design/hardware).
+ShellHacks 2026 hackathon project. A three-person team: David Hernandez Del Risco (software), Diego Taberas (presentation & story), and Diego Avila (design & hardware).
 
 ## What it is
 **COOPER** is the name, written in all capitals everywhere a person reads it (docs, UI, page titles, log messages, comments); never "Cooper" or "COOPer". Lowercase `cooper` only where code requires it (package, imports, file names, CLI commands, config keys). There is no acronym; the story behind the name is the team's to write, so leave the ✏️ placeholders alone. The GitHub repo name and the README title are David's to change; keep the URLs `coop.davidhernandez.work` and `*.coop-224.pages.dev` as they are.
