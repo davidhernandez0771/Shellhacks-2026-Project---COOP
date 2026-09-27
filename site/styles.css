@@ -692,7 +692,8 @@ html:not(.js) .hud, html:not(.js) .stage-hud { display: none; }
   .leds-read > div:last-child { display: none; }
   .leds-read .v { font-size: 11px; }
   .team { grid-template-columns: minmax(0, 1fr); }
-  .info-block { padding: 72px var(--gutter); }
+  /* a phone's info block fills the screen, so its text would sit on the scene's figures */
+  .info-block { padding: 72px var(--gutter); background: rgba(6, 6, 6, 0.88); }
   /* the closing rig portrait would sit behind the team text on a phone */
   html[data-chapter="7"] .stage-gl, html[data-chapter="7"] .stage-hud { opacity: 0.3; transition: opacity var(--dur-slow) var(--ease-out); }
   .footer { margin-top: 40px; }
