@@ -31,7 +31,9 @@ export function createStage({ still, webgl, scramble }) {
   let solids, points, carousel;
 
   if (webgl) {
-    renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: true, alpha: true, powerPreference: "high-performance" });
+    // No MSAA: the scene is already supersampled by the DPR cap above 1x, which covers most
+    // of what MSAA would buy on the paper-edge linework, at a fraction of the per-frame cost.
+    renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: false, alpha: true, powerPreference: "high-performance" });
     renderer.setClearColor(0x000000, 0);
   }
   solids = createSolids(scene);
@@ -70,8 +72,12 @@ export function createStage({ still, webgl, scramble }) {
       renderer.setPixelRatio(ratio);
       renderer.setSize(W, H, false);
     }
-    if (fallback) fallback.resize(W, H, window.devicePixelRatio || 1);
-    overlay.resize(W, H, Math.min(window.devicePixelRatio || 1, 2));
+    // Match the 2D HUD/fallback resolution to the WebGL ratio cap (and its adaptive
+    // downgrade) instead of a hardcoded 2: a full-canvas 2D redraw every frame is
+    // fill-rate-bound the same way the WebGL draw is, and there's no reason for the
+    // overlay to be sharper than the scene it's drawn on top of.
+    if (fallback) fallback.resize(W, H, ratio);
+    overlay.resize(W, H, ratio);
     dirty = true;
   }
 
@@ -207,9 +213,13 @@ export function createStage({ still, webgl, scramble }) {
     for (const fn of listeners) fn(lastState);
     dirty = false;
 
-    // adaptive resolution
-    if (animate && ratioCap > 1 && dt > 0.026) {
-      if (++slowFrames > 90) { ratioCap = Math.max(1, ratio - 0.5); slowFrames = 0; resize(); }
+    // adaptive resolution: react in ~1s of sustained slow frames, not ~90 frames worth of
+    // wall time (11s+ once frames are already down at ~8fps, long after a visitor has
+    // judged the page as laggy). Gated on `!still`, not `animate`, so the ?nogl fallback
+    // (which redraws a full 2D canvas on every scroll frame, same fill-rate cost as WebGL)
+    // gets the same relief a struggling WebGL visitor does.
+    if (!still && ratioCap > 1 && dt > 0.026) {
+      if (++slowFrames > 24) { ratioCap = Math.max(1, ratio - 0.5); slowFrames = 0; resize(); }
     } else if (slowFrames > 0) slowFrames--;
 
     requestAnimationFrame(frame);
