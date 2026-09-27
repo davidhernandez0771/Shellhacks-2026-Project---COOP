@@ -147,6 +147,88 @@ WebGL one, regardless of which path is drawing.
 (WebGL numbers are unchanged by this fix, confirmed by re-measuring: 28.1 fps / 36 ms per
 frame, within run-to-run noise of fix 4's 27.1 fps / 37 ms.)
 
+## Final numbers (all fixes applied)
+
+| Config | Loader end | Scroll FPS | Frame p50/p95 | Task ms/frame | Long tasks (scroll) |
+|---|---|---|---|---|---|
+| WebGL, DPR 2 | 2.0 s | 27–28 | 33 / 67 ms | 36–37 | ~30 |
+| WebGL, DPR 1 | ~1.9 s | 28.4 | 33 / 50 ms | 35 | 22 |
+| `?nogl`, DPR 2 | 1.9 s | 32.3 | 33 / 50 ms | 28 | 28 |
+| `?nogl`, DPR 1 | 1.8 s | 32.4 | 33 / 50 ms | 28 | 20 |
+
+vs. baseline:
+
+| Config | Scroll FPS: baseline → final | Task ms/frame: baseline → final |
+|---|---|---|
+| WebGL, DPR 2 | 8.4 → 27–28 (**3.2×**) | 117 → 37 (**3.2×**) |
+| `?nogl`, DPR 2 | 17.3 → 32.3 (**1.9×**) | 58 → 28 (**2.1×**) |
+
+Loader end dropped from 2.8 s to ~2.0 s in this headless run; the bigger effect of fix 1
+(time-based ring convergence) is on real hardware where the main thread is busier than
+here and rAF fires less often, which is exactly the failure mode that made the ring lag
+behind actual load progress.
+
+WebGL DPR 1 and DPR 2 converge to nearly the same numbers because the adaptive-resolution
+step (fixes 3 and 5) drops the effective ratio to 1× partway into any sustained slow
+stretch regardless of the starting DPR — this is intended: the steady state under load is
+now the same for both, only the time-to-full-quality on a fast machine differs.
+
+Largest remaining per-frame cost in both paths is the 2D canvas HUD/overlay
+(`js/stage/overlay.js`) and, without WebGL, the 2D scene fallback (`js/stage/fallback2d.js`):
+both do a full canvas reset and redraw every frame that has anything on screen (which is
+most of the scroll range — detections, predictions, the lane, exploded-view leaders). That
+full redraw is inherent to how the HUD is drawn today (values are genuinely changing most
+frames: camera easing, time-driven object motion, scroll-scrubbed chapter progress), so
+cutting it further would mean diffing what actually needs to repaint — a real refactor, not
+a tuning change, and out of scope here per "performance before new effects." Fixes 2, 3 and
+5 already remove the part of that cost that was pure waste (rendering the HUD sharper than
+the scene, and staying at a too-high resolution long after frames were provably too slow).
+
+Transfer (441 KB, 24 requests) was not a significant contributor to loader time under Fast
+4G and wasn't touched: `vendor/three.module.min.js` (172 KB) is close to its practical
+floor for a bundled, minified three.js; the fonts are already split into latin/Greek
+subsets by `unicode-range` (`tokens.css`) so the Greek weights only download if a page
+actually paints a Greek character (the overlay's `ω` label does, but it's a few KB and
+not on the critical path to the loader closing).
+
 ## Performance rules
 
-(filled in at the end, once the fixes are locked in)
+Keep these in mind for future work on `site/`:
+
+1. **Measure before changing anything perf-related**, with `tools/site_perf/` (`serve.mjs`
+   + `measure.mjs`, 3 runs, medians) against a snapshot of the unmodified code, not just
+   before/after in place — a stale baseline server drifts if you edit `site/` under it.
+   Report loader end, transfer, scroll FPS/frame time, and long tasks; when a change could
+   plausibly touch either the WebGL or the 2D path, measure both DPR 1 and DPR 2, and both
+   with and without `?nogl`, to attribute the effect correctly. Headless Chromium's WebGL
+   is software-rendered (SwiftShader) — treat FPS as *relative* (before vs. after), never
+   as an absolute number a real GPU would hit.
+2. **DPR is the single biggest lever** on both the WebGL and 2D-canvas paths: cost scales
+   with pixel count, so doubling DPR roughly quadruples fill-rate-bound work. Any canvas
+   (`stage-gl` or `stage-hud`) should be sized off the same effective ratio
+   (`js/stage/stage.js`'s `ratio`/`ratioCap`), not a separately hardcoded cap — two canvases
+   drawing the same scene at different resolutions is both wasted work and visually
+   inconsistent.
+3. **MSAA (`antialias: true`) is redundant once DPR supersampling is above 1×** for this
+   line-art style; leave it off unless a specific DPR-1 visual regression is found and
+   verified with a same-DPR screenshot comparison (not assumed).
+4. **The adaptive-resolution downgrade must gate on `!still`, not on `webgl`/`animate`** —
+   it protects whichever canvas is actually drawing (WebGL or the `?nogl` fallback), and
+   both are fill-rate-bound the same way. If you add a third rendering path, wire it in too.
+5. **React to sustained slowness in ~1 s (~24 frames), not tens of seconds.** A visitor has
+   already judged the page as laggy long before a multi-second-to-trip threshold fires; a
+   short debounce (a couple dozen frames, not a couple hundred) still avoids reacting to a
+   single hitch.
+6. **Anything that visibly counts up or fills in during load (the loader ring, any future
+   progress indicator) must converge at a fixed rate per elapsed *time*, never per
+   animation frame.** A fixed fraction-per-tick makes the animation's wall-clock duration
+   inversely proportional to the frame rate — exactly backwards, since it's slowest exactly
+   when the page is busiest. Use a `dt`-based exponential decay (see `js/gate.js`'s `tick`,
+   or `js/stage/stage.js`'s `damp()`) instead.
+7. **The 2D HUD/overlay and fallback scene redraw the whole canvas every frame they have
+   anything to show**, by design (the scene's state is genuinely continuous — camera
+   easing, time-driven motion, scroll scrubbing). Don't try to skip redraws based on "did
+   anything change" without a real diffing mechanism; a half-measure will either miss
+   real changes (stale visuals) or catch nothing (no perf gain). If overlay cost becomes
+   the bottleneck again, the fix is reducing per-frame draw-call/state-change count inside
+   `draw()`, not skipping frames.
