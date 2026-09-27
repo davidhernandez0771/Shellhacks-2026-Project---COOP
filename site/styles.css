@@ -162,7 +162,7 @@ html.is-gated .nav, html.is-gated .hud { opacity: 0; pointer-events: none; }
 .nav-gh:hover { color: var(--ink); background: #fff; }
 .nav-menu { display: none; }
 
-/* ───────────────────────── HUD (scrubber + bearing tape) ───────────────────────── */
+/* ───────────────────────── HUD (scrubber + frame counter) ───────────────────────── */
 .hud {
   position: fixed;
   z-index: 40;
@@ -183,52 +183,6 @@ html.is-gated .nav, html.is-gated .hud { opacity: 0; pointer-events: none; }
 .hud-pan-k { color: var(--paper-3); margin-right: 6px; }
 #hud-pan { color: var(--paper); }
 
-.tape {
-  position: relative;
-  height: 30px;
-  overflow: hidden;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
-}
-.tape-strip {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  height: 100%;
-  will-change: transform;
-}
-.tape-strip i {
-  position: absolute;
-  bottom: 0;
-  width: 1px;
-  height: 5px;
-  background: var(--paper-3);
-}
-.tape-strip i.major { height: 10px; background: var(--paper-2); }
-.tape-strip b {
-  position: absolute;
-  bottom: 14px;
-  transform: translateX(-50%);
-  font: 400 9px/1 var(--font-mono);
-  font-stretch: var(--stretch-mono);
-  color: var(--paper-2);
-  font-variant-numeric: tabular-nums;
-}
-.tape-index {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  width: 1px;
-  height: 18px;
-  background: var(--lock);
-}
-.tape-index::after {
-  content: "";
-  position: absolute;
-  left: -3px; top: -4px;
-  border: 3.5px solid transparent;
-  border-top-color: var(--lock);
-}
 
 /* ───────────────────────── cursor (fine pointers only) ───────────────────────── */
 .cursor { display: none; }
@@ -558,21 +512,35 @@ html.still #predict .equations, html.no-webgl #predict .equations { grid-area: e
 .eq-notes sub { font-size: 0.8em; }
 .equations figcaption { color: var(--paper-3); padding-top: 12px; border-top: 1px solid var(--line); }
 
-/* ───────────────────────── 04 gauge ───────────────────────── */
-.gauge { position: absolute; right: var(--gutter); bottom: 84px; width: min(300px, 26vw); }
-.gauge svg { width: 100%; display: block; overflow: visible; }
-.gauge-track { fill: none; stroke: var(--line); stroke-width: 1; }
-.gauge-sweep { fill: none; stroke: var(--paper); stroke-width: 2; }
-.gauge-aim { fill: none; stroke: var(--lock); stroke-width: 6; stroke-linecap: butt; }
-#gauge-ticks line { stroke: var(--paper-3); stroke-width: 1; }
-#gauge-ticks line.major { stroke: var(--paper-2); }
-#gauge-ticks text { fill: var(--paper-3); font: 400 8px var(--font-mono); font-stretch: var(--stretch-mono); text-anchor: middle; }
-.gauge-needle { stroke: var(--paper); stroke-width: 1.5; }
-.gauge-hub { fill: var(--paper); }
-.gauge-read { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--line); }
-.gauge-read .k { display: block; color: var(--paper-3); margin-bottom: 4px; }
-.gauge-read .v { color: var(--paper); font-size: 13px; }
-.gauge-read .v.lock { color: var(--lock); }
+/* ───────────────────────── 04 LEDs ───────────────────────── */
+/* COOPER's two LEDs, fixed in place: off is an outline, lit is a filled, glowing lamp.
+   Red overrides yellow, so at most one is lit. */
+.leds { position: absolute; right: var(--gutter); bottom: 84px; width: min(300px, 26vw); }
+.led { display: grid; grid-template-columns: 30px 1fr; grid-template-rows: auto auto; column-gap: 14px; align-items: center; padding: 14px 0; border-top: 1px solid var(--line); }
+.led-lamp {
+  grid-row: 1 / 3;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1.5px solid var(--lamp);
+  opacity: 0.45;
+  transition: background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+}
+.led-yellow { --lamp: var(--led-yellow); }
+.led-red { --lamp: var(--led-red); }
+.led-name { color: var(--paper); font-size: 13px; }
+.led-rule { color: var(--paper-3); font-size: 11px; margin-top: 3px; }
+.leds[data-level="1"] .led-yellow .led-lamp,
+.leds[data-level="2"] .led-red .led-lamp {
+  opacity: 1;
+  background: var(--lamp);
+  box-shadow: 0 0 10px 1px var(--lamp), 0 0 32px 4px color-mix(in srgb, var(--lamp) 45%, transparent);
+}
+.leds[data-level="1"] .led-yellow .led-rule,
+.leds[data-level="2"] .led-red .led-rule { color: var(--paper-2); }
+.leds-read { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.leds-read .k { display: block; color: var(--paper-3); margin-bottom: 4px; }
+.leds-read .v { color: var(--paper); font-size: 13px; }
+.leds[data-level="1"] #led-level { color: var(--led-yellow); }
+.leds[data-level="2"] #led-level { color: var(--led-red); }
 
 /* ───────────────────────── 05 parts (the list is the accessible source; 3D labels show it with WebGL) ───────────────────────── */
 .parts { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
@@ -704,7 +672,6 @@ html:not(.js) .hud, html:not(.js) .stage-hud { display: none; }
 
   .hud { grid-template-columns: auto 1fr auto; gap: 12px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
   .hud-name { display: none; }
-  .tape { height: 26px; }
 
   .stage-scrim { background: linear-gradient(180deg, var(--scrim-0) 18%, rgba(6, 6, 6, 0.55) 48%, var(--scrim) 70%); }
   .chapter { height: 200vh; }
@@ -728,10 +695,13 @@ html:not(.js) .hud, html:not(.js) .stage-hud { display: none; }
   .eq-row { font-size: clamp(0.82rem, 4vw, 1.1rem); }
   .eq-notes { gap: 12px; font-size: 9.5px; }
   .eq-notes [data-term="a"] { margin-left: 2.6em; }
-  .gauge { top: calc(var(--nav-h) + 30px); bottom: auto; right: var(--gutter); width: min(150px, 40vw); }
-  .gauge-read { grid-template-columns: repeat(2, 1fr); margin-top: 6px; }
-  .gauge-read > div:last-child { display: none; }
-  .gauge-read .v { font-size: 11px; }
+  .leds { top: calc(var(--nav-h) + 30px); bottom: auto; right: var(--gutter); width: min(170px, 44vw); }
+  .led { padding: 8px 0; column-gap: 10px; grid-template-columns: 20px 1fr; }
+  .led-lamp { width: 16px; height: 16px; }
+  .led-rule { display: none; }
+  .leds-read { grid-template-columns: repeat(2, 1fr); }
+  .leds-read > div:last-child { display: none; }
+  .leds-read .v { font-size: 11px; }
   .team { grid-template-columns: minmax(0, 1fr); }
   .info-block { padding: 72px var(--gutter); }
   /* the closing rig portrait would sit behind the team text on a phone */

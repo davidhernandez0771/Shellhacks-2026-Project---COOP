@@ -1,10 +1,10 @@
-// The layer COOP "understands" the scene with: detection brackets, leader-line labels, the
-// velocity vector, the ghost's aim point and trail, and the leader lines of the exploded
-// hardware. Lines go on a 2D canvas; labels are DOM nodes so they stay crisp and can
-// scramble in with anime.js when a target is acquired.
+// The layer COOPER "understands" the scene with: detection brackets, leader-line labels, the
+// velocity vector, the ghost's aim point and trail, "my lane" in the Warn chapter, and the
+// leader lines of the exploded hardware. Lines go on a 2D canvas; labels are DOM nodes so
+// they stay crisp and can scramble in with anime.js when a target is acquired.
 
-import { OBJECTS, BOUNDS, FOCUS_INDEX, EYE, objectState, edgeFade } from "./world.js";
-import { GHOST_S, bearing } from "./director.js";
+import { OBJECTS, BOUNDS, FOCUS_INDEX, EYE, RIG, objectState, edgeFade } from "./world.js";
+import { GHOST_S, LANE_HALF, LANE_LEN, bearing } from "./director.js";
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 export const LOCK_AT = 0.3;           // chapter 02 progress at which the target locks
@@ -15,7 +15,10 @@ const ease = (x) => { x = clamp01(x); return 1 - Math.pow(1 - x, 3); };
 function tokens() {
   const css = getComputedStyle(document.documentElement);
   const v = (n) => css.getPropertyValue(n).trim();
-  return { paper: v("--paper"), paper2: v("--paper-2"), paper3: v("--paper-3"), lock: v("--lock"), line: v("--line-strong") };
+  return {
+    paper: v("--paper"), paper2: v("--paper-2"), paper3: v("--paper-3"), lock: v("--lock"), line: v("--line-strong"),
+    yellow: v("--led-yellow"), red: v("--led-red"),
+  };
 }
 
 export function createOverlay({ canvas, labelsEl, scramble, still }) {
@@ -127,8 +130,8 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
    * @param {object} ctxs  { t, local (per-chapter progress array), project, solids }
    */
   let drewLast = true;
-  function draw(s, { t, local, project, partAnchors, lensScreen, scan, center }) {
-    const needs = s.detect > 0.01 || s.predict > 0.01 || s.explode > 0.55 || s.eye > 0.01;
+  function draw(s, { t, local, project, partAnchors, level, scan, center }) {
+    const needs = s.detect > 0.01 || s.predict > 0.01 || s.explode > 0.55 || s.eye > 0.01 || s.rig > 0.05;
     if (!needs && !drewLast) { sweepTags(); return; }
     drewLast = needs;
     // A full reset, not clearRect: in testing, clearRect sometimes left leader lines behind
@@ -163,6 +166,32 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
       setTag(tag("vf-tl"), x0, y0 - 16, va * 0.9, "OV5647 · 640 × 480", { dim: true });
       setTag(tag("vf-tr"), x1 - labelWidth(`FRAME ${frameNo}`), y0 - 16, va * 0.9, `FRAME ${frameNo}`, { dim: true, ident: "frame" });
       if (!small) setTag(tag("vf-bl"), x0, y1 + 6, va * 0.9, "63.0° × 49.0°", { dim: true });
+    }
+
+    // my lane (chapter 04): the strip ahead of the unit, in the colour of the lit LED ------
+    const laneA = s.rig * (1 - s.explode) * clamp01(s.street / 0.8);   // on the street only (not Build, Team)
+    if (laneA > 0.02) {
+      const c = level === 2 ? col.red : level === 1 ? col.yellow : col.paper3;
+      ctx.strokeStyle = c;
+      ctx.lineWidth = level ? 1.5 : 1;
+      ctx.globalAlpha = laneA * (level ? 0.9 : 0.7);
+      ctx.setLineDash([6, 6]);
+      let far = null;
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        let open = false;
+        for (let z = RIG[2] - 0.3; z >= RIG[2] - LANE_LEN - 1e-6; z -= 0.4) {
+          const q = project([RIG[0] + side * LANE_HALF, 0, z]);
+          if (!q.front) { open = false; continue; }
+          if (open) ctx.lineTo(q.x, q.y); else { ctx.moveTo(q.x, q.y); open = true; }
+          if (side === 1) far = q;                       // the far corner carries the tag
+        }
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      const name = ["CLEAR", "YELLOW · PATH ENTERS", "RED · IN MY LANE"][level];
+      if (far) setTag(tag("lane"), far.x + 10, far.y - 8, laneA, `MY LANE · ${name}`, { dim: !level });
     }
 
     // detections ------------------------------------------------------------
@@ -278,16 +307,6 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
         ctx.moveTo(g.x, g.y - r * 2); ctx.lineTo(g.x, g.y - r * 1.3);
         ctx.moveTo(g.x, g.y + r * 1.3); ctx.lineTo(g.x, g.y + r * 2);
         ctx.stroke();
-        // aim ray from the physical rig's lens in chapter 04
-        if (lensScreen && s.rig > 0.05) {
-          ctx.globalAlpha = s.rig * pr * 0.9;
-          ctx.setLineDash([4, 5]);
-          ctx.beginPath();
-          ctx.moveTo(lensScreen.x, lensScreen.y);
-          ctx.lineTo(g.x, g.y);
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
         ctx.globalAlpha = 1;
         setTag(tag("ghost"), g.x + r * 2 + 6, g.y + 6, pr, `PATH · t + ${GHOST_S.toFixed(1)} s`, { lock: true });
         // angular rate as COOP measures it: world-angle change seen from the camera
@@ -307,22 +326,31 @@ export function createOverlay({ canvas, labelsEl, scramble, still }) {
       let maxX = 0;
       for (const p of partAnchors) if (p.screen.front) maxX = Math.max(maxX, p.screen.x);
       const colX = Math.min(maxX + (small ? 18 : 48), W - (small ? 120 : 230));
-      for (const p of partAnchors) {
+      // labels in a column, top to bottom in anchor order, pushed apart so none overlap;
+      // a leader runs from each anchor, bends, and meets its label
+      const gap = small ? 22 : 38;
+      const rows = partAnchors.filter((p) => p.screen.front).sort((p, q) => p.screen.y - q.screen.y);
+      let prev = -Infinity;
+      for (const p of rows) { p.ly = Math.max(p.screen.y, prev + gap); prev = p.ly; }
+      const over = prev - (H - (small ? 90 : 110));
+      if (over > 0) for (const p of rows) p.ly -= over;          // keep the column on screen
+      for (let i = rows.length - 2; i >= 0; i--) rows[i].ly = Math.min(rows[i].ly, rows[i + 1].ly - gap);
+      for (const p of rows) {
         const q = p.screen;
-        const key = `part-${p.key}`;
-        if (!q.front) continue;
-        const endX = Math.max(q.x + 12, colX);
+        const endX = Math.max(q.x + 24, colX);
+        const led = p.key === "yellow" ? col.yellow : p.key === "red" ? col.red : null;
         ctx.globalAlpha = a * 0.85;
-        ctx.strokeStyle = p.key === "camera" ? col.lock : col.line;
+        ctx.strokeStyle = p.key === "camera" ? col.lock : led || col.line;
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(q.x, q.y, 2, 0, Math.PI * 2);
         ctx.moveTo(q.x + 2, q.y);
-        ctx.lineTo(endX, q.y);
+        ctx.lineTo(endX - 14, p.ly);
+        ctx.lineTo(endX, p.ly);
         ctx.stroke();
         ctx.globalAlpha = 1;
-        const tg = tag(key, "part");
-        setTag(tg, endX + 8, q.y - 8, a, p.name, { sub: small ? null : p.spec, lock: p.key === "camera" });
+        const tg = tag(`part-${p.key}`, "part");
+        setTag(tg, endX + 8, p.ly - 8, a, p.name, { sub: small ? null : p.spec, lock: p.key === "camera" });
       }
     }
 

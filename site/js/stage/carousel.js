@@ -165,7 +165,7 @@ export function createCarousel(scene, pal) {
     group, cards, load,
     get front() { return frontIndex; },
     get moving() { return dragging || Math.abs(vel) > 1e-4; },
-    /** @returns {number} the ring angle in degrees (drives the bearing tape) */
+    /** @returns {number} the ring angle in degrees */
     update(state, local, dt, still) {
       const vis = state.carousel;
       group.visible = vis > 0.01;

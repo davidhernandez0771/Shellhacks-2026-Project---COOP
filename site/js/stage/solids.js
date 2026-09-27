@@ -1,14 +1,15 @@
-// The physical things: the COOP rig (camera on a pan base) and the exploded hardware stack.
-// Drawn as "technical drawing" solids: an ink fill that hides what's behind it, and thin
-// paper edges on top. Orange is reserved for the lens ring (the eye) and the aim ray.
+// The physical thing: COOPER itself, a fixed dashcam (Pi 5 in its case, the camera on a post,
+// two LEDs in the lid). Drawn as "technical drawing" solids: an ink fill that hides what's
+// behind it, and thin paper edges on top. Nothing on it moves in use; in the Build chapter
+// the parts pull apart into an exploded view.
 //
-// ── Swapping in the real camera model ─────────────────────────────────────────────
-// Put a .glb of the actual camera in site/models/ and set CAMERA_MODEL_URL below, e.g.
-//   export const CAMERA_MODEL_URL = "models/coop-camera.glb";
-// The model replaces the procedural pan head. Model it facing -Z with +Y up, origin at the
-// pan axis, in metres (the procedural head is ~0.3 m wide; scale with CAMERA_MODEL_SCALE).
-// GLTFLoader is only downloaded when this is set.
-export const CAMERA_MODEL_URL = null;
+// ── The model ─────────────────────────────────────────────────────────────────────
+// models/cooper-camera.glb is made from the team's CAD by tools/cad_to_glb.py: metres,
+// lens facing -Z, +Y up, origin at the centre of the case's bottom face, one node per
+// part (PART_NODES). It's loaded lazily, when the scroll nears the Warn chapter (loadModel);
+// until then, or if it fails, a stand-in made of boxes with the same parts is shown.
+// Set CAMERA_MODEL_URL to null to always use the stand-in.
+export const CAMERA_MODEL_URL = "models/cooper-camera.glb";
 export const CAMERA_MODEL_SCALE = 1;
 
 import * as THREE from "three";
@@ -16,228 +17,243 @@ import { RIG } from "./world.js";
 
 const EDGE_ANGLE = 28;
 
+// label key (#parts li[data-part]) → node name in the .glb
+export const PART_NODES = {
+  camera: "Camera_Module",
+  mount: "Camera_Mount",
+  lid: "Pi_Case_Lid",
+  yellow: "LED5mm_Yellow",
+  red: "LED5mm_Red",
+  pi: "RASPBERRY_PI_5_1",
+  case: "Pi_Case",
+};
+
+// The exploded view, in model metres: where each part ends up, and the slice of the
+// explode progress (0..1) in which it travels. The lid lifts off first, taking the LEDs
+// with it and then letting them rise further; the Pi rises out of the tray; the camera
+// mount and then the camera module slide forward, toward the road. The tray stays.
+const EXPLODE = {
+  lid:    { to: [0, 0.062, 0],       at: [0.00, 0.40] },
+  yellow: { to: [0, 0.108, 0],       at: [0.05, 0.55] },
+  red:    { to: [0, 0.108, 0],       at: [0.05, 0.55] },
+  pi:     { to: [0, 0.030, 0],       at: [0.30, 0.75] },
+  mount:  { to: [0, 0.020, -0.032],  at: [0.40, 0.85] },
+  camera: { to: [0, 0.020, -0.082],  at: [0.50, 1.00] },
+  case:   { to: [0, 0, 0],           at: [0.00, 1.00] },
+};
+
+// the unit in the scene: small and at dash height in Warn/Team, large for the Build chapter
+const UNIT = {
+  scale: 4.2, y: 1.05,               // ~0.26 m wide × 0.39 m long: reads at street scale
+  buildScale: 5.2, buildY: 0.72,
+};
+
 function palette() {
   const css = getComputedStyle(document.documentElement);
   const rgb = (name) => css.getPropertyValue(name).trim().split(/\s+/).map(Number);
-  return { paper: new THREE.Color(...rgb("--gl-paper")), lock: new THREE.Color(...rgb("--gl-lock")) };
-}
-
-/** An ink-filled solid with paper edges. Returns a Group; opacity is driven via setOpacity. */
-function solid(geometry, mats, { edgeColor } = {}) {
-  const g = new THREE.Group();
-  const fill = new THREE.Mesh(geometry, mats.fill);
-  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, EDGE_ANGLE), edgeColor ? mats.lockEdge : mats.edge);
-  g.add(fill, edges);
-  return g;
+  return {
+    paper: new THREE.Color(...rgb("--gl-paper")),
+    lock: new THREE.Color(...rgb("--gl-lock")),
+    yellow: new THREE.Color(...rgb("--gl-led-yellow")),
+    red: new THREE.Color(...rgb("--gl-led-red")),
+  };
 }
 
 function makeMats(pal) {
-  const fill = new THREE.MeshBasicMaterial({
+  const fill = () => new THREE.MeshBasicMaterial({
     color: 0x0b0b0a, transparent: true, opacity: 1,
     polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
   });
-  const edge = new THREE.LineBasicMaterial({ color: pal.paper, transparent: true, opacity: 0.85 });
-  const lockEdge = new THREE.LineBasicMaterial({ color: pal.lock, transparent: true, opacity: 1 });
-  return { fill, edge, lockEdge };
+  const edge = (color, opacity) => new THREE.LineBasicMaterial({ color, transparent: true, opacity });
+  return {
+    fill: fill(),
+    edge: edge(pal.paper, 0.85),
+    lockEdge: edge(pal.lock, 1),
+    // the LEDs get their own materials so they can light up
+    yellow: { fill: fill(), edge: edge(pal.paper, 0.85) },
+    red: { fill: fill(), edge: edge(pal.paper, 0.85) },
+  };
 }
 
-const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
-const cyl = (r, h, seg = 28) => new THREE.CylinderGeometry(r, r, h, seg);
-
-function place(obj, x, y, z, rx = 0, ry = 0, rz = 0) {
-  obj.position.set(x, y, z);
-  obj.rotation.set(rx, ry, rz);
-  return obj;
+// one EdgesGeometry per geometry, even when a mesh is instanced (the two LEDs share one)
+const edgeCache = new WeakMap();
+function edgesOf(geometry) {
+  if (!edgeCache.has(geometry)) edgeCache.set(geometry, new THREE.EdgesGeometry(geometry, EDGE_ANGLE));
+  return edgeCache.get(geometry);
 }
 
-// ───────────────────────── rig ─────────────────────────
-function buildHead(mats) {
-  const head = new THREE.Group();
-  head.add(place(solid(box(0.3, 0.2, 0.2), mats), 0, 0.14, 0));                       // camera body
-  head.add(place(solid(cyl(0.075, 0.1), mats), 0, 0.14, -0.15, Math.PI / 2));        // lens barrel
-  head.add(place(solid(new THREE.TorusGeometry(0.075, 0.006, 6, 40), mats, { edgeColor: true }), 0, 0.14, -0.2));
-  head.add(place(solid(box(0.36, 0.035, 0.26), mats), 0, 0.02, 0));                  // bracket plate
-  return head;
+function restyle(mesh, fill, edge) {
+  mesh.material = fill;
+  mesh.add(new THREE.LineSegments(edgesOf(mesh.geometry), edge));
 }
 
-function buildRig(mats, pal) {
-  const rig = new THREE.Group();
-  rig.position.set(...RIG);
-  const base = new THREE.Group();
-  base.add(place(solid(cyl(0.34, 0.03, 36), mats), 0, 0.015, 0));     // foot
-  base.add(place(solid(cyl(0.028, 0.84, 12), mats), 0, 0.45, 0));     // stand
-  base.add(place(solid(box(0.5, 0.24, 0.5), mats), 0, 0.99, 0));      // housing (motor inside)
-  base.add(place(solid(cyl(0.2, 0.035, 36), mats), 0, 1.13, 0));      // turntable
-  rig.add(base);
-  const pan = new THREE.Group();                                        // rotates about +Y
-  pan.position.y = 1.15;
-  let head = buildHead(mats);
-  pan.add(head);
-  rig.add(pan);
+function matsFor(key, mats) {
+  if (key === "yellow" || key === "red") return mats[key];
+  return { fill: mats.fill, edge: key === "camera" ? mats.lockEdge : mats.edge };
+}
 
-  // view frustum (63° × 49°) and the aim ray, in the pan group's space
-  // per-vertex alpha: bright at the lens, fading to nothing at the far plane
-  const frustumMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false });
+// ───────────────────────── stand-in (until the .glb arrives) ─────────────────────────
+// Same parts, same places (the node centres of the .glb), as simple solids.
+function standIn() {
+  const box = (w, h, d, x = 0, y = 0, z = 0) => new THREE.BoxGeometry(w, h, d).translate(x, y, z);
+  const cyl = (r, h, x = 0, y = 0, z = 0, alongZ = false) => {
+    const g = new THREE.CylinderGeometry(r, r, h, 20);
+    if (alongZ) g.rotateX(Math.PI / 2);
+    return g.translate(x, y, z);
+  };
+  const merge = (geos) => {
+    // tiny merge: the stand-in only needs positions
+    const pos = [];
+    for (const g of geos) {
+      const n = g.index ? g.toNonIndexed() : g;
+      pos.push(...n.getAttribute("position").array);
+    }
+    const out = new THREE.BufferGeometry();
+    out.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    return out;
+  };
+  const part = (name, geo, x, y, z) => {
+    const m = new THREE.Mesh(geo);
+    m.name = name;
+    m.position.set(x, y, z);
+    return m;
+  };
+  const led = merge([cyl(0.0025, 0.009, 0, 0.012, 0), cyl(0.0003, 0.028, -0.001, -0.006, 0), cyl(0.0003, 0.028, 0.001, -0.006, 0)]);
+  const root = new THREE.Group();
+  root.add(
+    part("Pi_Case", box(0.062, 0.027, 0.092), 0, 0.0135, 0),
+    part("Pi_Case_Lid", box(0.062, 0.012, 0.092), 0, 0.031, 0),
+    part("RASPBERRY_PI_5_1", merge([box(0.056, 0.0016, 0.085), box(0.02, 0.016, 0.017, 0.012, 0.008, 0.034), box(0.015, 0.014, 0.017, -0.01, 0.007, 0.034)]), 0.0006, 0.0126, -0.0018),
+    part("Camera_Mount", merge([box(0.036, 0.036, 0.008, 0, 0.012, 0), box(0.012, 0.03, 0.012, 0, -0.015, 0.004)]), 0.0003, 0.0551, -0.0428),
+    part("Camera_Module", merge([box(0.025, 0.024, 0.002, 0, 0, 0.011), box(0.0085, 0.0085, 0.006, 0, 0, 0.006), cyl(0.0045, 0.011, 0, 0, -0.0045, true)]), 0.0002, 0.061, -0.0562),
+    part("LED5mm_Yellow", led, -0.0157, 0.0173, 0.0395),
+    part("LED5mm_Red", led, 0.0157, 0.0173, 0.0395),
+  );
+  return root;
+}
+
+// ───────────────────────── the unit ─────────────────────────
+/** Wrap a model's part nodes in pivots we can move, restyle them, and measure them. */
+function adopt(model, mats) {
+  const parts = {};
+  for (const [key, name] of Object.entries(PART_NODES)) {
+    const node = model.getObjectByName(name);
+    if (!node) throw new Error(`model has no node ${name}`);
+    const m = matsFor(key, mats);
+    node.traverse((o) => { if (o.isMesh) restyle(o, m.fill, m.edge); });
+    node.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(node, true);
+    // label anchor: the middle of the part's right-hand face, in model space
+    parts[key] = {
+      node,
+      base: node.position.clone(),
+      anchor: new THREE.Vector3(box.max.x, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2),
+      box,
+    };
+  }
+  const cam = parts.camera.box;
+  const lens = new THREE.Vector3((cam.min.x + cam.max.x) / 2, (cam.min.y + cam.max.y) / 2, cam.min.z);
+  return { model, parts, lens };
+}
+
+function buildFrustum(pal) {
+  // the view volume (63° × 49°), fixed: per-vertex alpha, bright at the lens, gone at the far plane
+  const mat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false });
   const L = 6.5, hx = Math.tan((63 / 2) * Math.PI / 180) * L, hy = Math.tan((49 / 2) * Math.PI / 180) * L;
-  const o = [0, 0.14, -0.2];
-  const c = [[-hx, hy], [hx, hy], [hx, -hy], [-hx, -hy]].map(([x, y]) => [x, 0.14 + y, -L]);
+  const c = [[-hx, hy], [hx, hy], [hx, -hy], [-hx, -hy]].map(([x, y]) => [x, y, -L]);
   const fr = [];
-  for (const p of c) fr.push(...o, ...p);
+  for (const p of c) fr.push(0, 0, 0, ...p);
   for (let i = 0; i < 4; i++) fr.push(...c[i], ...c[(i + 1) % 4]);
-  const frGeo = new THREE.BufferGeometry();
-  frGeo.setAttribute("position", new THREE.Float32BufferAttribute(fr, 3));
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(fr, 3));
   const cols = [];
   for (let i = 0; i < fr.length / 3; i++) {
     const far = i >= 8 || i % 2 === 1;             // lens→corner lines: odd vertices are far
     cols.push(pal.paper.r, pal.paper.g, pal.paper.b, far ? 0.0 : 0.7);
   }
-  frGeo.setAttribute("color", new THREE.Float32BufferAttribute(cols, 4));
-  const frustum = new THREE.LineSegments(frGeo, frustumMat);
-  pan.add(frustum);
-
-  return { rig, base, pan, frustum, frustumMat, setHead(h) { pan.remove(head); head = h; pan.add(h); } };
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(cols, 4));
+  return { lines: new THREE.LineSegments(geo, mat), mat };
 }
 
-// ───────────────────────── hardware parts (scale 0.02 m per mm, not to scale with the rig) ─────────────────────────
-function buildParts(mats) {
-  const parts = {};
-  const S = 0.02;
-  const mm = (v) => v * S;
-
-  // OV5647 camera: board facing the viewer, lens toward +z
-  const cam = new THREE.Group();
-  cam.add(place(solid(box(mm(25), mm(24), mm(1.6)), mats), 0, 0, 0));
-  cam.add(place(solid(box(mm(8.5), mm(8.5), mm(5)), mats), 0, mm(1.5), mm(3.3)));
-  cam.add(place(solid(cyl(mm(7), mm(9), 32), mats), 0, mm(1.5), mm(10), Math.PI / 2));
-  cam.add(place(solid(new THREE.TorusGeometry(mm(7), mm(0.35), 6, 40), mats, { edgeColor: true }), 0, mm(1.5), mm(14.6)));
-  cam.add(place(solid(box(mm(16), mm(4), mm(3)), mats), 0, -mm(10), -mm(1.5)));
-  parts.camera = { group: cam, anchor: [mm(13), mm(4), 0] };
-
-  // Raspberry Pi 5: 85 × 56 board, ports along one edge, active cooler
-  const pi = new THREE.Group();
-  pi.add(place(solid(box(mm(85), mm(1.6), mm(56)), mats), 0, 0, 0));
-  pi.add(place(solid(box(mm(17), mm(13.5), mm(21)), mats), mm(33), mm(7.5), mm(-15)));
-  pi.add(place(solid(box(mm(17), mm(15.5), mm(13)), mats), mm(33), mm(8.5), mm(4)));
-  pi.add(place(solid(box(mm(17), mm(15.5), mm(13)), mats), mm(33), mm(8.5), mm(20)));
-  pi.add(place(solid(box(mm(40), mm(8), mm(40)), mats), mm(-12), mm(5), mm(2)));
-  pi.add(place(solid(cyl(mm(14), mm(2), 32), mats), mm(-12), mm(10), mm(2)));
-  pi.add(place(solid(box(mm(51), mm(8.5), mm(5)), mats), mm(-8), mm(5), mm(-25)));
-  parts.pi = { group: pi, anchor: [mm(43), mm(6), 0] };
-
-  // Arduino Uno: 69 × 53, USB-B and barrel jack
-  const uno = new THREE.Group();
-  uno.add(place(solid(box(mm(69), mm(1.6), mm(53)), mats), 0, 0, 0));
-  uno.add(place(solid(box(mm(16), mm(11), mm(12)), mats), mm(-29), mm(6.3), mm(-12)));
-  uno.add(place(solid(box(mm(14), mm(11), mm(9)), mats), mm(-30), mm(6.3), mm(18)));
-  uno.add(place(solid(box(mm(35), mm(4), mm(9)), mats), mm(8), mm(3), mm(4)));
-  uno.add(place(solid(box(mm(46), mm(8.5), mm(2.5)), mats), mm(6), mm(5), mm(-24.5)));
-  uno.add(place(solid(box(mm(38), mm(8.5), mm(2.5)), mats), mm(10), mm(5), mm(24.5)));
-  parts.uno = { group: uno, anchor: [mm(35), mm(4), 0] };
-
-  // TMC2209 module with its heatsink
-  const drv = new THREE.Group();
-  drv.add(place(solid(box(mm(20), mm(1.6), mm(15)), mats), 0, 0, 0));
-  drv.add(place(solid(box(mm(9), mm(2), mm(9)), mats), 0, mm(1.8), 0));
-  for (let i = 0; i < 5; i++) drv.add(place(solid(box(mm(1), mm(7), mm(9)), mats), mm(-4 + i * 2), mm(6.3), 0));
-  drv.add(place(solid(box(mm(20), mm(8.5), mm(2.5)), mats), 0, mm(-5), mm(-6.2)));
-  drv.add(place(solid(box(mm(20), mm(8.5), mm(2.5)), mats), 0, mm(-5), mm(6.2)));
-  parts.driver = { group: drv, anchor: [mm(10), mm(3), 0] };
-
-  // NEMA 17: 42 × 42 × 40 with a shaft (the pan axis)
-  const mot = new THREE.Group();
-  mot.add(place(solid(box(mm(42), mm(34), mm(42)), mats), 0, 0, 0));
-  mot.add(place(solid(box(mm(42), mm(3), mm(42)), mats), 0, mm(18.5), 0));
-  mot.add(place(solid(cyl(mm(11), mm(2), 32), mats), 0, mm(21), 0));
-  mot.add(place(solid(cyl(mm(2.5), mm(22), 16), mats, { edgeColor: true }), 0, mm(31), 0));
-  parts.motor = { group: mot, anchor: [mm(21), mm(0), 0] };
-
-  // 12 V supply → buck converter
-  const pwr = new THREE.Group();
-  pwr.add(place(solid(box(mm(62), mm(30), mm(44)), mats), mm(-16), 0, 0));
-  pwr.add(place(solid(box(mm(43), mm(1.6), mm(21)), mats), mm(40), mm(-6), 0));
-  pwr.add(place(solid(cyl(mm(6), mm(7), 20), mats), mm(44), mm(-1.5), 0));
-  pwr.add(place(solid(box(mm(5), mm(8), mm(5)), mats), mm(30), mm(-1), mm(-5)));
-  parts.power = { group: pwr, anchor: [mm(61), mm(-6), 0] };
-
-  // exploded layout, bottom to top (y), in the stack group's space
-  const order = [["power", 0.0], ["motor", 0.72], ["driver", 1.34], ["uno", 1.78], ["pi", 2.32], ["camera", 2.98]];
-  const stack = new THREE.Group();
-  stack.position.set(RIG[0], 0.25, RIG[2]);
-  stack.rotation.y = -0.42;
-  for (const [key, y] of order) {
-    const p = parts[key];
-    p.y = y;
-    p.group.position.y = y;
-    stack.add(p.group);
-  }
-  return { stack, parts, order };
-}
+const clamp01 = (x) => Math.min(1, Math.max(0, x));
+const ease = (x) => x * x * (3 - 2 * x);
 
 export function createSolids(scene) {
   const pal = palette();
   const mats = makeMats(pal);
-  const partMats = makeMats(pal);
-  const rig = buildRig(mats, pal);
-  const hw = buildParts(partMats);
-  scene.add(rig.rig, hw.stack);
+  const unit = new THREE.Group();
+  unit.position.set(RIG[0], UNIT.y, RIG[2]);
+  const frustum = buildFrustum(pal);
+  scene.add(unit, frustum.lines);
 
-  if (CAMERA_MODEL_URL) {
+  let current = adopt(standIn(), mats);
+  unit.add(current.model);
+
+  let loading = false;
+  /** Fetch the real model (once). Called when the scroll nears the Warn chapter. */
+  function loadModel() {
+    if (loading || !CAMERA_MODEL_URL) return;
+    loading = true;
     import("../../vendor/GLTFLoader.js").then(({ GLTFLoader }) => {
       new GLTFLoader().load(CAMERA_MODEL_URL, (gltf) => {
         const model = gltf.scene;
-        model.scale.setScalar(CAMERA_MODEL_SCALE);
-        // restyle to match the scene (it has no lights): ink fill + paper edges
-        const meshes = [];
-        model.traverse((o) => { if (o.isMesh) meshes.push(o); });
-        for (const m of meshes) {
-          m.material = mats.fill;
-          m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, EDGE_ANGLE), mats.edge));
-        }
-        rig.setHead(model);
-      });
-    }).catch(() => { /* keep the procedural head */ });
+        try {
+          const next = adopt(model, mats);         // measured at scale 1, in model space
+          model.scale.setScalar(CAMERA_MODEL_SCALE);
+          unit.remove(current.model);
+          current = next;
+          unit.add(model);
+        } catch (e) { console.warn("COOPER model:", e.message); }
+      }, undefined, () => { /* keep the stand-in */ });
+    }).catch(() => { /* keep the stand-in */ });
   }
 
   const tmp = new THREE.Vector3();
+  const lensW = new THREE.Vector3();
 
   return {
-    rig, hw, pal,
-    /** Apply the director state. */
-    update(state, t) {
-      const rigVis = state.rig;
-      rig.rig.visible = rigVis > 0.01;
-      const housing = rigVis * state.housing;
-      mats.fill.opacity = housing;
-      mats.edge.opacity = 0.85 * housing;
-      mats.lockEdge.opacity = housing;
-      rig.frustumMat.opacity = 0.5 * rigVis * (1 - state.explode);
-      rig.frustum.visible = rig.frustumMat.opacity > 0.01;
-      rig.pan.rotation.y = -state.pan * Math.PI / 180;
-
+    pal, loadModel,
+    /** Apply the director state. `led` is 0 clear, 1 yellow, 2 red (red overrides yellow). */
+    update(state, t, led = 0) {
+      const vis = state.rig;
+      unit.visible = vis > 0.01;
       const ex = state.explode;
-      hw.stack.visible = ex > 0.01;
-      partMats.fill.opacity = Math.min(1, ex * 1.4);
-      partMats.edge.opacity = 0.9 * Math.min(1, ex * 1.4);
-      partMats.lockEdge.opacity = Math.min(1, ex * 1.4);
-      const e = ex * ex * (3 - 2 * ex);
-      for (const [key] of hw.order) {
-        const p = hw.parts[key];
-        // collapsed: everything sits inside the housing (y ≈ 0.75); exploded: its slot
-        p.group.position.y = 0.75 + (p.y - 0.75) * e;
-        p.group.rotation.y = (1 - e) * 0.6 + Math.sin(t * 0.25 + p.y) * 0.04 * e;
+      const z = ease(state.zoom);                  // 0 on the street, 1 in the Build chapter
+      unit.scale.setScalar(UNIT.scale + (UNIT.buildScale - UNIT.scale) * z);
+      unit.position.y = UNIT.y + (UNIT.buildY - UNIT.y) * z;
+
+      mats.fill.opacity = vis;
+      mats.edge.opacity = 0.85 * vis;
+      mats.lockEdge.opacity = vis;
+      // LEDs: lit by the risk level; in the Build chapter both glow so you can tell them apart
+      for (const [key, on] of [["yellow", led === 1], ["red", led === 2]]) {
+        const m = mats[key];
+        const glow = Math.max(on ? 1 : 0, 0.55 * ex);
+        m.fill.color.setRGB(0.043, 0.043, 0.039).lerp(pal[key], glow);
+        m.fill.opacity = vis;
+        m.edge.color.copy(pal.paper).lerp(pal[key], glow);
+        m.edge.opacity = 0.85 * vis;
       }
-      hw.stack.scale.setScalar(0.62 * (0.55 + 0.45 * e));
+
+      for (const [key, p] of Object.entries(current.parts)) {
+        const x = EXPLODE[key];
+        const k = ease(clamp01((ex - x.at[0]) / (x.at[1] - x.at[0])));
+        p.node.position.set(p.base.x + x.to[0] * k, p.base.y + x.to[1] * k, p.base.z + x.to[2] * k);
+      }
+
+      // the fixed view volume, from the lens, straight down the road
+      unit.updateMatrixWorld();
+      lensW.copy(current.lens);
+      current.parts.camera.node.parent.localToWorld(lensW.add(current.parts.camera.node.position).sub(current.parts.camera.base));
+      frustum.lines.position.copy(lensW);
+      frustum.mat.opacity = 0.5 * vis * (1 - state.zoom);
+      frustum.lines.visible = frustum.mat.opacity > 0.01;
     },
     /** World position of a part's label anchor. */
     partAnchor(key, out = tmp) {
-      const p = hw.parts[key];
-      out.set(...p.anchor);
-      return p.group.localToWorld(out);
-    },
-    /** World position of the lens (for the aim ray). */
-    lensWorld(out = tmp) {
-      out.set(0, 0.14, -0.2);
-      return rig.pan.localToWorld(out);
+      const p = current.parts[key];
+      out.copy(p.anchor).sub(p.base).add(p.node.position);
+      return p.node.parent.localToWorld(out);
     },
   };
 }
