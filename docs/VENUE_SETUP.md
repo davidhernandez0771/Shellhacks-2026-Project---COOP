@@ -112,7 +112,7 @@ Read CLAUDE.md and docs/HARDWARE_TEST.md. Today we bring up the real hardware (P
 | Preview a design lane locally | `python -m http.server 8124 --directory C:\dev\COOP-site\site`, then open http://localhost:8124 |
 
 ## 7. Reminders
-- The team is **David Hernandez** (software) and **Diego Avila** (design and hardware).
+- The team is **David Hernandez** (backend, vision, tracking, prediction), **Diego Avila** (CAD and hardware; assembled and wired the finished project) and **Diego Tabares** (presentation, pitch, and elements of website design).
 - Still to decide: Diego's GitHub or LinkedIn link, and whether David's team card links SANT (https://github.com/davidhernandez0771/Nebius-X-NVIDIA-Hackathon-Project).
 - The hardware checklist is `docs/HARDWARE_TEST.md`; the Devpost copy is `docs/DEVPOST.md`.
 - Only merge to `main` once the hardware checklist passes.
