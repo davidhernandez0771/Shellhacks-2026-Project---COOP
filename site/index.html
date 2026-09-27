@@ -204,7 +204,7 @@
           <p class="ch-num mono" aria-hidden="true">04</p>
           <h2 class="ch-title" id="move-title">Warn</h2>
           <p class="ch-lead reveal-words">Two lights, before it happens.</p>
-          <p class="ch-body reveal-words">Yellow: a predicted path will enter my lane soon, like a car about to cut in, or something ahead is closing in under 2&nbsp;s. Red: something is in my lane now, and red overrides yellow. A level lights after two frames in a row and holds half a second, so one noisy box can&rsquo;t make it flicker. The dashboard shows the live video, every predicted path and the risk level.</p>
+          <p class="ch-body reveal-words">Yellow: a predicted path will enter my lane soon, like a car about to cut in, or something ahead is closing in under 2&nbsp;s. Red: something is in my lane now, and red overrides yellow. A level lights after two frames in a row and holds half a second, so one noisy box can&rsquo;t make it flicker. The dashboard shows the live video, every predicted path and the risk level, and can beep in step with the LEDs.</p>
           <dl class="spec mono">
             <div><dt>Yellow</dt><dd>path enters my lane</dd></div>
             <div><dt>Red</dt><dd>in my lane now</dd></div>
@@ -296,7 +296,7 @@
       <div class="copy">
         <h2 class="ch-title" id="next-title">Next</h2>
         <p class="ch-lead">A rehearsal tool already proves the logic. The next step is real driving.</p>
-        <p class="ch-body">A synthetic road already tests COOPER end to end: a car cutting in, a pedestrian crossing, the car ahead braking, and a car in the next lane that must never light an LED. Next: validate against the Waymo Open Dataset, comparing COOPER&rsquo;s time-to-collision estimates against lidar ground truth; add an audible warning alongside the LEDs; detect the lane from road markings instead of calibrating it by hand; improve detection at night and in rain; and road-test the thresholds in real cars.</p>
+        <p class="ch-body">A synthetic road already tests COOPER end to end: a car cutting in, a pedestrian crossing, the car ahead braking, and a car in the next lane that must never light an LED. Next: validate against the Waymo Open Dataset, comparing COOPER&rsquo;s time-to-collision estimates against lidar ground truth; add a buzzer on the unit alongside the LEDs (the dashboard already beeps); detect the lane from road markings instead of calibrating it by hand; improve detection at night and in rain; and road-test the thresholds in real cars.</p>
       </div>
     </section>
 
