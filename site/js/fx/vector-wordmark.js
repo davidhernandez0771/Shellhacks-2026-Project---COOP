@@ -299,7 +299,7 @@ export function createVectorWordmark(host, options = {}) {
   let raf = 0, last = 0, onScreen = true;
   const io = "IntersectionObserver" in window ? new IntersectionObserver((entries) => {
     onScreen = entries[entries.length - 1].isIntersecting;
-    if (onScreen) gate();
+    gate();
   }) : null;
   if (io) io.observe(host);
 
