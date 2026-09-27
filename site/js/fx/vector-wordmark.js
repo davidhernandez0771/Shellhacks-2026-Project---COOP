@@ -286,7 +286,11 @@ export function createVectorWordmark(host, options = {}) {
     const px = Math.max(8, drawFontPx());
     gl.uniform2f(U.atlas, atlasRatioW * px, atlasRatioH * px);
     gl.uniform2f(U.ptr, eased.x, eased.y);
-    gl.uniform1f(U.reach, reducedMotion ? 4 : Math.max(1, reach) / boxW);
+    // reduced motion: no lens at all, so the whole word shows as the solid fill (under the lens
+    // it turns into the thin dotted outline). Below the reference width the lens shrinks with
+    // the word, or on a phone it covers the whole title and the fill never shows.
+    const lens = Math.max(1, reach) * Math.min(1, boxW / REF_WIDTH);
+    gl.uniform1f(U.reach, reducedMotion ? 0 : lens / boxW);
     gl.uniform3f(U.text, tc[0], tc[1], tc[2]);
     gl.uniform3f(U.shade, sc[0], sc[1], sc[2]);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
