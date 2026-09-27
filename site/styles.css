@@ -1,4 +1,4 @@
-/* COOPER showcase. Layout and components; every value comes from tokens.css. */
+/* COOP showcase. Layout and components; every value comes from tokens.css. */
 
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
